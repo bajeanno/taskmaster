@@ -87,13 +87,13 @@ impl<'a> Daemonize<'a> {
             .open(file)
             .map_err(|err| FailedToRedirectFile::OpenError((io_name, err)))?;
 
-        match unsafe { libc::unistd::dup2(file.as_raw_fd(), fd) } {
-            res if res < 0 => Err(FailedToRedirectFile::Dup2Error((
+        if unsafe { libc::unistd::dup2(file.as_raw_fd(), fd) } < 0 {
+            return Err(FailedToRedirectFile::Dup2Error((
                 io_name,
                 io::Error::last_os_error(),
-            ))),
-            _ => Ok(()),
+            )));
         }
+        Ok(())
     }
 
     pub fn stdin(mut self, stdin: &'a str) -> Self {
