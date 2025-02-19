@@ -59,6 +59,9 @@ fn main() {
             .start()
             .expect("Failed to daemonize server")
     }
+
+    let runtime = tokio::runtime::Runtime::new();
+
     let mut server = TaskServer::new();
     server.create_task("task 0");
     server.create_task("task 1");

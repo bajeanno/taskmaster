@@ -10,4 +10,5 @@ members = [
 ]
 
 [dependencies]
+tokio = { version = "1.43.0", features = ["full"] }
 daemonize = { path = "./crates/daemonize" }
