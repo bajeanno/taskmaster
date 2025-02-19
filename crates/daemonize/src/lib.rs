@@ -56,11 +56,11 @@ impl<'a> Daemonize<'a> {
     pub unsafe fn start(self) -> Result<(), DaemonizeError> {
         self.redirect_files()
             .map_err(DaemonizeError::FailedToRedirectFile)?;
-        unsafe { Self::fork() }
+        Self::fork()
     }
 
     unsafe fn fork() -> Result<(), DaemonizeError> {
-        match unsafe { libc::unistd::fork() } {
+        match libc::unistd::fork() {
             pid if pid < 0 => Err(DaemonizeError::FailedToFork),
             pid if pid > 0 => process::exit(0),
             _ => Ok(()),
