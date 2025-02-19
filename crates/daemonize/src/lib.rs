@@ -5,11 +5,10 @@ use std::io;
 use std::os::fd::AsRawFd;
 use std::process;
 
-#[derive(Default)]
 pub struct Daemonize<'a> {
-    stdin: Option<&'a str>,
-    stdout: Option<&'a str>,
-    stderr: Option<&'a str>,
+    stdin: &'a str,
+    stdout: &'a str,
+    stderr: &'a str,
 }
 
 #[derive(Debug)]
@@ -32,10 +31,14 @@ pub enum FailedToRedirectFile {
     Dup2Error((&'static str, io::Error)),
 }
 
-struct DaemonizeData<'a> {
-    stdin: &'a str,
-    stdout: &'a str,
-    stderr: &'a str,
+impl Default for Daemonize<'_> {
+    fn default() -> Self {
+        Self {
+            stdin: "/dev/null",
+            stdout: "/dev/null",
+            stderr: "/dev/null",
+        }
+    }
 }
 
 impl<'a> Daemonize<'a> {
@@ -51,7 +54,8 @@ impl<'a> Daemonize<'a> {
     ///
     /// Only call when it is safe to call fork()
     pub unsafe fn start(self) -> Result<(), DaemonizeError> {
-        self.redirect_files().map_err(DaemonizeError::FailedToRedirectFile)?;
+        self.redirect_files()
+            .map_err(DaemonizeError::FailedToRedirectFile)?;
         unsafe { Self::fork() }
     }
 
@@ -64,11 +68,9 @@ impl<'a> Daemonize<'a> {
     }
 
     fn redirect_files(self) -> Result<(), FailedToRedirectFile> {
-        let data: DaemonizeData = self.into();
-
-        Self::redirect_file(data.stdin, 0, "stdin")?;
-        Self::redirect_file(data.stdout, 1, "stdout")?;
-        Self::redirect_file(data.stderr, 2, "stderr")
+        Self::redirect_file(self.stdin, 0, "stdin")?;
+        Self::redirect_file(self.stdout, 1, "stdout")?;
+        Self::redirect_file(self.stderr, 2, "stderr")
     }
 
     fn redirect_file(
@@ -95,27 +97,17 @@ impl<'a> Daemonize<'a> {
     }
 
     pub fn stdin(mut self, stdin: &'a str) -> Self {
-        self.stdin = Some(stdin);
+        self.stdin = stdin;
         self
     }
 
     pub fn stdout(mut self, stdout: &'a str) -> Self {
-        self.stdout = Some(stdout);
+        self.stdout = stdout;
         self
     }
 
     pub fn stderr(mut self, stderr: &'a str) -> Self {
-        self.stderr = Some(stderr);
+        self.stderr = stderr;
         self
-    }
-}
-
-impl<'a> From<Daemonize<'a>> for DaemonizeData<'a> {
-    fn from(daemon: Daemonize<'a>) -> Self {
-        Self {
-            stdin: daemon.stdin.unwrap_or("/dev/null"),
-            stdout: daemon.stdout.unwrap_or("/dev/null"),
-            stderr: daemon.stderr.unwrap_or("/dev/null"),
-        }
     }
 }
