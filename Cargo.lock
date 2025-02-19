@@ -5,6 +5,13 @@ version = 4
 [[package]]
 name = "daemonize"
 version = "0.1.0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "libc"
+version = "0.1.0"
 
 [[package]]
 name = "taskmaster"
