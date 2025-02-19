@@ -1,5 +1,3 @@
-//Author Basile Jeannot bajeanno 42Lyon Member
-
 use core::time;
 use std::{fmt::Display, thread};
 
@@ -29,6 +27,8 @@ impl TaskServer {
 
     fn run(&self) {
         loop {
+            println!("Print out");
+            eprintln!("Print err");
             thread::sleep(time::Duration::new(5, 0));
         }
     }
@@ -52,6 +52,13 @@ impl Display for TaskServer {
 
 fn main() {
     println!("Hello, task master!");
+    unsafe {
+        daemonize::Daemonize::new()
+            .stdout("./server_output")
+            .stderr("./server_output")
+            .start()
+            .expect("Failed to daemonize server")
+    }
     let mut server = TaskServer::new();
     server.create_task("task 0");
     server.create_task("task 1");
