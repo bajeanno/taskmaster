@@ -1,47 +1,53 @@
 //Author Basile Jeannot bajeanno 42Lyon Member
 
-use std::fmt::Display;
+use core::time;
+use std::{fmt::Display, thread};
 
 #[derive(Debug)]
 struct Task {
-	id: u32,
-	name: String,
+    id: u32,
+    name: String,
 }
 
 impl Task {
-	fn new(task_id: u32, name: &str) -> Self {
-		Self {
-			id: task_id,
-			name: String::from(name),
-		}
-	}
+    fn new(task_id: u32, name: &str) -> Self {
+        Self {
+            id: task_id,
+            name: String::from(name),
+        }
+    }
 }
 
 struct TaskServer {
-	tasks: Vec<Task>,
+    tasks: Vec<Task>,
 }
 
 impl TaskServer {
-	fn new() -> Self {
-		Self { tasks: Vec::new() }
-	}
-	
-	fn run(&self) {
-		loop {};
-	}
-	
-	fn create_task(&mut self, task_name: &str) {
-		self.tasks.push(Task::new(self.tasks.len() as u32, task_name));
-	}
+    fn new() -> Self {
+        Self { tasks: Vec::new() }
+    }
+
+    fn run(&self) {
+        loop {
+            thread::sleep(time::Duration::new(5, 0));
+        }
+    }
+
+    fn create_task(&mut self, task_name: &str) {
+        self.tasks
+            .push(Task::new(self.tasks.len() as u32, task_name));
+    }
 }
 
 impl Display for TaskServer {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		let tasks: Vec<String> = self.tasks.iter()
-		.map(|task| format!("{}\t{}", task.id, task.name))
-		.collect();
-		write!(f, "{}", tasks.join("\n"))
-	}
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let tasks: Vec<String> = self
+            .tasks
+            .iter()
+            .map(|task| format!("{}\t{}", task.id, task.name))
+            .collect();
+        write!(f, "{}", tasks.join("\n"))
+    }
 }
 
 fn main() {
@@ -49,6 +55,6 @@ fn main() {
     let mut server = TaskServer::new();
     server.create_task("task 0");
     server.create_task("task 1");
-	println!("{}", server);
+    println!("{}", server);
     server.run();
 }
