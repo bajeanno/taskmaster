@@ -1,31 +1,18 @@
 use core::time;
-use std::{fmt::Display, thread};
-
-#[derive(Debug)]
-struct Task {
-    id: u32,
-    name: String,
-}
-
-impl Task {
-    fn new(task_id: u32, name: &str) -> Self {
-        Self {
-            id: task_id,
-            name: String::from(name),
-        }
-    }
-}
+use std::{collections::HashMap, fmt::Display, thread};
+mod parser;
+use parser::{Parser, program::Program};
 
 struct TaskServer {
-    tasks: Vec<Task>,
+    tasks: HashMap<String, Program>,
 }
 
 impl TaskServer {
-    fn new() -> Self {
-        Self { tasks: Vec::new() }
+    fn new(programs: HashMap<String, Program>) -> Self {
+        Self { tasks: programs }
     }
 
-    fn run(&self) {
+    fn _run(&self) {
         loop {
             println!("Print out");
             eprintln!("Print err");
@@ -33,35 +20,38 @@ impl TaskServer {
         }
     }
 
-    fn create_task(&mut self, task_name: &str) {
+    fn list_tasks(&self) -> String {
+        println!("{:<15}{:^10}{:10}", "program name", "pid","cmd");
         self.tasks
-            .push(Task::new(self.tasks.len() as u32, task_name));
+            .iter()
+            .fold(String::new(), |acc, (_, value)| format!("{acc}{}\n", value))
     }
 }
 
 impl Display for TaskServer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let tasks: Vec<String> = self
-            .tasks
-            .iter()
-            .map(|task| format!("{}\t{}", task.id, task.name))
-            .collect();
+        let tasks: Vec<String> = self.tasks.iter().map(|(_, value)| format!("{value}")).collect();
         write!(f, "{}", tasks.join("\n"))
     }
 }
 
+
+// todo: fix yaml parsing
 fn main() {
     println!("Hello, task master!");
-    unsafe {
-        daemonize::Daemonize::new()
-            .stdout("./server_output")
-            .stderr("./server_output")
-            .start()
-            .expect("Failed to daemonize server")
-    }
-    let mut server = TaskServer::new();
-    server.create_task("task 0");
-    server.create_task("task 1");
-    println!("{}", server);
-    server.run();
+    let tasks: HashMap<String, Program> = Parser::parse("taskmaster.yaml").unwrap_or_else(|err| {
+        eprintln!("warning: {err}");
+        panic!()
+        // vec![]
+    });
+    let server = TaskServer::new(tasks);
+    println!("{}", server.list_tasks());
+    // unsafe {
+    //     daemonize::Daemonize::new()
+    //         .stdout("./server_output")
+    //         .stderr("./server_output")
+    //         .start()
+    //         .expect("Failed to daemonize server")
+    // }
+    // server.run();
 }

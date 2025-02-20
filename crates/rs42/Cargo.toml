@@ -1,0 +1,12 @@
+[package]
+name = "rs42"
+version = "0.3.0"
+edition = "2021"
+description = "rs42 is a collection of utilities to make programming in Rust more enjoyable"
+authors = ["Vincent Fries"]
+repository = "https://github.com/V-Fries/rs42"
+license = "MIT"
+
+exclude = [".*"]
+
+[dependencies]
