@@ -1,6 +1,6 @@
 pub mod program;
-use program::{Config, ParsedConfig};
 pub use program::Program;
+use program::{Config, ParsedConfig};
 use std::{fmt::Display, fs::File};
 
 #[derive(Debug)]
@@ -34,5 +34,4 @@ impl Parser {
         }
         Ok(config.programs)
     }
-
 }

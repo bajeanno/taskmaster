@@ -1,7 +1,7 @@
 use core::time;
 use std::{fmt::Display, thread};
 mod parser;
-use parser::{Parser, program::Program};
+use parser::{program::Program, Parser};
 
 struct TaskServer {
     tasks: Vec<Program>,
@@ -21,7 +21,7 @@ impl TaskServer {
     }
 
     fn list_tasks(&self) -> String {
-        println!("{:<15}{:^50}{:10}", "program name","cmd", "pids");
+        println!("{:<15}{:^50}{:10}", "program name", "cmd", "pids");
         self.tasks
             .iter()
             .fold(String::new(), |acc, value| format!("{acc}{}\n", value))

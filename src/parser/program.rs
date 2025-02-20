@@ -1,7 +1,7 @@
-use serde::{Deserialize};
-use serde_yaml::Error;
-use std::{collections::{HashMap}, fmt::Display, fs::File};
 use libc::sys::types::Pid;
+use serde::Deserialize;
+use serde_yaml::Error;
+use std::{collections::HashMap, fmt::Display, fs::File};
 
 use super::ParseError;
 
@@ -66,10 +66,13 @@ impl ParsedConfig {
 impl From<ParsedConfig> for Config {
     fn from(origin: ParsedConfig) -> Self {
         Self {
-            programs: origin.programs.into_iter().fold(vec![], |mut acc, (key, value)| {
-                acc.push(Program::from(key, value));
-                acc
-            })
+            programs: origin
+                .programs
+                .into_iter()
+                .fold(vec![], |mut acc, (key, value)| {
+                    acc.push(Program::from(key, value));
+                    acc
+                }),
         }
     }
 }
@@ -91,13 +94,16 @@ impl Program {
             stdout: origin.stdout.unwrap_or_else(|| String::from("/dev/null")),
             stderr: origin.stderr.unwrap_or_else(|| String::from("/dev/null")),
             env: match origin.env {
-                Some(x) => x.into_iter().map(|(key, value)| EnvVar {key, value}).collect::<Vec<EnvVar>>(),
+                Some(x) => x
+                    .into_iter()
+                    .map(|(key, value)| EnvVar { key, value })
+                    .collect::<Vec<EnvVar>>(),
                 None => Vec::new(),
             },
         }
     }
 
-    pub fn check_signal(&self) -> Result<String, ParseError>{
+    pub fn check_signal(&self) -> Result<String, ParseError> {
         match self.stopsignal.as_ref() {
             "HUP" => Ok(String::from("HUP")),
             "INT" => Ok(String::from("INT")),
