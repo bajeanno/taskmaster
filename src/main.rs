@@ -24,7 +24,7 @@ impl TaskServer {
         println!("{:<15}{:^10}{:10}", "program name", "pid","cmd");
         self.tasks
             .iter()
-            .fold(String::new(), |acc, (_, value)| format!("{acc}{}\n", value))
+            .fold(String::new(), |acc, (_, value)| format!("{acc}{:?}\n", value))
     }
 }
 

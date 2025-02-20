@@ -12,17 +12,17 @@ pub struct Program {
     name: Option<String>,
     pid: Option<u32>,
     cmd: Option<String>,
-    _numproc: Option<u32>,
-    _workingdir: Option<String>,
-    _autostart: Option<bool>,
-    _exitcodes: Option<Vec<u8>>, // check for valid codes (%256)
-    _startretries: Option<u32>,
-    _starttime: Option<u32>,
-    _stopsignal: Option<String>, // check for valid signal
-    _stoptime: Option<u32>,
-    _stdout: Option<String>,
-    _stderr: Option<String>,
-    _env: Option<HashMap<String, Value>>,
+    numprocs: Option<u32>,
+    workingdir: Option<String>,
+    autostart: Option<bool>,
+    exitcodes: Option<Vec<u8>>, // check for valid codes (%256)
+    startretries: Option<u32>,
+    starttime: Option<u32>,
+    stopsignal: Option<String>, // check for valid signal
+    stoptime: Option<u32>,
+    stdout: Option<String>,
+    stderr: Option<String>,
+    env: Option<HashMap<String, Value>>,
 }
 
 impl Config {
