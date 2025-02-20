@@ -7,12 +7,10 @@ edition = "2021"
 members = [
     "crates/daemonize",
     "crates/libc",
-    "crates/rs42"
 ]
 
 [dependencies]
 daemonize = { path = "./crates/daemonize" }
 libc = { path = "./crates/libc" }
-rs42 = { path = "./crates/rs42" }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_yaml = "0.9.34"
