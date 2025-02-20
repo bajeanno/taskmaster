@@ -84,9 +84,9 @@ impl Program {
             pids: Vec::new(),
             cmd: origin.cmd,
             numprocs: origin.numprocs.unwrap_or(1),
-            workingdir: origin.workingdir.unwrap_or_else(|| String::new()),
+            workingdir: origin.workingdir.unwrap_or_default(),
             autostart: origin.autostart.unwrap_or(true),
-            exitcodes: origin.exitcodes.unwrap_or_else(|| Vec::new()),
+            exitcodes: origin.exitcodes.unwrap_or_default(),
             startretries: origin.startretries.unwrap_or(0),
             starttime: origin.starttime.unwrap_or(5),
             stopsignal: origin.stopsignal.unwrap_or_else(|| String::from("INT")), // check for valid signal
@@ -136,7 +136,10 @@ impl Program {
             "INFO" => Ok(String::from("INFO")),
             "USR1" => Ok(String::from("USR1")),
             "USR2" => Ok(String::from("USR2")),
-            sig => Err(ParseError::SignalError(sig.to_string(), self.name.clone())),
+            sig => Err(ParseError::InvalidSignal(
+                sig.to_string(),
+                self.name.clone(),
+            )),
         }
     }
 }
