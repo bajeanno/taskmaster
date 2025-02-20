@@ -15,6 +15,7 @@ pub struct Config {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)] // TODO: remove this
 pub struct EnvVar {
     key: String,
     value: String,
@@ -37,6 +38,7 @@ pub struct ParsedProgram {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)] // TODO: remove this
 pub struct Program {
     name: String,
     pids: Vec<Pid>,
@@ -63,11 +65,12 @@ impl ParsedConfig {
 
 impl From<ParsedConfig> for Config {
     fn from(origin: ParsedConfig) -> Self {
-        let mut new_config = Self { programs: Vec::new() };
-        for (key, value) in origin.programs {
-           	new_config.programs.push(Program::from(key, value));
-        };
-        return new_config;
+        Self {
+            programs: origin.programs.into_iter().fold(vec![], |mut acc, (key, value)| {
+                acc.push(Program::from(key, value));
+                acc
+            })
+        }
     }
 }
 

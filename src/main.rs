@@ -12,7 +12,7 @@ impl TaskServer {
         Self { tasks: programs }
     }
 
-    fn _run(&self) {
+    fn run(&self) {
         loop {
             println!("Print out");
             eprintln!("Print err");
