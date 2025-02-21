@@ -1,5 +1,10 @@
-use core::time;
-use std::{fmt::Display, thread};
+mod client_handler;
+
+use std::{fmt::Display, io};
+
+use tokio::net::{TcpListener, ToSocketAddrs};
+
+use client_handler::ClientHandler;
 
 #[derive(Debug)]
 struct Task {
@@ -17,19 +22,24 @@ impl Task {
 }
 
 struct TaskServer {
+    listener: TcpListener,
     tasks: Vec<Task>,
 }
 
 impl TaskServer {
-    fn new() -> Self {
-        Self { tasks: Vec::new() }
+    async fn new(addr: impl ToSocketAddrs) -> Result<Self, io::Error> {
+        Ok(Self {
+            listener: TcpListener::bind(addr).await?,
+            tasks: Vec::new(),
+        })
     }
 
-    fn run(&self) {
+    async fn run(mut self) {
+        self.create_task(""); // TODO delete me
+
         loop {
-            println!("Print out");
-            eprintln!("Print err");
-            thread::sleep(time::Duration::new(5, 0));
+            let (socket, _) = self.listener.accept().await.unwrap();
+            tokio::spawn(async move { ClientHandler::process_client(socket).await });
         }
     }
 
@@ -51,7 +61,6 @@ impl Display for TaskServer {
 }
 
 fn main() {
-    println!("Hello, task master!");
     unsafe {
         daemonize::Daemonize::new()
             .stdout("./server_output")
@@ -60,11 +69,13 @@ fn main() {
             .expect("Failed to daemonize server")
     }
 
-    let runtime = tokio::runtime::Runtime::new();
-
-    let mut server = TaskServer::new();
-    server.create_task("task 0");
-    server.create_task("task 1");
-    println!("{}", server);
-    server.run();
+    tokio::runtime::Runtime::new()
+        .expect("Failed to init tokio runtime")
+        .block_on(async {
+            TaskServer::new("127.0.0.1:4242")
+                .await
+                .expect("Failed to init TaskServer")
+                .run()
+                .await;
+        });
 }
