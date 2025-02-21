@@ -60,10 +60,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rs42"
-version = "0.3.0"
-
-[[package]]
 name = "ryu"
 version = "1.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -119,7 +115,6 @@ version = "0.1.0"
 dependencies = [
  "daemonize",
  "libc",
- "rs42",
  "serde",
  "serde_yaml",
 ]
