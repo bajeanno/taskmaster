@@ -57,7 +57,12 @@ pub struct Program {
 
 impl ParsedProgram {
     fn check_signal(&self, name: &str) -> Result<String, ParseError> {
-        match self.stopsignal.clone().unwrap_or_else(|| String::from("INT")).as_ref() {
+        match self
+            .stopsignal
+            .clone()
+            .unwrap_or_else(|| String::from("INT"))
+            .as_ref()
+        {
             "HUP" => Ok(String::from("HUP")),
             "INT" => Ok(String::from("INT")),
             "QUIT" => Ok(String::from("QUIT")),
@@ -89,10 +94,7 @@ impl ParsedProgram {
             "INFO" => Ok(String::from("INFO")),
             "USR1" => Ok(String::from("USR1")),
             "USR2" => Ok(String::from("USR2")),
-            sig => Err(ParseError::InvalidSignal(
-                sig.to_string(),
-                name.to_string(),
-            )),
+            sig => Err(ParseError::InvalidSignal(sig.to_string(), name.to_string())),
         }
     }
 }
