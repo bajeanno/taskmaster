@@ -5,6 +5,7 @@ edition = "2021"
 
 [workspace]
 members = [
+    "crates/commands",
     "crates/connection",
     "crates/daemonize",
     "crates/libc",
@@ -13,4 +14,5 @@ members = [
 [dependencies]
 daemonize = { path = "./crates/daemonize" }
 connection = { path = "./crates/connection" }
+commands = { path = "./crates/commands" }
 tokio = { version = "1.43.0", features = ["full"] }
