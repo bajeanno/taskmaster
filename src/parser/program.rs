@@ -1,5 +1,5 @@
 use libc::sys::types::Pid;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::{collections::HashMap, fmt::Display, fs::File};
 
 use super::ParseError;
@@ -11,6 +11,28 @@ pub struct ParsedConfig {
 
 pub struct Config {
     pub programs: Vec<Program>,
+}
+
+#[derive(Debug, PartialEq)]
+enum AutoRestart {
+    True,
+    False,
+    Unexpected,
+}
+
+impl<'de> Deserialize<'de> for AutoRestart {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        match s.as_str() {
+            "true" => Ok(AutoRestart::True),
+            "false" => Ok(AutoRestart::False),
+            "unexpected" => Ok(AutoRestart::Unexpected),
+            _ => Err(serde::de::Error::custom("unexpected value")),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -26,10 +48,11 @@ pub struct ParsedProgram {
     numprocs: Option<u32>,
     workingdir: Option<String>,
     autostart: Option<bool>,
-    exitcodes: Option<Vec<u8>>, // check for valid codes (%256)
+    autorestart: Option<AutoRestart>,
+    exitcodes: Option<Vec<u8>>,
     startretries: Option<u32>,
     starttime: Option<u32>,
-    stopsignal: Option<String>, // check for valid signal
+    stopsignal: Option<String>,
     stoptime: Option<u32>,
     stdout: Option<String>,
     stderr: Option<String>,
@@ -45,6 +68,7 @@ pub struct Program {
     numprocs: u32,
     workingdir: String,
     autostart: bool,
+    autorestart: AutoRestart,
     exitcodes: Vec<u8>, // check for valid codes (%256)
     startretries: u32,
     starttime: u32,
@@ -132,6 +156,7 @@ impl Program {
             numprocs: origin.numprocs.unwrap_or(1),
             workingdir: origin.workingdir.unwrap_or_else(|| String::from("/")),
             autostart: origin.autostart.unwrap_or(true),
+            autorestart: origin.autorestart.unwrap_or(AutoRestart::True),
             exitcodes: origin.exitcodes.unwrap_or_else(|| Vec::from([0])),
             startretries: origin.startretries.unwrap_or(0),
             starttime: origin.starttime.unwrap_or(5),
