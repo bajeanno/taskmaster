@@ -65,7 +65,8 @@ fn main() {
     if args.len() != 2 {
         panic!("Usage: {} <port:i32>\nPort is missing", args[0]);
     }
-    let port: i32 = args[1].parse()
+    let port: i32 = args[1]
+        .parse()
         .unwrap_or_else(|err| panic!("Usage: {} <port:i32>\nFailed to parse port: {err}", args[0]));
 
     unsafe {
