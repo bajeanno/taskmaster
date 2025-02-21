@@ -61,6 +61,13 @@ impl Display for TaskServer {
 }
 
 fn main() {
+    let args = std::env::args().collect::<Vec<_>>();
+    if args.len() != 2 {
+        panic!("Usage: {} <port:i32>\nPort is missing", args[0]);
+    }
+    let port: i32 = args[1].parse()
+        .unwrap_or_else(|err| panic!("Usage: {} <port:i32>\nFailed to parse port: {err}", args[0]));
+
     unsafe {
         daemonize::Daemonize::new()
             .stdout("./server_output")
@@ -72,7 +79,7 @@ fn main() {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
         .block_on(async {
-            TaskServer::new("127.0.0.1:4242")
+            TaskServer::new(format!("127.0.0.1:{port}"))
                 .await
                 .expect("Failed to init TaskServer")
                 .run()
