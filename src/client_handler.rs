@@ -15,7 +15,9 @@ where
             connection: Connection::new(socket, 4096),
         };
 
-        handler.write_frame(&ClientCommands::SuccessfulConnection).await;
+        handler
+            .write_frame(&ClientCommands::SuccessfulConnection)
+            .await;
 
         handler.handle_loop().await;
     }
@@ -23,9 +25,7 @@ where
     async fn handle_loop(mut self) {
         while let Some(command) = self.read_frame().await {
             match command {
-                ServerCommands::Test => self
-                    .write_frame(&ClientCommands::Test)
-                    .await,
+                ServerCommands::Test => self.write_frame(&ClientCommands::Test).await,
             };
         }
     }
@@ -34,9 +34,12 @@ where
         match self.connection.read_frame().await {
             Ok(frame) => frame,
             Err(err) => {
-                let _ = self.connection.write_frame(&ClientCommands::FailedToParseFrame).await;
+                let _ = self
+                    .connection
+                    .write_frame(&ClientCommands::FailedToParseFrame)
+                    .await;
                 panic!("Failed to read frame from client: {err}");
-            },
+            }
         }
     }
 
