@@ -1,6 +1,5 @@
 use libc::sys::types::Pid;
 use serde::Deserialize;
-use serde_yaml::Error;
 use std::{collections::HashMap, fmt::Display, fs::File};
 
 use super::ParseError;
@@ -56,55 +55,9 @@ pub struct Program {
     env: Vec<EnvVar>,
 }
 
-impl ParsedConfig {
-    pub fn new(file: File) -> Result<Self, Error> {
-        let new_config = serde_yaml::from_reader(file)?;
-        Ok(new_config)
-    }
-}
-
-impl From<ParsedConfig> for Config {
-    fn from(origin: ParsedConfig) -> Self {
-        Self {
-            programs: origin
-                .programs
-                .into_iter()
-                .fold(vec![], |mut acc, (key, value)| {
-                    acc.push(Program::from(key, value));
-                    acc
-                }),
-        }
-    }
-}
-
-impl Program {
-    fn from(name: String, origin: ParsedProgram) -> Self {
-        Self {
-            name,
-            pids: Vec::new(),
-            cmd: origin.cmd,
-            numprocs: origin.numprocs.unwrap_or(1),
-            workingdir: origin.workingdir.unwrap_or_default(),
-            autostart: origin.autostart.unwrap_or(true),
-            exitcodes: origin.exitcodes.unwrap_or_default(),
-            startretries: origin.startretries.unwrap_or(0),
-            starttime: origin.starttime.unwrap_or(5),
-            stopsignal: origin.stopsignal.unwrap_or_else(|| String::from("INT")), // check for valid signal
-            stoptime: origin.stoptime.unwrap_or(5),
-            stdout: origin.stdout.unwrap_or_else(|| String::from("/dev/null")),
-            stderr: origin.stderr.unwrap_or_else(|| String::from("/dev/null")),
-            env: match origin.env {
-                Some(x) => x
-                    .into_iter()
-                    .map(|(key, value)| EnvVar { key, value })
-                    .collect::<Vec<EnvVar>>(),
-                None => Vec::new(),
-            },
-        }
-    }
-
-    pub fn check_signal(&self) -> Result<String, ParseError> {
-        match self.stopsignal.as_ref() {
+impl ParsedProgram {
+    fn check_signal(&self, name: &str) -> Result<String, ParseError> {
+        match self.stopsignal.clone().unwrap_or_else(|| String::from("INT")).as_ref() {
             "HUP" => Ok(String::from("HUP")),
             "INT" => Ok(String::from("INT")),
             "QUIT" => Ok(String::from("QUIT")),
@@ -138,8 +91,59 @@ impl Program {
             "USR2" => Ok(String::from("USR2")),
             sig => Err(ParseError::InvalidSignal(
                 sig.to_string(),
-                self.name.clone(),
+                name.to_string(),
             )),
+        }
+    }
+}
+
+impl ParsedConfig {
+    pub fn new(file: File) -> Result<Self, ParseError> {
+        let new_config: Self = serde_yaml::from_reader(file)?;
+        for (name, program) in &new_config.programs {
+            program.check_signal(name)?;
+        }
+        Ok(new_config)
+    }
+}
+
+impl From<ParsedConfig> for Config {
+    fn from(origin: ParsedConfig) -> Self {
+        Self {
+            programs: origin
+                .programs
+                .into_iter()
+                .fold(vec![], |mut acc, (key, value)| {
+                    acc.push(Program::from(key, value));
+                    acc
+                }),
+        }
+    }
+}
+
+impl Program {
+    fn from(name: String, origin: ParsedProgram) -> Self {
+        Self {
+            name,
+            pids: Vec::new(),
+            cmd: origin.cmd,
+            numprocs: origin.numprocs.unwrap_or(1),
+            workingdir: origin.workingdir.unwrap_or_else(|| String::from("/")),
+            autostart: origin.autostart.unwrap_or(true),
+            exitcodes: origin.exitcodes.unwrap_or_else(|| Vec::from([0])),
+            startretries: origin.startretries.unwrap_or(0),
+            starttime: origin.starttime.unwrap_or(5),
+            stopsignal: origin.stopsignal.unwrap_or_else(|| String::from("INT")), // check for valid signal
+            stoptime: origin.stoptime.unwrap_or(5),
+            stdout: origin.stdout.unwrap_or_else(|| String::from("/dev/null")),
+            stderr: origin.stderr.unwrap_or_else(|| String::from("/dev/null")),
+            env: match origin.env {
+                Some(x) => x
+                    .into_iter()
+                    .map(|(key, value)| EnvVar { key, value })
+                    .collect::<Vec<EnvVar>>(),
+                None => Vec::new(),
+            },
         }
     }
 }

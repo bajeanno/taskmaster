@@ -10,6 +10,12 @@ pub enum ParseError {
     InvalidSignal(String, String),
 }
 
+impl From<serde_yaml::Error> for ParseError {
+    fn from(err: serde_yaml::Error) -> ParseError {
+        ParseError::InvalidYaml(err)
+    }
+}
+
 impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -27,11 +33,8 @@ pub struct Parser {}
 impl Parser {
     pub fn parse(filename: &str) -> Result<Vec<Program>, ParseError> {
         let file = File::open(filename).map_err(ParseError::FailedToOpenFile)?;
-        let parsed_config = ParsedConfig::new(file).map_err(ParseError::InvalidYaml)?;
+        let parsed_config = ParsedConfig::new(file)?;
         let config = Config::from(parsed_config);
-        for program in config.programs.iter() {
-            program.check_signal()?;
-        }
         Ok(config.programs)
     }
 }
