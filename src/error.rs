@@ -19,7 +19,11 @@ impl Display for Error {
         match self {
             Self::InvalidArguments => write!(f, "Usage: ./bin <port>"),
             Self::PortArgumentIsNotAnInteger { input, error } => {
-                write!(f, "Failed to parse port number from input: '{}': {}", input, error)
+                write!(
+                    f,
+                    "Failed to parse port number from input: '{}': {}",
+                    input, error
+                )
             }
             _ => write!(f, "{self:#?}"),
         }
