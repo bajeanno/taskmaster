@@ -21,8 +21,7 @@ impl Display for Error {
             Self::PortArgumentIsNotAnInteger { input, error } => {
                 write!(
                     f,
-                    "Failed to parse port number from input: '{}': {}",
-                    input, error
+                    "Failed to parse port number from input: '{input}': {error}"
                 )
             }
             _ => write!(f, "{self:#?}"),
