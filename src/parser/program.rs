@@ -44,7 +44,9 @@ pub struct EnvVar {
 
 #[derive(Debug, Deserialize)]
 pub struct ParsedProgram {
+    pub name: Option<String>,
     cmd: String,
+    umask: Option<String>,
     numprocs: Option<u32>,
     workingdir: Option<String>,
     autostart: Option<bool>,
@@ -64,12 +66,13 @@ pub struct ParsedProgram {
 pub struct Program {
     name: String,
     pids: Vec<Pid>,
+    umask: u32,
     cmd: String,
     numprocs: u32,
     workingdir: String,
     autostart: bool,
     autorestart: AutoRestart,
-    exitcodes: Vec<u8>, // check for valid codes (%256)
+    exitcodes: Vec<u8>,
     startretries: u32,
     starttime: u32,
     stopsignal: String, // check for valid signal
@@ -133,26 +136,40 @@ impl ParsedConfig {
     }
 }
 
-impl From<ParsedConfig> for Config {
-    fn from(origin: ParsedConfig) -> Self {
-        Self {
-            programs: origin
-                .programs
-                .into_iter()
-                .fold(vec![], |mut acc, (key, value)| {
-                    acc.push(Program::from(key, value));
-                    acc
-                }),
+impl TryFrom<ParsedConfig> for Config {
+    type Error = ParseError;
+
+    fn try_from(origin: ParsedConfig) -> Result<Self, ParseError> {
+        let mut programs = Vec::new();
+        for (_, value) in origin.programs {
+            programs.push(Program::try_from(value)?);
         }
+        Ok(Config { programs })
     }
 }
 
-impl Program {
-    fn from(name: String, origin: ParsedProgram) -> Self {
-        Self {
-            name,
+impl TryFrom<ParsedProgram> for Program {
+    type Error = ParseError;
+
+    fn try_from(origin: ParsedProgram) -> Result<Self, ParseError> {
+        let umask_str = origin.umask.clone().unwrap_or_else(|| String::from("000"));
+        let umask = u32::from_str_radix(&umask_str, 8).map_err(|_| {
+            ParseError::InvalidUmask(
+                "Invalid umask".to_string(),
+                origin.name.clone().unwrap_or_else(|| String::from("")),
+            )
+        })?;
+        if umask > 512 {
+            return Err(ParseError::InvalidUmask(
+                "Invalid umask".to_string(),
+                origin.name.unwrap_or_else(|| String::from("")),
+            ));
+        }
+        let result = Self {
+            name: origin.name.unwrap_or_else(|| String::from("")),
             pids: Vec::new(),
             cmd: origin.cmd,
+            umask,
             numprocs: origin.numprocs.unwrap_or(1),
             workingdir: origin.workingdir.unwrap_or_else(|| String::from("/")),
             autostart: origin.autostart.unwrap_or(true),
@@ -171,7 +188,8 @@ impl Program {
                     .collect::<Vec<EnvVar>>(),
                 None => Vec::new(),
             },
-        }
+        };
+        Ok(result)
     }
 }
 
@@ -179,10 +197,11 @@ impl Display for Program {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{:<15}{:50}{:?}",
+            "{:<15}{:50}{: ^15?}{:>10o}",
             self.name.clone(),
             self.cmd.clone(),
             self.pids,
+            self.umask,
         )
     }
 }

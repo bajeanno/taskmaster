@@ -7,6 +7,7 @@ use std::{fmt::Display, fs::File};
 pub enum ParseError {
     FailedToOpenFile(std::io::Error),
     InvalidYaml(serde_yaml::Error),
+    InvalidUmask(String, String),
     InvalidSignal(String, String),
 }
 
@@ -22,6 +23,7 @@ impl Display for ParseError {
             ParseError::FailedToOpenFile(err) => write!(f, "Error opening taskmaster config file: {err}\nConsider making a reload request after creating one"),
             ParseError::InvalidYaml(err) => write!(f, "Error parsing taskmaster config file: {err}\nConsider making a reload request after fixing the issue"),
             ParseError::InvalidSignal(sig, prog_name) => write!(f, "Error parsing taskmaster config file: invalid stopsignal {sig} for program {prog_name}\nConsider making a reload request after fixing the issue"),
+            ParseError::InvalidUmask(sig, prog_name) => write!(f, "Error parsing taskmaster config file: {sig} for program {prog_name}\nConsider making a reload request after fixing the issue"),
         }
     }
 }
@@ -33,8 +35,11 @@ pub struct Parser {}
 impl Parser {
     pub fn parse(filename: &str) -> Result<Vec<Program>, ParseError> {
         let file = File::open(filename).map_err(ParseError::FailedToOpenFile)?;
-        let parsed_config = ParsedConfig::new(file)?;
-        let config = Config::from(parsed_config);
+        let mut parsed_config = ParsedConfig::new(file)?;
+        for (name, program) in &mut parsed_config.programs {
+            program.name = Some(name.clone());
+        }
+        let config = Config::try_from(parsed_config)?;
         Ok(config.programs)
     }
 }
