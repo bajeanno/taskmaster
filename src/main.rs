@@ -1,22 +1,32 @@
-use core::time;
-use std::{fmt::Display, thread};
+mod client_handler;
 mod parser;
+
 use parser::{program::Program, Parser};
+use std::{fmt::Display, io};
+
+use tokio::net::{TcpListener, ToSocketAddrs};
+
+use client_handler::ClientHandler;
 
 struct TaskServer {
     tasks: Vec<Program>,
+    listener: TcpListener,
 }
 
 impl TaskServer {
-    fn new(programs: Vec<Program>) -> Self {
-        Self { tasks: programs }
+    async fn new(tasks: Vec<Program>, addr: impl ToSocketAddrs) -> Result<Self, io::Error> {
+        Ok(Self {
+            tasks,
+            listener: TcpListener::bind(addr).await?,
+        })
     }
 
-    fn run(&self) {
+    async fn run(self) {
+        println!("{}", self.list_tasks()); // TODO: remove
+
         loop {
-            println!("Print out");
-            eprintln!("Print err");
-            thread::sleep(time::Duration::new(5, 0));
+            let (socket, _) = self.listener.accept().await.unwrap();
+            tokio::spawn(async move { ClientHandler::process_client(socket).await });
         }
     }
 
@@ -36,19 +46,36 @@ impl Display for TaskServer {
 }
 
 fn main() {
-    println!("Hello, task master!");
+    let args = std::env::args().collect::<Vec<_>>();
+    if args.len() != 2 {
+        panic!("Usage: {} <port:i32>\nPort is missing", args[0]);
+    }
+    let port: i32 = args[1]
+        .parse()
+        .unwrap_or_else(|err| panic!("Usage: {} <port:i32>\nFailed to parse port: {err}", args[0]));
+
     let tasks: Vec<Program> = Parser::parse("taskmaster.yaml").unwrap_or_else(|err| {
         eprintln!("Warning: {err}");
         Vec::new()
     });
-    let server = TaskServer::new(tasks);
-    println!("{}", server.list_tasks());
-    unsafe {
-        daemonize::Daemonize::new()
-            .stdout("./server_output")
-            .stderr("./server_output")
-            .start()
-            .expect("Failed to daemonize server")
+
+    if !cfg!(debug_assertions) {
+        unsafe {
+            daemonize::Daemonize::new()
+                .stdout("./server_output")
+                .stderr("./server_output")
+                .start()
+                .expect("Failed to daemonize server")
+        }
     }
-    server.run();
+
+    tokio::runtime::Runtime::new()
+        .expect("Failed to init tokio runtime")
+        .block_on(async {
+            TaskServer::new(tasks, format!("127.0.0.1:{port}"))
+                .await
+                .expect("Failed to init TaskServer")
+                .run()
+                .await;
+        });
 }
