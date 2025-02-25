@@ -1,7 +1,5 @@
 pub mod program;
-pub use program::Program;
-use program::{Config, ParsedConfig};
-use std::{fmt::Display, fs::File};
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -29,17 +27,3 @@ impl Display for ParseError {
 }
 
 impl std::error::Error for ParseError {}
-
-pub struct Parser {}
-
-impl Parser {
-    pub fn parse(filename: &str) -> Result<Vec<Program>, ParseError> {
-        let file = File::open(filename).map_err(ParseError::FailedToOpenFile)?;
-        let mut parsed_config = ParsedConfig::new(file)?;
-        for (name, program) in &mut parsed_config.programs {
-            program.name = Some(name.clone());
-        }
-        let config = Config::try_from(parsed_config)?;
-        Ok(config.programs)
-    }
-}

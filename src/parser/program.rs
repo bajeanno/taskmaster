@@ -205,3 +205,15 @@ impl Display for Program {
         )
     }
 }
+
+impl Config {
+    pub fn parse(filename: &str) -> Result<Vec<Program>, ParseError> {
+        let file = File::open(filename).map_err(ParseError::FailedToOpenFile)?;
+        let mut parsed_config = ParsedConfig::new(file)?;
+        for (name, program) in &mut parsed_config.programs {
+            program.name = Some(name.clone());
+        }
+        let config = Config::try_from(parsed_config)?;
+        Ok(config.programs)
+    }
+}

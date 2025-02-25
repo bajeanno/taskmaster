@@ -1,7 +1,7 @@
 mod client_handler;
 mod parser;
 
-use parser::{program::Program, Parser};
+use parser::program::{Program, Config};
 use std::{fmt::Display, io};
 
 use tokio::net::{TcpListener, ToSocketAddrs};
@@ -54,7 +54,7 @@ fn main() {
         .parse()
         .unwrap_or_else(|err| panic!("Usage: {} <port:i32>\nFailed to parse port: {err}", args[0]));
 
-    let tasks: Vec<Program> = Parser::parse("taskmaster.yaml").unwrap_or_else(|err| {
+    let tasks: Vec<Program> = Config::parse("taskmaster.yaml").unwrap_or_else(|err| {
         eprintln!("Warning: {err}");
         Vec::new()
     });
