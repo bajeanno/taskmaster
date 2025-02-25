@@ -1,4 +1,7 @@
 mod client_handler;
+mod error;
+
+use error::{Error, Result};
 
 use std::{fmt::Display, io};
 
@@ -27,7 +30,7 @@ struct TaskServer {
 }
 
 impl TaskServer {
-    async fn new(addr: impl ToSocketAddrs) -> Result<Self, io::Error> {
+    async fn new(addr: impl ToSocketAddrs) -> core::result::Result<Self, io::Error> {
         Ok(Self {
             listener: TcpListener::bind(addr).await?,
             tasks: Vec::new(),
@@ -60,21 +63,19 @@ impl Display for TaskServer {
     }
 }
 
-fn main() {
-    let args = std::env::args().collect::<Vec<_>>();
-    if args.len() != 2 {
-        panic!("Usage: {} <port:i32>\nPort is missing", args[0]);
-    }
-    let port: i32 = args[1]
+fn entrypoint() -> Result<()> {
+    let Some(port) = std::env::args().nth(1) else {
+        return Err(Error::InvalidArguments);
+    };
+    let port: i32 = port
         .parse()
-        .unwrap_or_else(|err| panic!("Usage: {} <port:i32>\nFailed to parse port: {err}", args[0]));
+        .map_err(|error| Error::PortArgumentIsNotAnInteger { input: port, error })?;
 
     unsafe {
         daemonize::Daemonize::new()
             .stdout("./server_output")
             .stderr("./server_output")
-            .start()
-            .expect("Failed to daemonize server")
+            .start()?
     }
 
     tokio::runtime::Runtime::new()
@@ -86,4 +87,10 @@ fn main() {
                 .run()
                 .await;
         });
+
+    Ok(())
+}
+
+fn main() {
+    let _ = entrypoint().inspect_err(|err| eprintln!("{err}"));
 }

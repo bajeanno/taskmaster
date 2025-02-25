@@ -3,7 +3,7 @@ use std::{io::Cursor, marker::PhantomData};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufWriter};
 
-use crate::{ConnectionError, FrameDecodeError};
+use crate::{Error, FrameDecodeError, Result};
 
 /// Struct used to send and recieve any type that implements serdes `Serialize` and
 /// `DeserializeOwned`.
@@ -29,8 +29,8 @@ pub struct Connection<Socket, InputFrame, OutputFrame> {
     stream: BufWriter<Socket>,
     buffer: Vec<u8>,
 
-    _input_frame: PhantomData<InputFrame>,
-    _output_frame: PhantomData<OutputFrame>,
+    _input_frame_type: PhantomData<InputFrame>,
+    _output_frame_type: PhantomData<OutputFrame>,
 }
 
 impl<Socket, InputFrame, OutputFrame> Connection<Socket, InputFrame, OutputFrame>
@@ -44,12 +44,12 @@ where
             stream: BufWriter::new(socket),
             buffer: Vec::with_capacity(buffer_capacity),
 
-            _input_frame: std::marker::PhantomData,
-            _output_frame: std::marker::PhantomData,
+            _input_frame_type: std::marker::PhantomData,
+            _output_frame_type: std::marker::PhantomData,
         }
     }
 
-    pub async fn read_frame(&mut self) -> Result<Option<InputFrame>, ConnectionError> {
+    pub async fn read_frame(&mut self) -> Result<Option<InputFrame>> {
         loop {
             if let Some(frame) = self.parse_frame()? {
                 return Ok(Some(frame));
@@ -60,18 +60,18 @@ where
                 .stream
                 .read_buf(&mut self.buffer)
                 .await
-                .map_err(ConnectionError::FailedToReadFromStream)?
+                .map_err(Error::FailedToReadFromStream)?
             {
                 if self.buffer.is_empty() {
                     return Ok(None);
                 } else {
-                    return Err(ConnectionError::ConnectionReset);
+                    return Err(Error::ConnectionReset);
                 }
             }
         }
     }
 
-    fn parse_frame(&mut self) -> Result<Option<InputFrame>, ConnectionError> {
+    fn parse_frame(&mut self) -> Result<Option<InputFrame>> {
         let mut buf = Cursor::new(&self.buffer[..]);
 
         match rmp_serde::from_read::<_, InputFrame>(&mut buf) {
@@ -87,23 +87,22 @@ where
             Err(FrameDecodeError::InvalidDataRead(_)) => Ok(None),
             Err(FrameDecodeError::InvalidMarkerRead(_)) => Ok(None),
 
-            Err(err) => Err(ConnectionError::FailedToDecodeFrame(err)),
+            Err(err) => Err(Error::FailedToDecodeFrame(err)),
         }
     }
 
-    pub async fn write_frame(&mut self, frame: &OutputFrame) -> Result<(), ConnectionError> {
-        let encoded_frame =
-            rmp_serde::to_vec(frame).map_err(ConnectionError::FailedToEncodeFrame)?;
+    pub async fn write_frame(&mut self, frame: &OutputFrame) -> Result<()> {
+        let encoded_frame = rmp_serde::to_vec(frame).map_err(Error::FailedToEncodeFrame)?;
 
         self.stream
             .write_all(&encoded_frame)
             .await
-            .map_err(ConnectionError::FailedToWriteToStream)?;
+            .map_err(Error::FailedToWriteToStream)?;
 
         self.stream
             .flush()
             .await
-            .map_err(ConnectionError::FailedToWriteToStream)?;
+            .map_err(Error::FailedToWriteToStream)?;
         Ok(())
     }
 }
