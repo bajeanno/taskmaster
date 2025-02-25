@@ -1,64 +1,11 @@
 use libc::sys::types::Pid;
-use serde::{Deserialize, Deserializer};
-use std::{collections::HashMap, fmt::Display, fs::File};
+use std::{fmt::Display, fs::File};
+use super::parsed_program::{ParsedProgram, ParsedConfig, AutoRestart, EnvVar};
 
 use super::ParseError;
 
-#[derive(Debug, Deserialize)]
-pub struct ParsedConfig {
-    pub programs: HashMap<String, ParsedProgram>,
-}
-
 pub struct Config {
     pub programs: Vec<Program>,
-}
-
-#[derive(Debug, PartialEq)]
-enum AutoRestart {
-    True,
-    False,
-    Unexpected,
-}
-
-impl<'de> Deserialize<'de> for AutoRestart {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        match s.as_str() {
-            "true" => Ok(AutoRestart::True),
-            "false" => Ok(AutoRestart::False),
-            "unexpected" => Ok(AutoRestart::Unexpected),
-            _ => Err(serde::de::Error::custom("unexpected value")),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-#[allow(dead_code)] // TODO: remove this
-pub struct EnvVar {
-    key: String,
-    value: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ParsedProgram {
-    pub name: Option<String>,
-    cmd: String,
-    umask: Option<String>,
-    numprocs: Option<u32>,
-    workingdir: Option<String>,
-    autostart: Option<bool>,
-    autorestart: Option<AutoRestart>,
-    exitcodes: Option<Vec<u8>>,
-    startretries: Option<u32>,
-    starttime: Option<u32>,
-    stopsignal: Option<String>,
-    stoptime: Option<u32>,
-    stdout: Option<String>,
-    stderr: Option<String>,
-    env: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug)]
@@ -80,60 +27,6 @@ pub struct Program {
     stdout: String,
     stderr: String,
     env: Vec<EnvVar>,
-}
-
-impl ParsedProgram {
-    fn check_signal(&self, name: &str) -> Result<String, ParseError> {
-        match self
-            .stopsignal
-            .clone()
-            .unwrap_or_else(|| String::from("INT"))
-            .as_ref()
-        {
-            "HUP" => Ok(String::from("HUP")),
-            "INT" => Ok(String::from("INT")),
-            "QUIT" => Ok(String::from("QUIT")),
-            "ILL" => Ok(String::from("ILL")),
-            "TRAP" => Ok(String::from("TRAP")),
-            "ABRT" => Ok(String::from("ABRT")),
-            "EMT" => Ok(String::from("EMT")),
-            "FPE" => Ok(String::from("FPE")),
-            "KILL" => Ok(String::from("KILL")),
-            "BUS" => Ok(String::from("BUS")),
-            "SEGV" => Ok(String::from("SEGV")),
-            "SYS" => Ok(String::from("SYS")),
-            "PIPE" => Ok(String::from("PIPE")),
-            "ALRM" => Ok(String::from("ALRM")),
-            "TERM" => Ok(String::from("TERM")),
-            "URG" => Ok(String::from("URG")),
-            "STOP" => Ok(String::from("STOP")),
-            "TSTP" => Ok(String::from("TSTP")),
-            "CONT" => Ok(String::from("CONT")),
-            "CHLD" => Ok(String::from("CHLD")),
-            "TTIN" => Ok(String::from("TTIN")),
-            "TTOU" => Ok(String::from("TTOU")),
-            "IO" => Ok(String::from("IO")),
-            "XCPU" => Ok(String::from("XCPU")),
-            "XFSZ" => Ok(String::from("XFSZ")),
-            "VTALRM" => Ok(String::from("VTALRM")),
-            "PROF" => Ok(String::from("PROF")),
-            "WINCH" => Ok(String::from("WINCH")),
-            "INFO" => Ok(String::from("INFO")),
-            "USR1" => Ok(String::from("USR1")),
-            "USR2" => Ok(String::from("USR2")),
-            sig => Err(ParseError::InvalidSignal(sig.to_string(), name.to_string())),
-        }
-    }
-}
-
-impl ParsedConfig {
-    pub fn new(file: File) -> Result<Self, ParseError> {
-        let new_config: Self = serde_yaml::from_reader(file)?;
-        for (name, program) in &new_config.programs {
-            program.check_signal(name)?;
-        }
-        Ok(new_config)
-    }
 }
 
 impl TryFrom<ParsedConfig> for Config {
@@ -208,7 +101,7 @@ impl Display for Program {
 
 impl Config {
     pub fn parse(filename: &str) -> Result<Vec<Program>, ParseError> {
-        let file = File::open(filename).map_err(ParseError::FailedToOpenFile)?;
+        let file = File::open(filename).map_err(ParseError::OpenError)?;
         let mut parsed_config = ParsedConfig::new(file)?;
         for (name, program) in &mut parsed_config.programs {
             program.name = Some(name.clone());
