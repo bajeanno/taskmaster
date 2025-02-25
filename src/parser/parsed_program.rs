@@ -1,6 +1,6 @@
+use crate::parser::ParseError;
 use serde::{Deserialize, Deserializer};
 use std::{collections::HashMap, fs::File};
-use crate::parser::ParseError;
 
 #[derive(Debug, PartialEq)]
 pub enum AutoRestart {

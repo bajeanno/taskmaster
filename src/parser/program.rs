@@ -1,6 +1,6 @@
+use super::parsed_program::{AutoRestart, EnvVar, ParsedConfig, ParsedProgram};
 use libc::sys::types::Pid;
 use std::{fmt::Display, fs::File};
-use super::parsed_program::{ParsedProgram, ParsedConfig, AutoRestart, EnvVar};
 
 use super::ParseError;
 

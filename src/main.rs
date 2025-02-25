@@ -1,7 +1,11 @@
 mod client_handler;
+mod error;
 mod parser;
 
-use parser::program::{Program, Config};
+use error::{Error, Result};
+
+use parser::program::{Config, Program};
+
 use std::{fmt::Display, io};
 
 use tokio::net::{TcpListener, ToSocketAddrs};
@@ -14,7 +18,7 @@ struct TaskServer {
 }
 
 impl TaskServer {
-    async fn new(tasks: Vec<Program>, addr: impl ToSocketAddrs) -> Result<Self, io::Error> {
+    async fn new(tasks: Vec<Program>, addr: impl ToSocketAddrs) -> core::result::Result<Self, io::Error> {
         Ok(Self {
             tasks,
             listener: TcpListener::bind(addr).await?,
@@ -45,14 +49,13 @@ impl Display for TaskServer {
     }
 }
 
-fn main() {
-    let args = std::env::args().collect::<Vec<_>>();
-    if args.len() != 2 {
-        panic!("Usage: {} <port:i32>\nPort is missing", args[0]);
-    }
-    let port: i32 = args[1]
+fn entrypoint() -> Result<()> {
+    let Some(port) = std::env::args().nth(1) else {
+        return Err(Error::InvalidArguments);
+    };
+    let port: i32 = port
         .parse()
-        .unwrap_or_else(|err| panic!("Usage: {} <port:i32>\nFailed to parse port: {err}", args[0]));
+        .map_err(|error| Error::PortArgumentIsNotAnInteger { input: port, error })?;
 
     let tasks: Vec<Program> = Config::parse("taskmaster.yaml").unwrap_or_else(|err| {
         eprintln!("Warning: {err}");
@@ -78,4 +81,10 @@ fn main() {
                 .run()
                 .await;
         });
+
+    Ok(())
+}
+
+fn main() {
+    let _ = entrypoint().inspect_err(|err| eprintln!("{err}"));
 }

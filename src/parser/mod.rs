@@ -1,5 +1,5 @@
-pub mod program;
 mod parsed_program;
+pub mod program;
 use std::fmt::Display;
 
 #[derive(Debug)]
