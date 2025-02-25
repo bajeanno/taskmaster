@@ -18,7 +18,10 @@ struct TaskServer {
 }
 
 impl TaskServer {
-    async fn new(tasks: Vec<Program>, addr: impl ToSocketAddrs) -> core::result::Result<Self, io::Error> {
+    async fn new(
+        tasks: Vec<Program>,
+        addr: impl ToSocketAddrs,
+    ) -> core::result::Result<Self, io::Error> {
         Ok(Self {
             tasks,
             listener: TcpListener::bind(addr).await?,
