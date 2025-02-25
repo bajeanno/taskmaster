@@ -5,14 +5,20 @@ edition = "2021"
 
 [workspace]
 members = [
-    "crates/commands",
-    "crates/connection",
     "crates/daemonize",
     "crates/libc",
+    "crates/connection",
+    "crates/commands",
 ]
 
 [dependencies]
+# Internal crates
 daemonize = { path = "./crates/daemonize" }
+libc = { path = "./crates/libc" }
 connection = { path = "./crates/connection" }
 commands = { path = "./crates/commands" }
+
+# External crates
 tokio = { version = "1.43.0", features = ["full"] }
+serde = { version = "1.0.217", features = ["derive"] }
+serde_yaml = "0.9.34"

@@ -1,7 +1,10 @@
 mod client_handler;
 mod error;
+mod parser;
 
 use error::{Error, Result};
+
+use parser::program::{Config, Program};
 
 use std::{fmt::Display, io};
 
@@ -9,36 +12,24 @@ use tokio::net::{TcpListener, ToSocketAddrs};
 
 use client_handler::ClientHandler;
 
-#[derive(Debug)]
-struct Task {
-    id: u32,
-    name: String,
-}
-
-impl Task {
-    fn new(task_id: u32, name: &str) -> Self {
-        Self {
-            id: task_id,
-            name: String::from(name),
-        }
-    }
-}
-
 struct TaskServer {
+    tasks: Vec<Program>,
     listener: TcpListener,
-    tasks: Vec<Task>,
 }
 
 impl TaskServer {
-    async fn new(addr: impl ToSocketAddrs) -> core::result::Result<Self, io::Error> {
+    async fn new(
+        tasks: Vec<Program>,
+        addr: impl ToSocketAddrs,
+    ) -> core::result::Result<Self, io::Error> {
         Ok(Self {
+            tasks,
             listener: TcpListener::bind(addr).await?,
-            tasks: Vec::new(),
         })
     }
 
-    async fn run(mut self) {
-        self.create_task(""); // TODO delete me
+    async fn run(self) {
+        println!("{}", self.list_tasks()); // TODO: remove
 
         loop {
             let (socket, _) = self.listener.accept().await.unwrap();
@@ -46,19 +37,17 @@ impl TaskServer {
         }
     }
 
-    fn create_task(&mut self, task_name: &str) {
+    fn list_tasks(&self) -> String {
+        println!("{:<15}{:^50}{:10}", "program name", "cmd", "pids");
         self.tasks
-            .push(Task::new(self.tasks.len() as u32, task_name));
+            .iter()
+            .fold(String::new(), |acc, value| format!("{acc}{}\n", value))
     }
 }
 
 impl Display for TaskServer {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let tasks: Vec<String> = self
-            .tasks
-            .iter()
-            .map(|task| format!("{}\t{}", task.id, task.name))
-            .collect();
+        let tasks: Vec<String> = self.tasks.iter().map(|value| format!("{value}")).collect();
         write!(f, "{}", tasks.join("\n"))
     }
 }
@@ -71,17 +60,25 @@ fn entrypoint() -> Result<()> {
         .parse()
         .map_err(|error| Error::PortArgumentIsNotAnInteger { input: port, error })?;
 
-    unsafe {
-        daemonize::Daemonize::new()
-            .stdout("./server_output")
-            .stderr("./server_output")
-            .start()?
+    let tasks: Vec<Program> = Config::parse("taskmaster.yaml").unwrap_or_else(|err| {
+        eprintln!("Warning: {err}");
+        Vec::new()
+    });
+
+    if !cfg!(debug_assertions) {
+        unsafe {
+            daemonize::Daemonize::new()
+                .stdout("./server_output")
+                .stderr("./server_output")
+                .start()
+                .expect("Failed to daemonize server")
+        }
     }
 
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
         .block_on(async {
-            TaskServer::new(format!("127.0.0.1:{port}"))
+            TaskServer::new(tasks, format!("127.0.0.1:{port}"))
                 .await
                 .expect("Failed to init TaskServer")
                 .run()
