@@ -27,16 +27,21 @@ where
     fn new(socket: Stream) -> Result<Self> {
         static NEXT_CLIENT_ID: Mutex<u64> = Mutex::new(0);
 
-        let mut next_client_id = NEXT_CLIENT_ID
-            .lock()
-            .expect("ClientHandler::new() mutex is poisoned");
+        let client_id = {
+            let mut lock = NEXT_CLIENT_ID
+                .lock()
+                .expect("ClientHandler::new() mutex is poisoned");
+            let next_client_id = *lock;
+            *lock += 1;
+            next_client_id
+        };
 
         let handler = Self {
-            client_id: *next_client_id,
+            client_id,
             connection: Connection::new(socket, 4096),
         };
-        *next_client_id += 1;
 
+        eprintln!("Client {} has connected", handler.client_id);
         Ok(handler)
     }
 
@@ -70,5 +75,11 @@ where
                 error,
             }),
         }
+    }
+}
+
+impl<T> Drop for ClientHandler<T> {
+    fn drop(&mut self) {
+        eprintln!("Client {} has disconnected", self.client_id);
     }
 }
