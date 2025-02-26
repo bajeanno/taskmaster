@@ -38,10 +38,7 @@ mod test {
 
         let (mut client, server) = client_handler::test_utils::setup_test(mock_task_manager).await;
 
-        client
-            .write_frame(&ServerCommand::ListTasks)
-            .await
-            .unwrap();
+        client.write_frame(&ServerCommand::ListTasks).await.unwrap();
         let frame = client.read_frame().await.unwrap();
         assert_eq!(
             frame,
