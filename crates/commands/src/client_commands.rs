@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ClientCommands {
     SuccessfulConnection,
     FailedToParseFrame,
-    Test, // TODO delete me
+
+    TaskList(String),
 }

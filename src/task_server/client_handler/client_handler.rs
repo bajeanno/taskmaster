@@ -1,21 +1,31 @@
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex as StdMutex};
 
-use super::error::{Error, Result};
+use crate::task_server::task_manager::TaskManagerTrait;
+
+use super::{Error, Result};
 use commands::{ClientCommands, ServerCommands};
 use connection::Connection;
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::{
+    io::{AsyncRead, AsyncWrite},
+    sync::Mutex as TokioMutex,
+};
 
-pub struct ClientHandler<Stream> {
-    client_id: u64,
+pub struct ClientHandler<Stream, TaskManager> {
+    pub(super) client_id: u64,
+    pub(super) task_manager: Arc<TokioMutex<TaskManager>>,
     connection: Connection<Stream, ServerCommands, ClientCommands>,
 }
 
-impl<Stream> ClientHandler<Stream>
+impl<Stream, TaskManager> ClientHandler<Stream, TaskManager>
 where
     Stream: AsyncWrite + AsyncRead + Unpin,
+    TaskManager: TaskManagerTrait,
 {
-    pub async fn process_client(socket: Stream) -> Result<()> {
-        let mut handler = Self::new(socket)?;
+    pub async fn process_client(
+        socket: Stream,
+        task_manager: Arc<TokioMutex<TaskManager>>,
+    ) -> Result<()> {
+        let mut handler = Self::new(socket, task_manager)?;
 
         handler
             .write_frame(&ClientCommands::SuccessfulConnection)
@@ -24,8 +34,8 @@ where
         handler.handle_loop().await
     }
 
-    fn new(socket: Stream) -> Result<Self> {
-        static NEXT_CLIENT_ID: Mutex<u64> = Mutex::new(0);
+    fn new(socket: Stream, task_manager: Arc<TokioMutex<TaskManager>>) -> Result<Self> {
+        static NEXT_CLIENT_ID: StdMutex<u64> = StdMutex::new(0);
 
         let client_id = {
             let mut lock = NEXT_CLIENT_ID
@@ -38,6 +48,7 @@ where
 
         let handler = Self {
             client_id,
+            task_manager,
             connection: Connection::new(socket, 4096),
         };
 
@@ -48,8 +59,8 @@ where
     async fn handle_loop(mut self) -> Result<()> {
         while let Some(command) = self.read_frame().await? {
             match command {
-                ServerCommands::Test => self.write_frame(&ClientCommands::Test).await?,
-            };
+                ServerCommands::ListTasks => self.handle_list_tasks().await?,
+            }
         }
         Ok(())
     }
@@ -67,7 +78,7 @@ where
         }
     }
 
-    async fn write_frame(&mut self, frame: &ClientCommands) -> Result<()> {
+    pub(super) async fn write_frame(&mut self, frame: &ClientCommands) -> Result<()> {
         match self.connection.write_frame(frame).await {
             Ok(value) => Ok(value),
             Err(error) => Err(Error::FailedToWriteFrameFromClient {
@@ -78,7 +89,7 @@ where
     }
 }
 
-impl<T> Drop for ClientHandler<T> {
+impl<Stream, TaskManager> Drop for ClientHandler<Stream, TaskManager> {
     fn drop(&mut self) {
         eprintln!("Client {} has disconnected", self.client_id);
     }
