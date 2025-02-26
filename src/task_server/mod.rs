@@ -6,3 +6,4 @@ mod error;
 pub use error::Error;
 
 mod client_handler;
+mod task_manager;

@@ -22,3 +22,4 @@ commands = { path = "./crates/commands" }
 tokio = { version = "1.43.0", features = ["full"] }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_yaml = "0.9.34"
+mockall = "0.13.1"
