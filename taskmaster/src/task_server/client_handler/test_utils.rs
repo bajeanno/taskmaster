@@ -1,12 +1,12 @@
 use std::{mem::ManuallyDrop, sync::Arc};
 
-use commands::{ClientCommands, ServerCommands};
+use commands::{ClientCommands, ServerCommand};
 use connection::Connection;
 use tokio::{io::DuplexStream, sync::Mutex, task::JoinHandle};
 
 use crate::task_server::{client_handler::ClientHandler, task_manager::MockTaskManagerTrait};
 
-type TestConnection = Connection<DuplexStream, ClientCommands, ServerCommands>;
+type TestConnection = Connection<DuplexStream, ClientCommands, ServerCommand>;
 
 pub struct TestServer {
     join_handle: Option<JoinHandle<()>>,
