@@ -1,5 +1,5 @@
-mod server_commands;
-pub use server_commands::ServerCommands;
+mod server_command;
+pub use server_command::ServerCommand;
 
-mod client_commands;
-pub use client_commands::ClientCommands;
+mod client_command;
+pub use client_command::ClientCommand;
