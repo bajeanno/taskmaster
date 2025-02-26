@@ -36,7 +36,7 @@ mod test {
             .once()
             .return_once(|| "List of tasks".to_string());
 
-        let mut client = client_handler::test_utils::setup_test(mock_task_manager).await;
+        let (mut client, server) = client_handler::test_utils::setup_test(mock_task_manager).await;
 
         client
             .write_frame(&ServerCommands::ListTasks)
@@ -47,5 +47,7 @@ mod test {
             frame,
             Some(ClientCommands::TaskList("List of tasks".to_string()))
         );
+
+        server.check_errors(client).await;
     }
 }
