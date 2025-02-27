@@ -4,7 +4,7 @@ use commands::{ClientCommand, ServerCommand};
 use connection::Connection;
 use tokio::{io::DuplexStream, sync::Mutex, task::JoinHandle};
 
-use crate::task_server::{client_handler::ClientHandler, task_manager::MockTaskManagerTrait};
+use crate::{client_handler::ClientHandler, task_manager::MockTaskManagerTrait};
 
 type TestConnection = Connection<DuplexStream, ClientCommand, ServerCommand>;
 
