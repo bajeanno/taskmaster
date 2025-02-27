@@ -1,8 +1,16 @@
+#[cfg(test)]
+mod test_utils;
+
+mod commands_impl;
+mod error;
+
 use std::sync::{Arc, Mutex as StdMutex};
 
-use crate::task_server::task_manager::TaskManagerTrait;
+use crate::task_manager::TaskManagerTrait;
 
-use super::{Error, Result};
+pub use error::Error;
+use error::Result;
+
 use commands::{ClientCommand, ServerCommand};
 use connection::Connection;
 use tokio::{
@@ -11,8 +19,8 @@ use tokio::{
 };
 
 pub struct ClientHandler<Stream, TaskManager> {
-    pub(super) client_id: u64,
-    pub(super) task_manager: Arc<TokioMutex<TaskManager>>,
+    client_id: u64,
+    task_manager: Arc<TokioMutex<TaskManager>>,
     connection: Connection<Stream, ServerCommand, ClientCommand>,
 }
 
@@ -78,7 +86,7 @@ where
         }
     }
 
-    pub(super) async fn write_frame(&mut self, frame: &ClientCommand) -> Result<()> {
+    async fn write_frame(&mut self, frame: &ClientCommand) -> Result<()> {
         match self.connection.write_frame(frame).await {
             Ok(value) => Ok(value),
             Err(error) => Err(Error::FailedToWriteFrameFromClient {
