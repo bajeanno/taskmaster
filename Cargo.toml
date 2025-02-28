@@ -1,8 +1,8 @@
 [workspace]
 members = [
- 	"taskmaster",
-	"tmcli",
-	"crates/daemonize",
+    "taskmaster",
+    "tmcli",
+    "crates/daemonize",
     "crates/libc",
     "crates/connection",
     "crates/commands",

@@ -22,11 +22,11 @@ impl Daemonize {
     /// Only call when it is safe to call fork()
     pub unsafe fn start(self) -> Result<()> {
         self.redirect_files()?;
-        Self::fork()
+        unsafe { Self::fork() }
     }
 
     unsafe fn fork() -> Result<()> {
-        match libc::unistd::fork() {
+        match unsafe { libc::unistd::fork() } {
             pid if pid < 0 => Err(Error::FailedToFork {
                 os_error: io::Error::last_os_error(),
             }),

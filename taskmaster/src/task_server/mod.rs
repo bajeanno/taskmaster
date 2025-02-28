@@ -9,7 +9,7 @@ use tokio::{
     sync::Mutex,
 };
 
-use crate::{client_handler::ClientHandler, task_manager::TaskManager, Program};
+use crate::{Program, client_handler::ClientHandler, task_manager::TaskManager};
 
 pub struct TaskServer {
     task_manager: Arc<Mutex<TaskManager>>,
