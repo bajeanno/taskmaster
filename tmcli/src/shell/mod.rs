@@ -1,3 +1,3 @@
-mod shell;
+pub mod shell;
 
-pub use shell::{run, ShellError};
+pub use shell::run;
