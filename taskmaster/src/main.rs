@@ -1,5 +1,7 @@
+mod client_handler;
 mod error;
 mod parser;
+mod task_manager;
 mod task_server;
 
 use error::{Error, Result};

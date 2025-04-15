@@ -1,7 +1,7 @@
 [package]
 name = "taskmaster"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 # Internal crates
@@ -11,7 +11,7 @@ connection = { path = "../crates/connection" }
 commands = { path = "../crates/commands" }
 
 # External crates
-tokio = { version = "1.43.0", features = ["full"] }
+tokio = { version = "1.43.1", features = ["full"] }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_yaml = "0.9.34"
 mockall = "0.13.1"

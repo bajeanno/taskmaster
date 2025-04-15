@@ -1,7 +1,7 @@
 use commands::ClientCommand;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use crate::task_server::{
+use crate::{
     client_handler::{ClientHandler, Result},
     task_manager::TaskManagerTrait,
 };
@@ -11,7 +11,7 @@ where
     Stream: AsyncWrite + AsyncRead + Unpin,
     TaskManager: TaskManagerTrait,
 {
-    pub(in super::super) async fn handle_list_tasks(&mut self) -> Result<()> {
+    pub(in crate::client_handler) async fn handle_list_tasks(&mut self) -> Result<()> {
         eprintln!("Client {} requested ListTasks", self.client_id);
 
         let task_list = self.task_manager.lock().await.list_tasks();
@@ -26,7 +26,7 @@ where
 mod test {
     use commands::{ClientCommand, ServerCommand};
 
-    use crate::task_server::{client_handler, task_manager::MockTaskManagerTrait};
+    use crate::{client_handler, task_manager::MockTaskManagerTrait};
 
     #[tokio::test]
     async fn test_handle_list_tasks() {

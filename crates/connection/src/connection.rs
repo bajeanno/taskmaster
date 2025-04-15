@@ -1,6 +1,6 @@
 use std::{io::Cursor, marker::PhantomData};
 
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufWriter};
 
 use crate::{Error, FrameDecodeError, Result};

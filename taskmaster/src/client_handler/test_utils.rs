@@ -1,12 +1,12 @@
 use std::{mem::ManuallyDrop, sync::Arc};
 
-use commands::{ClientCommands, ServerCommand};
+use commands::{ClientCommand, ServerCommand};
 use connection::Connection;
 use tokio::{io::DuplexStream, sync::Mutex, task::JoinHandle};
 
-use crate::task_server::{client_handler::ClientHandler, task_manager::MockTaskManagerTrait};
+use crate::{client_handler::ClientHandler, task_manager::MockTaskManagerTrait};
 
-type TestConnection = Connection<DuplexStream, ClientCommands, ServerCommand>;
+type TestConnection = Connection<DuplexStream, ClientCommand, ServerCommand>;
 
 pub struct TestServer {
     join_handle: Option<JoinHandle<()>>,
@@ -46,7 +46,7 @@ pub async fn setup_test(task_manager: MockTaskManagerTrait) -> (TestConnection, 
     let server = TestServer::new(server, task_manager);
 
     let frame = client.read_frame().await.unwrap();
-    assert_eq!(frame, Some(ClientCommands::SuccessfulConnection));
+    assert_eq!(frame, Some(ClientCommand::SuccessfulConnection));
 
     (client, server)
 }
