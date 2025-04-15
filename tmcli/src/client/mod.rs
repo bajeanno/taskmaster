@@ -1,10 +1,35 @@
 pub mod parsing;
 mod session;
 
-use commands::{ClientCommand, ServerCommand};
-use session::Session;
+use std::fmt::Display;
 
-pub fn send_command(_cmd: ServerCommand) -> ClientCommand {
-    let _session = Session::new();
-    return ClientCommand::SuccessfulConnection;
+use commands::{ClientCommand, ServerCommand};
+use session::{Session, ConnectError};
+
+#[derive(Debug)]
+pub enum ServerError {
+    NotFound(String),
+    ConnectError(ConnectError),
+}
+
+impl From<ConnectError> for ServerError {
+    fn from(value: ConnectError) -> Self {
+        Self::ConnectError(value)
+    }
+}
+
+impl Display for ServerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotFound(program) => write!(f, "No such program: {program}"),
+            Self::ConnectError(err) => write!(f, "{err}"),
+        }
+    }
+}
+
+impl std::error::Error for ServerError {}
+
+pub fn send_command(_cmd: ServerCommand) -> Result<ClientCommand, ServerError> {
+    let _session = Session::new()?;
+    todo!()
 }

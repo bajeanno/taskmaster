@@ -1,35 +1,47 @@
 mod client;
 mod shell;
 
-use std::{env::args, process::ExitCode};
-use client::{parsing::parse_command, send_command};
-use shell::shell::ShellError;
-use commands::ServerCommand;
+use std::{env::args, fmt::Display};
 
-fn wrap_single_cmd(args: Vec<String>) -> Result<(), ShellError> {
-    let command: ServerCommand = parse_command(args)?;
-    send_command(command);
-    return Ok(());
+use client::{parsing::{parse_command, ParseError}, send_command, ServerError};
+
+enum ClientError {
+    ServerError(ServerError),
+    ParseError(ParseError),
 }
 
-fn main() -> ExitCode {
-    if let Some(_) = args().nth(1) {
-        let args = {
-            args().fold(Vec::new(), |mut acc: Vec<String>, value: String| {
-                acc.push(value.clone());
-                acc
-            })
-        };
-        let ret = wrap_single_cmd(args);
-        if let Err(err) = ret {
-            return ExitCode::from(err.get_code());
+impl Display for ClientError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ServerError(err) => write!(f, "{err}"),
+            Self::ParseError(err) => write!(f, "{err}")
         }
-        return ExitCode::from(0);
+    }
+}
+
+impl From<ParseError> for ClientError {
+    fn from(error: ParseError) -> Self {
+        Self::ParseError(error)
+    }
+}
+
+impl From<ServerError> for ClientError {
+    fn from(error: ServerError) -> Self {
+        Self::ServerError(error)
+    }
+}
+
+fn entrypoint() -> Result<(), ClientError> {
+    let command = parse_command(args().skip(1)).map_err(|err| ClientError::ParseError(err))?;
+    println!("{command:?}");
+    send_command(command).map_err(|err| ClientError::ServerError(err));
+    Ok(())
+}
+
+fn main() {
+    if let Some(_) = std::env::args().nth(1) {
+        entrypoint().inspect_err(|err| eprintln!("{err}"));
     } else {
-        let ret = shell::run();
-        if let Err(err) = ret {
-            return ExitCode::from(err.get_code());
-        }
-        return ExitCode::from(0);
+        shell::run().inspect_err(|err| eprintln!("{err}"));
     }
 }

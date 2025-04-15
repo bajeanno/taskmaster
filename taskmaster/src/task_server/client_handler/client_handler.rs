@@ -60,6 +60,7 @@ where
         while let Some(command) = self.read_frame().await? {
             match command {
                 ServerCommand::ListTasks => self.handle_list_tasks().await?,
+                _ => todo!(),
             }
         }
         Ok(())
