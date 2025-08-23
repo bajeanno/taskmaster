@@ -101,7 +101,7 @@ impl Display for Program {
 
 impl Config {
     pub fn parse(filename: &str) -> Result<Vec<Program>, ParseError> {
-        let file = File::open(filename).map_err(ParseError::OpenError)?;
+        let file = File::open(filename).map_err(ParseError::OpenningFile)?;
         let mut parsed_config = ParsedConfig::new(file)?;
         for (name, program) in &mut parsed_config.programs {
             program.name = Some(name.clone());

@@ -5,7 +5,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 #[derive(Debug)]
 pub enum Error {
     #[allow(dead_code)]
-    FailedToBindTcpListener { addr: String, error: io::Error },
+    BindTcpListener { addr: String, error: io::Error },
 }
 
 impl Display for Error {
