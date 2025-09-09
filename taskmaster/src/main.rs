@@ -9,12 +9,13 @@ use parser::program::{Config, Program};
 use task_server::TaskServer;
 
 fn entrypoint() -> Result<()> {
-    let Some(port) = std::env::args().nth(1) else {
-        return Err(Error::InvalidArguments);
-    };
-    let port: i32 = port
-        .parse()
-        .map_err(|error| Error::PortArgumentIsNotAnInteger { input: port, error })?;
+    let port = std::env::args()
+        .nth(1)
+        .map(|port| {
+            port.parse()
+                .map_err(|error| Error::PortArgumentIsNotAnInteger { input: port, error })
+        })
+        .unwrap_or(Ok(4444))?;
 
     let tasks: Vec<Program> = Config::parse("taskmaster.yaml").unwrap_or_else(|err| {
         eprintln!("Warning: {err}");
