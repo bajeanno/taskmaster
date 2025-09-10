@@ -4,7 +4,7 @@ mod session;
 use std::fmt::Display;
 
 use commands::{ClientCommand, ServerCommand};
-use session::{Session, ConnectError};
+use session::{ConnectError, Session};
 
 #[derive(Debug)]
 pub enum ServerError {
@@ -28,8 +28,3 @@ impl Display for ServerError {
 }
 
 impl std::error::Error for ServerError {}
-
-pub fn send_command(_cmd: ServerCommand) -> Result<ClientCommand, ServerError> {
-    let _session = Session::new()?;
-    todo!()
-}

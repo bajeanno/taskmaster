@@ -3,7 +3,11 @@ mod shell;
 
 use std::{env::args, fmt::Display};
 
-use client::{parsing::{parse_command, ParseError}, send_command, ServerError};
+use client::{
+    ServerError,
+    parsing::{ParseError, parse_command},
+    send_command,
+};
 
 enum ClientError {
     ServerError(ServerError),
@@ -14,7 +18,7 @@ impl Display for ClientError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ServerError(err) => write!(f, "{err}"),
-            Self::ParseError(err) => write!(f, "{err}")
+            Self::ParseError(err) => write!(f, "{err}"),
         }
     }
 }
@@ -36,12 +40,4 @@ fn entrypoint() -> Result<(), ClientError> {
     println!("{command:?}");
     send_command(command).map_err(|err| ClientError::ServerError(err));
     Ok(())
-}
-
-fn main() {
-    if let Some(_) = std::env::args().nth(1) {
-        entrypoint().inspect_err(|err| eprintln!("{err}"));
-    } else {
-        shell::run().inspect_err(|err| eprintln!("{err}"));
-    }
 }

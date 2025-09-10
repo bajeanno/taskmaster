@@ -1,6 +1,5 @@
 use std::fmt;
 
-
 pub enum ShellError {
     FailedToParse(String),
     BadCommand,
@@ -22,7 +21,7 @@ impl fmt::Display for ShellError {
         match self {
             Self::FailedToParse(cmd) => write!(f, "Failed to parse command {cmd}"),
             Self::ConnectionError => write!(f, "Failed to connect to taskmaster daemon"),
-            _ => write!(f, "bad command")
+            _ => write!(f, "bad command"),
         }
     }
 }
