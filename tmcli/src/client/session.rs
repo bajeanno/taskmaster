@@ -1,15 +1,13 @@
 use std::fmt::Display;
 use tokio::net::TcpStream;
-use std::io::Error;
-use zvariant::serialized::Context;
+use std::io;
+use connection::Connection;
+use commands::{ClientCommand, ServerCommand};
+
+use crate::client::ServerError;
 
 pub struct Session {
-    stream: TcpStream,
-}
-
-pub enum SessionError {
-    ConnectError(ConnectError),
-    RequestError,
+    stream: Connection<TcpStream, ClientCommand, ServerCommand>,
 }
 
 #[derive(Debug)]
@@ -34,16 +32,24 @@ impl Display for ConnectError {
 }
 
 impl Session {
-    pub async fn new() -> Result<Self, SessionError> {
+    pub async fn new() -> Result<Self, ConnectError> {
         let socket = TcpStream::connect("localhost:4444")
             .await
-            .map_err(|err| SessionError::ConnectError(ConnectError::ConnectionFailure(err)))?;
+            .map_err(|err| ConnectError::ConnectionFailure(err))?;
         Ok(Self {
             stream: Connection::new(socket, 1024),
         })
-        // todo!("finish connection");
     }
-    pub async fn request(&self, _command: ServerCommand) -> Result<(), SessionError> {
-        todo!("make request")
+    pub async fn request(&mut self, command: ServerCommand) -> Result<(), ServerError> {
+        self.stream.write_frame(&command).await;
+        let server_return = self.stream.read_frame();
+        match server_return {
+            Ok(Some(response)) => match response {
+                ServerCommand::Error(err_msg) => Err(ServerError::RequestError),
+                _ => Ok(()),
+            },
+            Ok(None) => Err(ServerError::RequestError),
+            Err(_) => Err(ServerError::RequestError),
+        }
     }
 }
