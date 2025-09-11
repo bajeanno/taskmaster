@@ -2,17 +2,17 @@ pub mod parsing;
 mod session;
 
 use std::fmt::Display;
-
 #[allow(unused_imports)]
 use commands::{ClientCommand, ServerCommand};
 #[allow(unused_imports)]
 use session::{ConnectError, Session};
 
 #[derive(Debug)]
+#[allow(dead_code)] //todo remove this
 pub enum ServerError {
     NotFound(String),
     ConnectError(ConnectError),
-    RequestError,
+    RequestError(connection::Error),
 }
 
 impl From<ConnectError> for ServerError {
@@ -21,12 +21,18 @@ impl From<ConnectError> for ServerError {
     }
 }
 
+impl From<connection::Error> for ServerError {
+    fn from(value: connection::Error) -> Self {
+        Self::RequestError(value)
+    }
+}
+
 impl Display for ServerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::NotFound(program) => write!(f, "No such program: {program}"),
             Self::ConnectError(err) => write!(f, "{err}"),
-            Self::RequestError => write!(f, "Request Error"),
+            Self::RequestError(err) => write!(f, "{err}"),
         }
     }
 }

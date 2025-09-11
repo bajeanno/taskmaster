@@ -1,20 +1,12 @@
 pub mod shell {
     use std::fmt;
 
+    use crate::client::{parsing::parse_command, send_command};
+
     pub enum ShellError {
         FailedToParse(String),
         BadCommand,
         ConnectionError,
-    }
-
-    impl ShellError {
-        pub fn get_code(&self) -> u8 {
-            match self {
-                Self::FailedToParse(_) => 1,
-                Self::ConnectionError => 2,
-                Self::BadCommand => 3,
-            }
-        }
     }
 
     impl fmt::Display for ShellError {
@@ -22,16 +14,19 @@ pub mod shell {
             match self {
                 Self::FailedToParse(cmd) => write!(f, "Failed to parse command {cmd}"),
                 Self::ConnectionError => write!(f, "Failed to connect to taskmaster daemon"),
-                _ => write!(f, "bad command"),
+                Self::BadCommand => write!(f, "bad command"),
             }
         }
     }
 
-    pub fn run() -> Result<(), ShellError> {
+    pub async fn run() -> Result<(), ShellError> {
         loop {
-            break;
+            let mut prompt = String::new();
+            std::io::stdin().read_line(&mut prompt).map_err(|_| ShellError::BadCommand)?;
+            let vec: Vec<String> = prompt.split(' ').map(|item| item.to_string()).collect();
+            let cmd = parse_command(vec.into_iter()).map_err(|_| ShellError::FailedToParse(prompt))?;
+            send_command(cmd).await.map_err(|_| ShellError::ConnectionError)?;
         }
-        Ok(())
     }
 }
 

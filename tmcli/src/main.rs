@@ -5,6 +5,8 @@ use std::{env::args, fmt::Display};
 
 use client::{parsing::{parse_command, ParseError}, ServerError};
 
+use crate::client::send_command;
+
 enum ClientError {
     ServerError(ServerError),
     ParseError(ParseError),
@@ -31,16 +33,17 @@ impl From<ServerError> for ClientError {
     }
 }
 
-fn entrypoint() -> Result<(), ClientError> {
+async fn entrypoint() -> Result<(), ClientError> {
     let command = parse_command(args().skip(1)).map_err(|err| ClientError::ParseError(err))?;
-    println!("{command:?}");
+    send_command(command).await.map_err(|err| ClientError::ServerError(err))?;
     Ok(())
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     if let Some(_) = std::env::args().nth(1) {
-        entrypoint().inspect_err(|err| eprintln!("{err}"));
+        entrypoint().await.unwrap_or_else(|err| eprintln!("{err}"));
     } else {
-        shell::run().inspect_err(|err| eprintln!("{err}"));
+        shell::run().await.unwrap_or_else(|err| eprintln!("{err}"));
     }
 }
