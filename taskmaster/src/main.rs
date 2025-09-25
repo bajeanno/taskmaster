@@ -60,13 +60,12 @@ mod taskmaster {
         assert_eq!(DEFAULT_PORT, parse_args(None).unwrap().port);
 
         port = Some("hey".to_string());
-        let Err(Error::PortArgumentIsNotAnInteger { input, error: _}) = parse_args(port) else {
+        let Err(Error::PortArgumentIsNotAnInteger { input, error: _ }) = parse_args(port) else {
             panic!("Function parse_args did not return an error")
         };
         assert_eq!(input, "hey");
     }
 }
-
 
 fn get_tasks_from_config(config_file: &str) -> Vec<Program> {
     Config::parse(config_file).unwrap_or_else(|err| {

@@ -1,11 +1,11 @@
+mod command;
 pub mod parsing;
 mod session;
 
 use std::fmt::Display;
 #[allow(unused_imports)]
-use commands::{ClientCommand, ServerCommand};
-#[allow(unused_imports)]
 use session::{ConnectError, Session};
+use command::Command;
 
 #[derive(Debug)]
 #[allow(dead_code)] //todo remove this
@@ -39,8 +39,8 @@ impl Display for ServerError {
 
 impl std::error::Error for ServerError {}
 
-pub async fn send_command(cmd: ServerCommand) -> Result<(), ServerError> {
+pub async fn send_command(cmd: Command) -> Result<(), ServerError> {
     let mut session = Session::new().await?;
-    session.request(cmd).await?;
+    let _ = cmd.send(session).await.inspect_err(|err| eprintln!("Error sending command: {err}"));
     Ok(())
 }

@@ -7,7 +7,7 @@ use commands::{ClientCommand, ServerCommand};
 use crate::client::ServerError;
 
 pub struct Session {
-    stream: Connection<TcpStream, ClientCommand, ServerCommand>,
+    pub stream: Connection<TcpStream, ClientCommand, ServerCommand>,
 }
 
 #[derive(Debug)]
@@ -40,12 +40,7 @@ impl Session {
             stream: Connection::new(socket, 1024),
         })
     }
-    pub async fn request(&mut self, command: ServerCommand) -> Result<(), ServerError> {
-        self.stream.write_frame(&command).await?;
-        match self.stream.read_frame().await {
-            Ok(Some(_)) => Ok(()),
-            Ok(None) => Ok(()),
-            Err(err) => Err(ServerError::RequestError(err)),
-        }
+    pub async fn list_tasks() -> Result<(), ServerError> {
+        Ok(())
     }
 }

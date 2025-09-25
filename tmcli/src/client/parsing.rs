@@ -1,7 +1,7 @@
 use std::fmt::Display;
 use std::error::Error;
 
-use commands::ServerCommand;
+use super::command::Command;
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -23,27 +23,31 @@ impl Display for ParseError {
     }
 }
 
-pub fn parse_command(mut args: impl Iterator<Item = String>) -> Result<ServerCommand, ParseError> {
+pub fn parse_command(mut args: impl Iterator<Item = String>) -> Result<Command, ParseError> {
     match args
         .next()
         .ok_or_else(|| ParseError::MissingArgument)?
         .as_str()
         .trim()
     {
+        "status" => {
+            Ok(Command::ListTasks)
+        }
         "start" => {
             let program = args.next().ok_or_else(|| ParseError::MissingArgument)?;
-            Ok(ServerCommand::StartProgram(program))
+            //TODO: args handling
+            Ok(Command::StartProgram(program))
         }
         "stop" => {
             let program = args.next().ok_or_else(|| ParseError::MissingArgument)?;
-            Ok(ServerCommand::StopProgram(program))
+            Ok(Command::StopProgram(program))
         }
         "restart" => {
             let program = args.next().ok_or_else(|| ParseError::MissingArgument)?;
-            Ok(ServerCommand::RestartProgram(program))
+            Ok(Command::RestartProgram(program))
         }
-        "shutdown" => Ok(ServerCommand::StopDaemon),
-        "reload" => Ok(ServerCommand::ReloadConfigFile),
+        "shutdown" => Ok(Command::StopDaemon),
+        "reload" => Ok(Command::ReloadConfigFile),
         command => Err(ParseError::BadCommand(command.to_string())),
     }
 }
