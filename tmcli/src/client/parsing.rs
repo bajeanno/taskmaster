@@ -16,7 +16,7 @@ impl Display for ParseError {
         match self {
             Self::BadCommand(str) => write!(
                 f,
-                "Bad command name: {str}\naccepted command names are :\n\tstop\n\tstart\n\trestart\n\tshutdown\n\treload"
+                "Bad command name: {str}\naccepted command names are :\n\tstatus\n\tstop\n\tstart\n\trestart\n\tshutdown\n\treload"
             ),
             Self::MissingArgument => write!(f, "Missing argument"),
         }
