@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::Display;
 
 use crate::client::session::Session;
 
@@ -12,62 +12,83 @@ pub enum Command {
     StopDaemon,
 }
 
-pub struct Error;
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "An error occurred")
-    }
-}
-
 impl Command {
-    pub async fn send(&self, _conn: Session) -> Result<(), Error> {
+    pub async fn send(&self, _conn: Session) -> Result<(), PlaceHolderError> {
         match self {
             Command::ListTasks => {
-                list_tasks(_conn).await.into_iter().for_each(|item| {
+                list_tasks().call(_conn).await?.into_iter().for_each(|item| {
                     print!("\t{item}\n")
                 });
-            }
-            Command::StartProgram(_) => {
-                start(_conn).await?;
-            }
-            Command::StopProgram(_) => {
-                stop(_conn).await?;
-            }
-            Command::RestartProgram(_) => {
-                restart(_conn).await?;
-            }
+            },
+            Command::StartProgram(task) => {
+                start(task.to_owned()).call(_conn).await?.unwrap();
+            },
+            Command::StopProgram(task) => {
+                stop(task.to_owned()).call(_conn).await?.unwrap();
+            },
+            Command::RestartProgram(task) => {
+                restart(task.to_owned()).call(_conn).await?.unwrap();
+            },
             Command::ReloadConfigFile => {
-                reload(_conn).await?;
-            }
+                reload().call(_conn).await?.unwrap();
+            },
             Command::StopDaemon => {
-                shutdown(_conn).await?;
-            }
+                shutdown().call(_conn).await?.unwrap();
+            },
         }
         Ok(())
     }
 }
 
-async fn list_tasks(_conn: Session) -> Vec<String> {
-    vec!["nginx".to_string(), "transcendence".to_string()]
+struct PlaceHolder<T> {
+    return_value: T,
 }
 
-async fn start(_conn: Session) -> Result<(), Error> {
-    Ok(())
+#[derive(Debug)]
+pub struct PlaceHolderError;
+
+impl Display for PlaceHolderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PlaceHolderError")
+    }
 }
 
-async fn stop(_conn: Session) -> Result<(), Error> {
-    Ok(())
+impl<T> PlaceHolder<T> {
+    fn __new(return_value: T) -> Self {
+        Self { return_value }
+    }
+
+    async fn call(self, _conn: Session) -> Result<T, PlaceHolderError> {
+        Ok(self.return_value)
+    }
 }
 
-async fn restart(_conn: Session) -> Result<(), Error> {
-    Ok(())
+// #[rpc_genie::rpc]
+fn list_tasks() -> PlaceHolder<Vec<String>> {
+    PlaceHolder::__new(vec!["nginx".to_string(), "transcendence".to_string()])
 }
 
-async fn reload(_conn: Session) -> Result<(), Error> {
-    Ok(())
+// #[rpc_genie::rpc]
+fn start(_task: String) -> PlaceHolder<Result<(), PlaceHolderError>> {
+    PlaceHolder::__new(Ok(()))
 }
 
-async fn shutdown(_conn: Session) -> Result<(), Error> {
-    Ok(())
+// #[rpc_genie::rpc]
+fn stop(_task: String) -> PlaceHolder<Result<(), PlaceHolderError>> {
+    PlaceHolder::__new(Ok(()))
+}
+
+// #[rpc_genie::rpc]
+fn restart(_task: String) -> PlaceHolder<Result<(), PlaceHolderError>> {
+    PlaceHolder::__new(Ok(()))
+}
+
+// #[rpc_genie::rpc]
+fn reload() -> PlaceHolder<Result<(), PlaceHolderError>> {
+    PlaceHolder::__new(Ok(()))
+}
+
+// #[rpc_genie::rpc]
+fn shutdown() -> PlaceHolder<Result<(), PlaceHolderError>> {
+    PlaceHolder::__new(Ok(()))
 }

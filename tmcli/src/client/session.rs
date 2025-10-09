@@ -4,10 +4,8 @@ use std::io;
 use connection::Connection;
 use commands::{ClientCommand, ServerCommand};
 
-use crate::client::ServerError;
-
 pub struct Session {
-    pub stream: Connection<TcpStream, ClientCommand, ServerCommand>,
+    pub _stream: Connection<TcpStream, ClientCommand, ServerCommand>,
 }
 
 #[derive(Debug)]
@@ -37,10 +35,7 @@ impl Session {
             .await
             .map_err(|_| ConnectError::ConnectionFailure)?;
         Ok(Self {
-            stream: Connection::new(socket, 1024),
+            _stream: Connection::new(socket, 1024),
         })
-    }
-    pub async fn list_tasks() -> Result<(), ServerError> {
-        Ok(())
     }
 }

@@ -40,7 +40,7 @@ impl Display for ServerError {
 impl std::error::Error for ServerError {}
 
 pub async fn send_command(cmd: Command) -> Result<(), ServerError> {
-    let mut session = Session::new().await?;
+    let session = Session::new().await?;
     let _ = cmd.send(session).await.inspect_err(|err| eprintln!("Error sending command: {err}"));
     Ok(())
 }

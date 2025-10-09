@@ -1,5 +1,6 @@
 use std::fmt::Display;
 use std::error::Error;
+use std::process::exit;
 
 use super::command::Command;
 
@@ -48,6 +49,7 @@ pub fn parse_command(mut args: impl Iterator<Item = String>) -> Result<Command, 
         }
         "shutdown" => Ok(Command::StopDaemon),
         "reload" => Ok(Command::ReloadConfigFile),
+        "" => exit(0),
         command => Err(ParseError::BadCommand(command.to_string())),
     }
 }
