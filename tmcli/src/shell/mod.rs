@@ -8,7 +8,6 @@ use crate::client::{
 
 #[derive(Debug)]
 pub enum ShellError {
-    FailedToParse(String),
     BadCommand,
     ConnectionError,
 }
@@ -22,7 +21,6 @@ impl From<ConnectError> for ShellError {
 impl fmt::Display for ShellError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::FailedToParse(cmd) => write!(f, "Failed to parse command {cmd}"),
             Self::ConnectionError => write!(f, "Failed to connect to taskmaster daemon"),
             Self::BadCommand => write!(f, "bad command"),
         }
@@ -37,9 +35,10 @@ pub async fn run() -> Result<(), ShellError> {
             .read_line(&mut prompt)
             .map_err(|_| ShellError::BadCommand)?;
         let vec: Vec<String> = prompt.split(' ').map(|item| item.to_string()).collect();
-        let Some(cmd) =
-            parse_command(vec.into_iter()).map_err(|_| ShellError::FailedToParse(prompt))?
-        else {
+        let Ok(cmd) = parse_command(vec.into_iter()) else {
+            continue;
+        };
+        let Some(cmd) = cmd else {
             return Ok(());
         };
         send_command(cmd, &session)
