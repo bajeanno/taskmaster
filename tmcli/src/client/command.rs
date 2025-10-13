@@ -16,25 +16,27 @@ impl Command {
     pub async fn send(&self, _conn: Session) -> Result<(), PlaceHolderError> {
         match self {
             Command::ListTasks => {
-                list_tasks().call(_conn).await?.into_iter().for_each(|item| {
-                    print!("\t{item}\n")
-                });
-            },
+                list_tasks()
+                    .call(_conn)
+                    .await?
+                    .into_iter()
+                    .for_each(|item| print!("\t{item}\n"));
+            }
             Command::StartProgram(task) => {
                 start(task.to_owned()).call(_conn).await?.unwrap();
-            },
+            }
             Command::StopProgram(task) => {
                 stop(task.to_owned()).call(_conn).await?.unwrap();
-            },
+            }
             Command::RestartProgram(task) => {
                 restart(task.to_owned()).call(_conn).await?.unwrap();
-            },
+            }
             Command::ReloadConfigFile => {
                 reload().call(_conn).await?.unwrap();
-            },
+            }
             Command::StopDaemon => {
                 shutdown().call(_conn).await?.unwrap();
-            },
+            }
         }
         Ok(())
     }

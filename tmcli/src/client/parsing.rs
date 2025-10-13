@@ -1,6 +1,5 @@
-use std::fmt::Display;
 use std::error::Error;
-use std::process::exit;
+use std::fmt::Display;
 
 use super::command::Command;
 
@@ -24,16 +23,16 @@ impl Display for ParseError {
     }
 }
 
-pub fn parse_command(mut args: impl Iterator<Item = String>) -> Result<Option<Command>, ParseError> {
+pub fn parse_command(
+    mut args: impl Iterator<Item = String>,
+) -> Result<Option<Command>, ParseError> {
     match args
         .next()
         .ok_or_else(|| ParseError::MissingArgument)?
         .as_str()
         .trim()
     {
-        "status" => {
-            Ok(Some(Command::ListTasks))
-        }
+        "status" => Ok(Some(Command::ListTasks)),
         "start" => {
             let program = args.next().ok_or_else(|| ParseError::MissingArgument)?;
             //TODO: args handling

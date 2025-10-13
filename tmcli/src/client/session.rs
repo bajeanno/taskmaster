@@ -1,8 +1,8 @@
-use std::fmt::Display;
-use tokio::net::TcpStream;
-use std::io;
-use connection::Connection;
 use commands::{ClientCommand, ServerCommand};
+use connection::Connection;
+use std::fmt::Display;
+use std::io;
+use tokio::net::TcpStream;
 
 pub struct Session {
     pub _stream: Connection<TcpStream, ClientCommand, ServerCommand>,

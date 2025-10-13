@@ -3,7 +3,10 @@ mod shell;
 
 use std::{env::args, fmt::Display};
 
-use client::{parsing::{parse_command, ParseError}, ServerError};
+use client::{
+    ServerError,
+    parsing::{ParseError, parse_command},
+};
 
 use crate::client::send_command;
 
@@ -34,11 +37,15 @@ impl From<ServerError> for ClientError {
 }
 
 async fn entrypoint() -> Result<(), ClientError> {
-    let Some(command) = parse_command(args().skip(1)).map_err(|err| ClientError::ParseError(err))? else {
+    let Some(command) =
+        parse_command(args().skip(1)).map_err(|err| ClientError::ParseError(err))?
+    else {
         eprintln!("Command is empty");
         return Err(ClientError::ParseError(ParseError::MissingArgument));
     };
-    send_command(command).await.map_err(|err| ClientError::ServerError(err))?;
+    send_command(command)
+        .await
+        .map_err(|err| ClientError::ServerError(err))?;
     Ok(())
 }
 
