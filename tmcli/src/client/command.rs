@@ -20,7 +20,7 @@ impl Command {
                     .call(_conn)
                     .await?
                     .into_iter()
-                    .for_each(|item| print!("\t{item}\n"));
+                    .for_each(|item| println!("\t{item}"));
             }
             Command::StartProgram(task) => {
                 start(task.to_owned()).call(_conn).await?.unwrap();

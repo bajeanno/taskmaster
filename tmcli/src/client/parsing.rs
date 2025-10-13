@@ -28,22 +28,22 @@ pub fn parse_command(
 ) -> Result<Option<Command>, ParseError> {
     match args
         .next()
-        .ok_or_else(|| ParseError::MissingArgument)?
+        .ok_or(ParseError::MissingArgument)?
         .as_str()
         .trim()
     {
         "status" => Ok(Some(Command::ListTasks)),
         "start" => {
-            let program = args.next().ok_or_else(|| ParseError::MissingArgument)?;
+            let program = args.next().ok_or(ParseError::MissingArgument)?;
             //TODO: args handling
             Ok(Some(Command::StartProgram(program)))
         }
         "stop" => {
-            let program = args.next().ok_or_else(|| ParseError::MissingArgument)?;
+            let program = args.next().ok_or(ParseError::MissingArgument)?;
             Ok(Some(Command::StopProgram(program)))
         }
         "restart" => {
-            let program = args.next().ok_or_else(|| ParseError::MissingArgument)?;
+            let program = args.next().ok_or(ParseError::MissingArgument)?;
             Ok(Some(Command::RestartProgram(program)))
         }
         "shutdown" => Ok(Some(Command::StopDaemon)),

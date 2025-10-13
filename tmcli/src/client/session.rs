@@ -16,7 +16,7 @@ pub enum ConnectError {
 
 impl From<io::Error> for ConnectError {
     fn from(_value: io::Error) -> Self {
-        return ConnectError::NotRunning;
+        ConnectError::NotRunning
     }
 }
 

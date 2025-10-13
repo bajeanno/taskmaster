@@ -38,20 +38,20 @@ impl From<ServerError> for ClientError {
 
 async fn entrypoint() -> Result<(), ClientError> {
     let Some(command) =
-        parse_command(args().skip(1)).map_err(|err| ClientError::ParseError(err))?
+        parse_command(args().skip(1)).map_err(ClientError::ParseError)?
     else {
         eprintln!("Command is empty");
         return Err(ClientError::ParseError(ParseError::MissingArgument));
     };
     send_command(command)
         .await
-        .map_err(|err| ClientError::ServerError(err))?;
+        .map_err(ClientError::ServerError)?;
     Ok(())
 }
 
 #[tokio::main]
 async fn main() {
-    if let Some(_) = std::env::args().nth(1) {
+    if std::env::args().nth(1).is_some() {
         entrypoint().await.unwrap_or_else(|err| eprintln!("{err}"));
     } else {
         shell::run().await.unwrap_or_else(|err| eprintln!("{err}"));
