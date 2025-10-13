@@ -34,7 +34,10 @@ impl From<ServerError> for ClientError {
 }
 
 async fn entrypoint() -> Result<(), ClientError> {
-    let command = parse_command(args().skip(1)).map_err(|err| ClientError::ParseError(err))?;
+    let Some(command) = parse_command(args().skip(1)).map_err(|err| ClientError::ParseError(err))? else {
+        eprintln!("Command is empty");
+        return Err(ClientError::ParseError(ParseError::MissingArgument));
+    };
     send_command(command).await.map_err(|err| ClientError::ServerError(err))?;
     Ok(())
 }

@@ -24,7 +24,9 @@ pub mod shell {
             let mut prompt = String::new();
             std::io::stdin().read_line(&mut prompt).map_err(|_| ShellError::BadCommand)?;
             let vec: Vec<String> = prompt.split(' ').map(|item| item.to_string()).collect();
-            let cmd = parse_command(vec.into_iter()).map_err(|_| ShellError::FailedToParse(prompt))?;
+            let Some(cmd) = parse_command(vec.into_iter()).map_err(|_| ShellError::FailedToParse(prompt))? else {
+                return Ok(());
+            };
             send_command(cmd).await.map_err(|_| ShellError::ConnectionError)?;
         }
     }

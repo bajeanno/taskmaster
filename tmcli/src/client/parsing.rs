@@ -24,7 +24,7 @@ impl Display for ParseError {
     }
 }
 
-pub fn parse_command(mut args: impl Iterator<Item = String>) -> Result<Command, ParseError> {
+pub fn parse_command(mut args: impl Iterator<Item = String>) -> Result<Option<Command>, ParseError> {
     match args
         .next()
         .ok_or_else(|| ParseError::MissingArgument)?
@@ -32,24 +32,24 @@ pub fn parse_command(mut args: impl Iterator<Item = String>) -> Result<Command, 
         .trim()
     {
         "status" => {
-            Ok(Command::ListTasks)
+            Ok(Some(Command::ListTasks))
         }
         "start" => {
             let program = args.next().ok_or_else(|| ParseError::MissingArgument)?;
             //TODO: args handling
-            Ok(Command::StartProgram(program))
+            Ok(Some(Command::StartProgram(program)))
         }
         "stop" => {
             let program = args.next().ok_or_else(|| ParseError::MissingArgument)?;
-            Ok(Command::StopProgram(program))
+            Ok(Some(Command::StopProgram(program)))
         }
         "restart" => {
             let program = args.next().ok_or_else(|| ParseError::MissingArgument)?;
-            Ok(Command::RestartProgram(program))
+            Ok(Some(Command::RestartProgram(program)))
         }
-        "shutdown" => Ok(Command::StopDaemon),
-        "reload" => Ok(Command::ReloadConfigFile),
-        "" => exit(0),
+        "shutdown" => Ok(Some(Command::StopDaemon)),
+        "reload" => Ok(Some(Command::ReloadConfigFile)),
+        "" => Ok(None),
         command => Err(ParseError::BadCommand(command.to_string())),
     }
 }
