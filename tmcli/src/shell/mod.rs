@@ -41,7 +41,7 @@ pub async fn run() -> Result<(), ShellError> {
                     return Ok(());
                 };
                 cmd
-            },
+            }
             Err(e) => {
                 eprintln!("{e}");
                 continue;
