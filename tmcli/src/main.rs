@@ -8,7 +8,7 @@ use client::{
     parsing::{ParseError, parse_command},
 };
 
-use crate::client::send_command;
+use crate::client::{send_command, session::Session};
 
 enum ClientError {
     ServerError(ServerError),
@@ -37,13 +37,12 @@ impl From<ServerError> for ClientError {
 }
 
 async fn entrypoint() -> Result<(), ClientError> {
-    let Some(command) =
-        parse_command(args().skip(1)).map_err(ClientError::ParseError)?
-    else {
+    let Some(command) = parse_command(args().skip(1)).map_err(ClientError::ParseError)? else {
         eprintln!("Command is empty");
         return Err(ClientError::ParseError(ParseError::MissingArgument));
     };
-    send_command(command)
+    let session = Session::new().await.map_err(ServerError::ConnectError)?;
+    send_command(command, &session)
         .await
         .map_err(ClientError::ServerError)?;
     Ok(())

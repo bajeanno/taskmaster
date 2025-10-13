@@ -1,6 +1,6 @@
 mod command;
 pub mod parsing;
-mod session;
+pub mod session;
 
 use command::Command;
 #[allow(unused_imports)]
@@ -39,8 +39,7 @@ impl Display for ServerError {
 
 impl std::error::Error for ServerError {}
 
-pub async fn send_command(cmd: Command) -> Result<(), ServerError> {
-    let session = Session::new().await?;
+pub async fn send_command(cmd: Command, session: &Session) -> Result<(), ServerError> {
     let _ = cmd
         .send(session)
         .await

@@ -1,12 +1,22 @@
-
 use std::fmt;
 
-use crate::client::{parsing::parse_command, send_command};
+use crate::client::{
+    parsing::parse_command,
+    send_command,
+    session::{ConnectError, Session},
+};
 
+#[derive(Debug)]
 pub enum ShellError {
     FailedToParse(String),
     BadCommand,
     ConnectionError,
+}
+
+impl From<ConnectError> for ShellError {
+    fn from(_: ConnectError) -> Self {
+        Self::ConnectionError
+    }
 }
 
 impl fmt::Display for ShellError {
@@ -20,6 +30,7 @@ impl fmt::Display for ShellError {
 }
 
 pub async fn run() -> Result<(), ShellError> {
+    let session = Session::new().await.map_err(|_| ConnectError::NotRunning)?;
     loop {
         let mut prompt = String::new();
         std::io::stdin()
@@ -31,7 +42,7 @@ pub async fn run() -> Result<(), ShellError> {
         else {
             return Ok(());
         };
-        send_command(cmd)
+        send_command(cmd, &session)
             .await
             .map_err(|_| ShellError::ConnectionError)?;
     }

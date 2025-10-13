@@ -13,7 +13,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub async fn send(&self, _conn: Session) -> Result<(), PlaceHolderError> {
+    pub async fn send(&self, _conn: &Session) -> Result<(), PlaceHolderError> {
         match self {
             Command::ListTasks => {
                 list_tasks()
@@ -60,7 +60,7 @@ impl<T> PlaceHolder<T> {
         Self { return_value }
     }
 
-    async fn call(self, _conn: Session) -> Result<T, PlaceHolderError> {
+    async fn call(self, _conn: &Session) -> Result<T, PlaceHolderError> {
         Ok(self.return_value)
     }
 }
