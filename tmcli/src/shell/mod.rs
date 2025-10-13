@@ -34,12 +34,18 @@ pub async fn run() -> Result<(), ShellError> {
         std::io::stdin()
             .read_line(&mut prompt)
             .map_err(|_| ShellError::BadCommand)?;
-        let vec: Vec<String> = prompt.split(' ').map(|item| item.to_string()).collect();
-        let Ok(cmd) = parse_command(vec.into_iter()) else {
-            continue;
-        };
-        let Some(cmd) = cmd else {
-            return Ok(());
+        let iter = prompt.split(' ').map(|item| item.to_string());
+        let cmd = match parse_command(iter) {
+            Ok(cmd) => {
+                let Some(cmd) = cmd else {
+                    return Ok(());
+                };
+                cmd
+            },
+            Err(e) => {
+                eprintln!("{e}");
+                continue;
+            }
         };
         send_command(cmd, &session)
             .await

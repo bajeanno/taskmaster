@@ -49,9 +49,6 @@ pub fn parse_command(
         "shutdown" => Ok(Some(Command::StopDaemon)),
         "reload" => Ok(Some(Command::ReloadConfigFile)),
         "" => Ok(None),
-        command => {
-            eprintln!("{}", ParseError::BadCommand(command.to_string()));
-            Err(ParseError::BadCommand(command.to_string()))
-        }
+        command => Err(ParseError::BadCommand(command.to_string()))
     }
 }
