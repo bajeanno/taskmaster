@@ -11,7 +11,7 @@ use session::{ConnectError, Session};
 #[allow(dead_code)]
 pub enum ServerError {
     #[error("No such program: `{0}`")]
-    NotFound(String),
+    NoSuchProgram(String),
     #[error("`{0}`")]
     ConnectError(ConnectError),
     #[error("`{0}`")]
