@@ -1,7 +1,7 @@
 mod client;
 mod shell;
 
-use std::{env::args};
+use std::env::args;
 
 use client::{
     ServerError,

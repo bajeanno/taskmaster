@@ -4,7 +4,9 @@ use super::command::Command;
 
 #[derive(Error, Debug)]
 pub enum ParseError {
-    #[error("Bad command name: `{0}`\naccepted command names are :\n\tstatus\n\tstop\n\tstart\n\trestart\n\tshutdown\n\treload")]
+    #[error(
+        "Bad command name: `{0}`\naccepted command names are :\n\tstatus\n\tstop\n\tstart\n\trestart\n\tshutdown\n\treload"
+    )]
     BadCommand(String),
     #[error("Missing argument")]
     MissingArgument,

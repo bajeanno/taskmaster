@@ -3,9 +3,9 @@ pub mod parsing;
 pub mod session;
 
 use command::Command;
-use thiserror::Error;
 #[allow(unused_imports)]
 use session::{ConnectError, Session};
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 #[allow(dead_code)]

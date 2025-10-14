@@ -21,7 +21,9 @@ impl From<ConnectError> for ShellError {
 }
 
 pub async fn run() -> Result<(), ShellError> {
-    let session = Session::new().await.map_err(|_| ConnectError::ConnectionFailure)?;
+    let session = Session::new()
+        .await
+        .map_err(|_| ConnectError::ConnectionFailure)?;
     loop {
         let mut prompt = String::new();
         std::io::stdin()
