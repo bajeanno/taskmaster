@@ -31,7 +31,7 @@ impl From<ServerError> for ClientError {
     }
 }
 
-async fn entrypoint() -> Result<(), ClientError> {
+async fn unique_command_entrypoint() -> Result<(), ClientError> {
     let Some(command) = parse_command(args().skip(1)).map_err(ClientError::ParseError)? else {
         eprintln!("Command is empty");
         return Err(ClientError::ParseError(ParseError::MissingArgument));
@@ -46,7 +46,7 @@ async fn entrypoint() -> Result<(), ClientError> {
 #[tokio::main]
 async fn main() {
     if std::env::args().nth(1).is_some() {
-        entrypoint().await.unwrap_or_else(|err| eprintln!("{err}"));
+        unique_command_entrypoint().await.unwrap_or_else(|err| eprintln!("{err}"));
     } else {
         shell::run().await.unwrap_or_else(|err| eprintln!("{err}"));
     }
