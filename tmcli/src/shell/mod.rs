@@ -1,14 +1,13 @@
-use crate::commands::{parsing::parse_command, send_command};
-use crate::session::Session;
+mod error;
 
-use thiserror::Error;
-use tokio::io;
-
-#[derive(Error, Debug)]
-pub enum ShellError {
-    #[error("Failed to read standard input: {0}")]
-    ReadingStdin(io::Error),
-}
+use crate::{
+    commands::{
+        parsing::parse_command,
+        send_command
+    },
+    session::Session,
+    shell::error::ShellError,
+};
 
 pub async fn run(session: Session) -> Result<(), ShellError> {
     loop {
