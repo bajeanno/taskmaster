@@ -1,34 +1,21 @@
-use crate::client::{
-    parsing::parse_command,
-    send_command,
-    session::{ConnectError, Session},
-};
+use crate::commands::{parsing::parse_command, send_command};
+use crate::session::Session;
 
 use thiserror::Error;
+use tokio::io;
 
 #[derive(Error, Debug)]
 pub enum ShellError {
-    #[error("Bad command")]
-    BadCommand,
-    #[error("Failed to connect to taskmaster daemon")]
-    ConnectionError,
+    #[error("Failed to read standard input: {0}")]
+    ReadingStdin(io::Error),
 }
 
-impl From<ConnectError> for ShellError {
-    fn from(_: ConnectError) -> Self {
-        Self::ConnectionError
-    }
-}
-
-pub async fn run() -> Result<(), ShellError> {
-    let session = Session::new()
-        .await
-        .map_err(|_| ConnectError::ConnectionFailure)?;
+pub async fn run(session: Session) -> Result<(), ShellError> {
     loop {
         let mut prompt = String::new();
         std::io::stdin()
             .read_line(&mut prompt)
-            .map_err(|_| ShellError::BadCommand)?;
+            .map_err(ShellError::ReadingStdin)?;
         let iter = prompt.split(' ').map(|item| item.to_string());
         let cmd = match parse_command(iter) {
             Ok(cmd) => {
@@ -42,8 +29,8 @@ pub async fn run() -> Result<(), ShellError> {
                 continue;
             }
         };
-        send_command(cmd, &session)
-            .await
-            .map_err(|_| ConnectError::ConnectionFailure)?;
+        if let Err(err) = send_command(cmd, &session).await {
+            eprintln!("{err}");
+        }
     }
 }

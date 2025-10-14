@@ -1,55 +1,29 @@
-mod client;
+mod commands;
+mod session;
 mod shell;
 
-use std::env::args;
-
-use client::{
-    ServerError,
-    parsing::{ParseError, parse_command},
-};
-
-use crate::client::{send_command, session::Session};
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-enum ClientError {
-    #[error("`{0}`")]
-    ServerError(ServerError),
-    #[error("`{0}`")]
-    ParseError(ParseError),
-}
-
-impl From<ParseError> for ClientError {
-    fn from(error: ParseError) -> Self {
-        Self::ParseError(error)
-    }
-}
-
-impl From<ServerError> for ClientError {
-    fn from(error: ServerError) -> Self {
-        Self::ServerError(error)
-    }
-}
-
-async fn unique_command_entrypoint() -> Result<(), ClientError> {
-    let Some(command) = parse_command(args().skip(1)).map_err(ClientError::ParseError)? else {
-        eprintln!("Command is empty");
-        return Err(ClientError::ParseError(ParseError::MissingArgument));
-    };
-    let session = Session::new().await.map_err(ServerError::ConnectError)?;
-    send_command(command, &session)
-        .await
-        .map_err(ClientError::ServerError)?;
-    Ok(())
-}
+use crate::session::Session;
 
 #[tokio::main]
 async fn main() {
+    let session = match Session::new().await {
+        Ok(session) => session,
+        Err(err) => {
+            eprintln!("Failed to instanciate connection: {err}");
+            // TODO return error code
+            return;
+        }
+    };
+
     if std::env::args().nth(1).is_some() {
-        unique_command_entrypoint()
+        commands::oneshot_command::run(session)
             .await
             .unwrap_or_else(|err| eprintln!("{err}"));
+        // TODO return error code on error
     } else {
-        shell::run().await.unwrap_or_else(|err| eprintln!("{err}"));
+        shell::run(session)
+            .await
+            .unwrap_or_else(|err| eprintln!("{err}"));
+        // TODO return error code on error
     }
 }
