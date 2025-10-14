@@ -1,10 +1,7 @@
 mod error;
 
 use crate::{
-    commands::{
-        parsing::parse_command,
-        send_command
-    },
+    commands::{parsing::parse_command, send_command},
     session::Session,
     shell::error::ShellError,
 };
