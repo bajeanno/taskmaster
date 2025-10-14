@@ -3,15 +3,18 @@ pub mod parsing;
 pub mod session;
 
 use command::Command;
+use thiserror::Error;
 #[allow(unused_imports)]
 use session::{ConnectError, Session};
-use std::fmt::Display;
 
-#[derive(Debug)]
-#[allow(dead_code)] //todo remove this
+#[derive(Error, Debug)]
+#[allow(dead_code)]
 pub enum ServerError {
+    #[error("No such program: `{0}`")]
     NotFound(String),
+    #[error("`{0}`")]
     ConnectError(ConnectError),
+    #[error("`{0}`")]
     RequestError(connection::Error),
 }
 
@@ -26,18 +29,6 @@ impl From<connection::Error> for ServerError {
         Self::RequestError(value)
     }
 }
-
-impl Display for ServerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NotFound(program) => write!(f, "No such program: {program}"),
-            Self::ConnectError(err) => write!(f, "{err}"),
-            Self::RequestError(err) => write!(f, "{err}"),
-        }
-    }
-}
-
-impl std::error::Error for ServerError {}
 
 pub async fn send_command(cmd: Command, session: &Session) -> Result<(), ServerError> {
     let _ = cmd

@@ -1,7 +1,7 @@
 mod client;
 mod shell;
 
-use std::{env::args, fmt::Display};
+use std::{env::args};
 
 use client::{
     ServerError,
@@ -9,19 +9,14 @@ use client::{
 };
 
 use crate::client::{send_command, session::Session};
+use thiserror::Error;
 
+#[derive(Error, Debug)]
 enum ClientError {
+    #[error("`{0}`")]
     ServerError(ServerError),
+    #[error("`{0}`")]
     ParseError(ParseError),
-}
-
-impl Display for ClientError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ServerError(err) => write!(f, "{err}"),
-            Self::ParseError(err) => write!(f, "{err}"),
-        }
-    }
 }
 
 impl From<ParseError> for ClientError {

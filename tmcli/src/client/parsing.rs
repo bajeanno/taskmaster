@@ -1,26 +1,13 @@
-use std::error::Error;
-use std::fmt::Display;
+use thiserror::Error;
 
 use super::command::Command;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum ParseError {
+    #[error("Bad command name: `{0}`\naccepted command names are :\n\tstatus\n\tstop\n\tstart\n\trestart\n\tshutdown\n\treload")]
     BadCommand(String),
+    #[error("Missing argument")]
     MissingArgument,
-}
-
-impl Error for ParseError {}
-
-impl Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::BadCommand(str) => write!(
-                f,
-                "Bad command name: {str}\naccepted command names are :\n\tstatus\n\tstop\n\tstart\n\trestart\n\tshutdown\n\treload"
-            ),
-            Self::MissingArgument => write!(f, "Missing argument"),
-        }
-    }
 }
 
 pub fn parse_command(
