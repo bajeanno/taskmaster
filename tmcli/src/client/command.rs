@@ -23,19 +23,19 @@ impl Command {
                     .for_each(|item| println!("\t{item}"));
             }
             Command::StartProgram(task) => {
-                start(task.to_owned()).call(_conn).await?.unwrap();
+                start(task.to_owned()).call(_conn).await?.unwrap(); //TODO: check value at unwrap
             }
             Command::StopProgram(task) => {
-                stop(task.to_owned()).call(_conn).await?.unwrap();
+                stop(task.to_owned()).call(_conn).await?.unwrap(); //TODO: check value at unwrap
             }
             Command::RestartProgram(task) => {
-                restart(task.to_owned()).call(_conn).await?.unwrap();
+                restart(task.to_owned()).call(_conn).await?.unwrap(); //TODO: check value at unwrap
             }
             Command::ReloadConfigFile => {
-                reload().call(_conn).await?.unwrap();
+                reload().call(_conn).await?.unwrap(); //TODO: check value at unwrap
             }
             Command::StopDaemon => {
-                shutdown().call(_conn).await?.unwrap();
+                shutdown().call(_conn).await?.unwrap(); //TODO: check value at unwrap
             }
         }
         Ok(())
