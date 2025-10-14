@@ -1,14 +1,16 @@
-use std::fmt;
-
 use crate::client::{
     parsing::parse_command,
     send_command,
     session::{ConnectError, Session},
 };
 
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Error, Debug)]
 pub enum ShellError {
+    #[error("Bad command")]
     BadCommand,
+    #[error("Failed to connect to taskmaster daemon")]
     ConnectionError,
 }
 
@@ -18,17 +20,8 @@ impl From<ConnectError> for ShellError {
     }
 }
 
-impl fmt::Display for ShellError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ConnectionError => write!(f, "Failed to connect to taskmaster daemon"),
-            Self::BadCommand => write!(f, "bad command"),
-        }
-    }
-}
-
 pub async fn run() -> Result<(), ShellError> {
-    let session = Session::new().await.map_err(|_| ConnectError::NotRunning)?;
+    let session = Session::new().await.map_err(|_| ConnectError::ConnectionFailure)?;
     loop {
         let mut prompt = String::new();
         std::io::stdin()
@@ -49,6 +42,6 @@ pub async fn run() -> Result<(), ShellError> {
         };
         send_command(cmd, &session)
             .await
-            .map_err(|_| ShellError::ConnectionError)?;
+            .map_err(|_| ConnectError::ConnectionFailure)?;
     }
 }

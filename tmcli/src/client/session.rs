@@ -1,6 +1,5 @@
 use commands::{ClientCommand, ServerCommand};
 use connection::Connection;
-use std::fmt::Display;
 use std::io;
 use tokio::net::TcpStream;
 
@@ -8,24 +7,17 @@ pub struct Session {
     pub _stream: Connection<TcpStream, ClientCommand, ServerCommand>,
 }
 
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Error, Debug)]
 pub enum ConnectError {
-    NotRunning,
+    #[error("Failed to connect to Taskmaster server")]
     ConnectionFailure,
 }
 
 impl From<io::Error> for ConnectError {
     fn from(_value: io::Error) -> Self {
-        ConnectError::NotRunning
-    }
-}
-
-impl Display for ConnectError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NotRunning => write!(f, "Taskmaster server is not running"),
-            Self::ConnectionFailure => write!(f, "Failed to connect to Taskmaster server"),
-        }
+        ConnectError::ConnectionFailure
     }
 }
 
