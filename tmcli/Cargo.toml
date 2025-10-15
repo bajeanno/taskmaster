@@ -6,7 +6,5 @@ edition = "2024"
 [dependencies]
 commands = { path = "../crates/commands" }
 connection = { version = "0.1.0", path = "../crates/connection" }
-serde = { version = "1.0.217", features = ["derive"] }
 thiserror = "2.0.17"
 tokio = "1.47.1"
-zvariant = { version = "5.4.0"}
