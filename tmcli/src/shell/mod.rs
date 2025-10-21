@@ -6,12 +6,12 @@ use crate::{
     shell::error::ShellError,
 };
 
-pub async fn run(session: Session) -> Result<(), ShellError> {
+pub async fn run(session: Session) -> Result<(), ()> {
     loop {
         let mut prompt = String::new();
         std::io::stdin()
             .read_line(&mut prompt)
-            .map_err(ShellError::ReadingStdin)?;
+            .map_err(|err| eprintln!("{}", ShellError::ReadingStdin(err)))?;
         let iter = prompt.split(' ').map(|item| item.to_string());
         let cmd = match parse_command(iter) {
             Ok(cmd) => {
