@@ -29,7 +29,7 @@ pub async fn run(session: Session) -> Result<(), ()> {
         let cmd = match parse_command(iter) {
             Ok(cmd) => {
                 let Some(cmd) = cmd else {
-                    return Ok(());
+                    continue;
                 };
                 cmd
             }
