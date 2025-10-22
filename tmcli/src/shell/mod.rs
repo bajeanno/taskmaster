@@ -1,7 +1,4 @@
-use rustyline::{
-    error::ReadlineError,
-    Editor,
-};
+use rustyline::{Editor, error::ReadlineError};
 
 use crate::{
     commands::{parsing::parse_command, send_command},
@@ -11,12 +8,11 @@ use crate::{
 pub async fn run(session: Session) -> Result<(), ()> {
     let mut rl = Editor::<()>::new();
     loop {
-        let prompt;
-        match rl.readline("tmcli> ") {
+        let prompt = match rl.readline("tmcli> ") {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
-                prompt = line.clone();
-            },
+                line.clone()
+            }
             Err(ReadlineError::Interrupted) => {
                 continue;
             }
