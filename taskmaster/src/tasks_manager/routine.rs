@@ -5,12 +5,12 @@ use tokio::sync::mpsc;
 
 pub type Sender = mpsc::Sender<Message>;
 
-pub struct Process {
+pub struct Routine {
     tasks: Vec<Program>,
     receiver: mpsc::Receiver<Message>,
 }
 
-impl Process {
+impl Routine {
     pub(super) async fn spawn(tasks: Vec<Program>) -> Handle {
         let (sender, receiver) = mpsc::channel(100);
 

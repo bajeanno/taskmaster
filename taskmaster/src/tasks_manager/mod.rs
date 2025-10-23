@@ -4,8 +4,8 @@ pub use handle::Handle;
 mod message;
 use message::Message;
 
-mod process;
-use process::Process;
+mod routine;
+use routine::Routine;
 
 mod error;
 pub use error::Error;
@@ -19,5 +19,5 @@ pub use api::MockApi;
 use crate::parser::program::Program;
 
 pub async fn spawn(tasks: Vec<Program>) -> Handle {
-    Process::spawn(tasks).await
+    Routine::spawn(tasks).await
 }

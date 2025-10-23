@@ -1,12 +1,12 @@
 use super::Api;
 use super::Message;
 use super::error::{CallError, CastError, Result};
-use super::process;
+use super::routine;
 use tokio::sync::oneshot;
 
 #[derive(Clone)]
 pub struct Handle {
-    sender: process::Sender,
+    sender: routine::Sender,
 }
 
 impl Api for Handle {
@@ -16,7 +16,7 @@ impl Api for Handle {
 }
 
 impl Handle {
-    pub(super) fn new(sender: process::Sender) -> Self {
+    pub(super) fn new(sender: routine::Sender) -> Self {
         Self { sender }
     }
 
