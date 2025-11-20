@@ -55,6 +55,20 @@ pub struct ParsedProgram {
     pub env: Option<HashMap<String, String>>,
 }
 
+#[cfg(test)]
+impl TryFrom<&str> for ParsedProgram {
+    type Error = ParseError;
+
+    fn try_from(origin: &str) -> Result<Self, ParseError> {
+        println!("opening file {}", origin);
+        let file = File::open(origin).map_err(|err| ParseError::OpenningFile(err))?;
+        println!("parsing");
+        let result: Self = serde_yaml::from_reader(file)?;
+        println!("reading file");
+        Ok(result)
+    }
+}
+
 impl ParsedProgram {
     fn check_signal(&self, name: &str) -> Result<String, ParseError> {
         match self

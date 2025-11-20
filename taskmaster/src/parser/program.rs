@@ -1,4 +1,5 @@
 use super::parsed_program::{AutoRestart, EnvVar, ParsedConfig, ParsedProgram};
+use derive_getters::Getters;
 use libc::sys::types::Pid;
 use std::{fmt::Display, fs::File};
 
@@ -8,22 +9,22 @@ pub struct Config {
     pub programs: Vec<Program>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Getters)]
 #[allow(dead_code)] // TODO: remove this
 pub struct Program {
     name: String,
     pids: Vec<Pid>,
     umask: u32,
     cmd: String,
-    numprocs: u32,
-    workingdir: String,
-    autostart: bool,
-    autorestart: AutoRestart,
-    exitcodes: Vec<u8>,
-    startretries: u32,
-    starttime: u32,
-    stopsignal: String, // check for valid signal
-    stoptime: u32,
+    num_procs: u32,
+    working_dir: String,
+    auto_start: bool,
+    auto_restart: AutoRestart,
+    exit_codes: Vec<u8>,
+    start_retries: u32,
+    start_time: u32,
+    stop_signal: String, // check for valid signal
+    stop_time: u32,
     stdout: String,
     stderr: String,
     env: Vec<EnvVar>,
@@ -63,15 +64,15 @@ impl TryFrom<ParsedProgram> for Program {
             pids: Vec::new(),
             cmd: origin.cmd,
             umask,
-            numprocs: origin.numprocs.unwrap_or(1),
-            workingdir: origin.workingdir.unwrap_or_else(|| String::from("/")),
-            autostart: origin.autostart.unwrap_or(true),
-            autorestart: origin.autorestart.unwrap_or(AutoRestart::True),
-            exitcodes: origin.exitcodes.unwrap_or_else(|| Vec::from([0])),
-            startretries: origin.startretries.unwrap_or(0),
-            starttime: origin.starttime.unwrap_or(5),
-            stopsignal: origin.stopsignal.unwrap_or_else(|| String::from("INT")), // check for valid signal
-            stoptime: origin.stoptime.unwrap_or(5),
+            num_procs: origin.numprocs.unwrap_or(1),
+            working_dir: origin.workingdir.unwrap_or_else(|| String::from("/")),
+            auto_start: origin.autostart.unwrap_or(true),
+            auto_restart: origin.autorestart.unwrap_or(AutoRestart::True),
+            exit_codes: origin.exitcodes.unwrap_or_else(|| Vec::from([0])),
+            start_retries: origin.startretries.unwrap_or(0),
+            start_time: origin.starttime.unwrap_or(5),
+            stop_signal: origin.stopsignal.unwrap_or_else(|| String::from("INT")), // check for valid signal
+            stop_time: origin.stoptime.unwrap_or(5),
             stdout: origin.stdout.unwrap_or_else(|| String::from("/dev/null")),
             stderr: origin.stderr.unwrap_or_else(|| String::from("/dev/null")),
             env: match origin.env {
@@ -83,6 +84,16 @@ impl TryFrom<ParsedProgram> for Program {
             },
         };
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+impl TryFrom<&str> for Program {
+    type Error = ParseError;
+
+    fn try_from(origin: &str) -> Result<Self, ParseError> {
+        println!("parsing program {}", origin);
+        Self::try_from(ParsedProgram::try_from(origin)?)
     }
 }
 
