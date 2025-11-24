@@ -1,11 +1,11 @@
 use std::process::ExitCode;
 
 #[allow(dead_code)]
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub enum Status {
     NotSpawned,
     Starting,
     Running,
-    FailedToStart(ExitCode),
-    Stopped,
+    FailedToStart(String),
+    Exited(ExitCode),
 }

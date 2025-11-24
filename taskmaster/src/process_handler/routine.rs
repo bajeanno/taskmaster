@@ -1,11 +1,15 @@
 use super::{Handle, Status};
 use crate::parser::program::Program;
-use std::process::Stdio;
+use std::process::{ExitCode, Stdio};
+#[allow(unused)] //TODO: remove that
+use tokio::sync::mpsc::Sender;
+#[allow(unused)] //TODO: remove that
 use tokio::{
     io::{AsyncBufReadExt, BufReader, Error},
-    process::{ChildStderr, ChildStdout, Command},
+    process::{Child, ChildStderr, ChildStdout, Command},
     select,
     sync::mpsc,
+    time::{Duration, Instant, sleep},
 };
 
 pub type Receiver = mpsc::Receiver<Status>;
@@ -19,6 +23,8 @@ pub struct Routine {
     start_attempts: u32,
     stdout: Option<ChildStdout>,
     stderr: Option<ChildStderr>,
+    child: Option<Child>,
+    status: Status,
 }
 
 #[allow(dead_code)] //TODO: Remove that
@@ -35,6 +41,8 @@ impl Routine {
                 start_attempts: 0,
                 stdout: None,
                 stderr: None,
+                child: None,
+                status: Status::NotSpawned,
             }
             .routine()
             .await;
@@ -43,73 +51,93 @@ impl Routine {
     }
 
     async fn routine(mut self) {
-        while self.start_attempts <= *self.config.start_retries() {
+        let mut start_time: Instant;
+
+        //This is a do-while
+        'routine_loop: while {
+            start_time = Instant::now();
             match self.start().await {
-                Ok(()) => {
-                    break;
+                Ok(mut child) => {
+                    self.status(Status::Starting).await;
+                    if let Some(stdout) = self.stdout.take()
+                        && let Some(stderr) = self.stderr.take()
+                    {
+                        let handle = tokio::spawn(async move {
+                            listen(stdout, stderr).await;
+                        });
+                        child.wait().await.unwrap(); //TODO: change error handling
+                        self.status(Status::Exited(ExitCode::from(
+                            child.id().unwrap_or_default() as u8,
+                        )))
+                        .await;
+                        handle.await.unwrap(); //TODO: change error handling
+                    }
                 }
-                Err(_) => {
-                    todo!();
+                Err(_e) => {
+                    self.status(Status::FailedToStart(String::from("Error")))
+                        .await; //TODO: change error message
+                    break 'routine_loop;
                 }
-            }
-        }
-        self.listen().await;
+            };
+
+            self.start_attempts <= *self.config.start_retries()
+                && start_time.elapsed().as_secs() < self.config.start_time().clone().into()
+        } {}
     }
 
-    async fn start(&mut self) -> Result<(), Error> {
+    async fn status(&mut self, status: Status) {
+        self.status = status.clone();
+        // self.sender.send(status).await.expect("error message"); //TODO: change error message
+    }
+
+    async fn start(&mut self) -> Result<Child, Error> {
         self.start_attempts += 1;
-        // self.sender.send(Status::Running).await.unwrap(); //TODO: verifier si c'est bon (mettre expect)
-        let child = self
+        let mut child = self
             .command
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
-            .spawn()
-            .unwrap(); //TODO: enlever ça
-        self.stdout = Some(child.stdout.expect("Failed to open stdout")); //TODO: check that
-        self.stderr = Some(child.stderr.expect("Failed to open stderr")); //TODO: check that
-        Ok(())
+            .spawn()?;
+        self.stdout = Some(child.stdout.take().expect("Failed to open stdout")); //TODO: check that
+        self.stderr = Some(child.stderr.take().expect("Failed to open stderr")); //TODO: check that
+        Ok(child)
     }
+}
 
-    async fn listen(&mut self) {
-        if let Some(stdout) = self.stdout.take()
-            && let Some(stderr) = self.stderr.take()
-        {
-            let mut stdout = BufReader::new(stdout);
-            let mut stderr = BufReader::new(stderr);
-            loop {
-                let mut stdout_output = Vec::new();
-                let mut stderr_output = Vec::new();
-                select! {
-                    read_result = stdout.read_until(b'\n', &mut stdout_output) => {
-                        if let Ok(result) = read_result {
-                            if result == 0 {
-                                break;
-                            }
-                            else {
-                                let output = String::from_utf8_lossy(&stdout_output);
-                                println!("{}", &output);
-                            }
-                        }
-                        else {
-                            panic!("error reading stdout");
-                        }
-                    },
-                    read_result = stderr.read_until(b'\n', &mut stderr_output) => {
-                        if let Ok(result) = read_result {
-                            if result == 0 {
-                                break;
-                            }
-                            else {
-                                let output = String::from_utf8_lossy(&stderr_output);
-                                println!("{}", &output);
-                            }
-                        }
-                        else {
-                            panic!("error reading stderr");
-                        }
-                    },
+async fn listen(stdout: ChildStdout, stderr: ChildStderr) {
+    let mut stdout = BufReader::new(stdout);
+    let mut stderr = BufReader::new(stderr);
+    loop {
+        let mut stdout_output = Vec::new();
+        let mut stderr_output = Vec::new();
+        select! {
+            read_result = stdout.read_until(b'\n', &mut stdout_output) => {
+                if let Ok(result) = read_result {
+                    if result == 0 {
+                        break;
+                    }
+                    else {
+                        let output = String::from_utf8_lossy(&stdout_output);
+                        println!("{}", &output);
+                    }
                 }
-            }
+                else {
+                    panic!("error reading stdout");
+                }
+            },
+            read_result = stderr.read_until(b'\n', &mut stderr_output) => {
+                if let Ok(result) = read_result {
+                    if result == 0 {
+                        break;
+                    }
+                    else {
+                        let output = String::from_utf8_lossy(&stderr_output);
+                        println!("{}", &output);
+                    }
+                }
+                else {
+                    panic!("error reading stderr");
+                }
+            },
         }
     }
 }

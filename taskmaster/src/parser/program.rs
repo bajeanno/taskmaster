@@ -70,7 +70,7 @@ impl TryFrom<ParsedProgram> for Program {
             auto_restart: origin.autorestart.unwrap_or(AutoRestart::True),
             exit_codes: origin.exitcodes.unwrap_or_else(|| Vec::from([0])),
             start_retries: origin.startretries.unwrap_or(0),
-            start_time: origin.starttime.unwrap_or(5),
+            start_time: origin.starttime.unwrap_or(0),
             stop_signal: origin.stopsignal.unwrap_or_else(|| String::from("INT")), // check for valid signal
             stop_time: origin.stoptime.unwrap_or(5),
             stdout: origin.stdout.unwrap_or_else(|| String::from("/dev/null")),
