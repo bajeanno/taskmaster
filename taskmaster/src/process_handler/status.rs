@@ -1,4 +1,4 @@
-use std::{process::ExitCode};
+use std::{process::ExitStatus};
 
 #[allow(dead_code)]
 #[derive(Clone)]
@@ -7,5 +7,5 @@ pub enum Status {
     Starting,
     Running,
     FailedToStart(String),
-    Exited(ExitCode),
+    Exited(ExitStatus),
 }

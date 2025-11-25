@@ -1,13 +1,6 @@
-use crate::parser::ParseError;
+use crate::parser::{ParseError, program::AutoRestart};
 use serde::{Deserialize, Deserializer};
 use std::{collections::HashMap, fs::File};
-
-#[derive(Debug, PartialEq)]
-pub enum AutoRestart {
-    True,
-    False,
-    Unexpected,
-}
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)] // TODO: remove this

@@ -1,4 +1,4 @@
-use super::parsed_program::{AutoRestart, EnvVar, ParsedConfig, ParsedProgram};
+use super::parsed_program::{EnvVar, ParsedConfig, ParsedProgram};
 use derive_getters::Getters;
 use libc::sys::types::Pid;
 use tokio::process::Command;
@@ -8,6 +8,13 @@ use super::ParseError;
 
 pub struct Config {
     pub programs: Vec<Program>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum AutoRestart {
+    True,
+    False,
+    Unexpected,
 }
 
 #[derive(Debug, Getters)]
@@ -88,7 +95,7 @@ impl TryFrom<ParsedProgram> for Program {
             num_procs: origin.numprocs.unwrap_or(1),
             working_dir: origin.workingdir.unwrap_or_else(|| String::from("/")),
             auto_start: origin.autostart.unwrap_or(true),
-            auto_restart: origin.autorestart.unwrap_or(AutoRestart::True),
+            auto_restart: origin.autorestart.unwrap_or(AutoRestart::False),
             exit_codes: origin.exitcodes.unwrap_or_else(|| Vec::from([0])),
             start_retries: origin.startretries.unwrap_or(0),
             start_time: origin.starttime.unwrap_or(0),
