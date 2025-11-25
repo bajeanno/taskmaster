@@ -1,10 +1,11 @@
 mod parsed_program;
 pub mod program;
 use std::fmt::Display;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum ParseError {
-    OpenningFile(std::io::Error),
+    OpenningFile(#[from] std::io::Error),
     InvalidYaml(serde_yaml::Error),
     InvalidUmask(String, String),
     InvalidSignal(String, String),
@@ -43,5 +44,3 @@ impl Display for ParseError {
         }
     }
 }
-
-impl std::error::Error for ParseError {}

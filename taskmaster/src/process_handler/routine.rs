@@ -15,7 +15,6 @@ pub type Sender = mpsc::Sender<Status>;
 
 #[allow(dead_code)] //TODO: Remove that
 pub struct Routine {
-    command: Command,
     sender: Sender,
     attach_sender: Option<mpsc::Sender<String>>,
     config: Program,
@@ -28,12 +27,11 @@ pub struct Routine {
 
 #[allow(dead_code)] //TODO: Remove that
 impl Routine {
-    pub fn spawn(command: Command, config: Program) -> Result<Handle, Error> {
+    pub fn spawn(config: Program) -> Result<Handle, Error> {
         let (sender, receiver) = mpsc::channel(100);
 
         let join_handle = tokio::spawn(async move {
             Self {
-                command,
                 config,
                 sender,
                 attach_sender: None,
@@ -92,7 +90,8 @@ impl Routine {
     async fn start(&mut self) -> Result<Child, Error> {
         self.start_attempts += 1;
         let mut child = self
-            .command
+            .config
+            .cmd
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;

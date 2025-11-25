@@ -1,7 +1,8 @@
 use super::parsed_program::{AutoRestart, EnvVar, ParsedConfig, ParsedProgram};
 use derive_getters::Getters;
 use libc::sys::types::Pid;
-use std::{fmt::Display, fs::File};
+use tokio::process::Command;
+use std::{fmt::Display, fs::File, io};
 
 use super::ParseError;
 
@@ -15,7 +16,8 @@ pub struct Program {
     name: String,
     pids: Vec<Pid>,
     umask: u32,
-    cmd: String,
+    pub cmd: Command,
+    cmd_str: String,
     num_procs: u32,
     working_dir: String,
     auto_start: bool,
@@ -42,6 +44,24 @@ impl TryFrom<ParsedConfig> for Config {
     }
 }
 
+pub fn create_command(cmd: String) -> Result<Command, io::Error> {
+    let mut command: Command;
+    let mut iter = cmd.split(' ');
+    if let Some(program) = iter.next() {
+        command = Command::new(program);
+        iter.for_each(|arg| {
+            command.arg(arg);
+        });
+        Ok(command)
+    }
+    else {
+        Err(io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Empty command",
+        ))
+    }
+}
+
 impl TryFrom<ParsedProgram> for Program {
     type Error = ParseError;
 
@@ -62,7 +82,8 @@ impl TryFrom<ParsedProgram> for Program {
         let result = Self {
             name: origin.name.unwrap_or_else(|| String::from("")),
             pids: Vec::new(),
-            cmd: origin.cmd,
+            cmd: create_command(origin.cmd.clone())?,
+            cmd_str: origin.cmd.clone(),
             umask,
             num_procs: origin.numprocs.unwrap_or(1),
             working_dir: origin.workingdir.unwrap_or_else(|| String::from("/")),
@@ -103,7 +124,7 @@ impl Display for Program {
             f,
             "{:<15}{:50}{: ^15?}{:>10o}",
             self.name.clone(),
-            self.cmd.clone(),
+            self.cmd_str.clone(),
             self.pids,
             self.umask,
         )
