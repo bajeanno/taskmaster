@@ -8,7 +8,7 @@ type JoinHandle = TokioJoinHandle<()>;
 #[allow(dead_code)] //TODO: Remove that
 pub struct Handle {
     pub join_handle: JoinHandle,
-    receiver: Receiver,
+    pub receiver: Receiver,
 }
 
 #[allow(dead_code)] //TODO: Remove that

@@ -2,8 +2,6 @@ use super::{Handle, Status};
 use crate::parser::program::Program;
 use std::process::{ExitCode, Stdio};
 #[allow(unused)] //TODO: remove that
-use tokio::sync::mpsc::Sender;
-#[allow(unused)] //TODO: remove that
 use tokio::{
     io::{AsyncBufReadExt, BufReader, Error},
     process::{Child, ChildStderr, ChildStdout, Command},
@@ -13,11 +11,12 @@ use tokio::{
 };
 
 pub type Receiver = mpsc::Receiver<Status>;
+pub type Sender = mpsc::Sender<Status>;
 
 #[allow(dead_code)] //TODO: Remove that
 pub struct Routine {
     command: Command,
-    sender: mpsc::Sender<Status>,
+    sender: Sender,
     attach_sender: Option<mpsc::Sender<String>>,
     config: Program,
     start_attempts: u32,
@@ -65,17 +64,17 @@ impl Routine {
                         let handle = tokio::spawn(async move {
                             listen(stdout, stderr).await;
                         });
-                        child.wait().await.unwrap(); //TODO: change error handling
+                        child.wait().await.expect("error waiting for child");
                         self.status(Status::Exited(ExitCode::from(
                             child.id().unwrap_or_default() as u8,
                         )))
                         .await;
-                        handle.await.unwrap(); //TODO: change error handling
+                        handle.await.expect("Error awaiting routine end");
                     }
                 }
-                Err(_e) => {
-                    self.status(Status::FailedToStart(String::from("Error")))
-                        .await; //TODO: change error message
+                Err(err) => {
+                    self.status(Status::FailedToStart(String::from(err.to_string())))
+                        .await;
                     break 'routine_loop;
                 }
             };
@@ -87,7 +86,7 @@ impl Routine {
 
     async fn status(&mut self, status: Status) {
         self.status = status.clone();
-        // self.sender.send(status).await.expect("error message"); //TODO: change error message
+        self.sender.send(status).await.expect("Receiver was dropped");
     }
 
     async fn start(&mut self) -> Result<Child, Error> {
@@ -97,13 +96,15 @@ impl Routine {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
-        self.stdout = Some(child.stdout.take().expect("Failed to open stdout")); //TODO: check that
-        self.stderr = Some(child.stderr.take().expect("Failed to open stderr")); //TODO: check that
+        self.stdout = Some(child.stdout.take().expect("Failed to open stdout"));
+        self.stderr = Some(child.stderr.take().expect("Failed to open stderr"));
         Ok(child)
     }
 }
 
 async fn listen(stdout: ChildStdout, stderr: ChildStderr) {
+    // , stdout_file: Option<String>, stderr_file: Option<String>
+    // add that to create log files.
     let mut stdout = BufReader::new(stdout);
     let mut stderr = BufReader::new(stderr);
     loop {
@@ -139,5 +140,6 @@ async fn listen(stdout: ChildStdout, stderr: ChildStderr) {
                 }
             },
         }
+        println!("read 1 line");
     }
 }
