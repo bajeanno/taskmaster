@@ -5,7 +5,7 @@ pub use handle::Handle;
 #[cfg(test)]
 mod tests;
 #[allow(unused)]
-pub use routine::Routine;
+pub use routine::{Log, Routine};
 pub use status::Status;
 #[allow(unused)]
 use std::process::Command;

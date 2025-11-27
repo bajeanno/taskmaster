@@ -11,7 +11,14 @@ use tokio::{
     time::{Duration, Instant, sleep},
 };
 
+#[derive(Clone)]
+pub enum Log {
+    Stdout(String),
+    Stderr(String),
+}
+
 pub type StatusReceiver = mpsc::Receiver<Status>;
+pub type LogReceiver = mpsc::Receiver<Log>;
 pub type StatusSender = mpsc::Sender<Status>;
 
 pub struct Outputs {
@@ -21,8 +28,8 @@ pub struct Outputs {
 
 #[allow(dead_code)] //TODO: Remove that
 pub struct Routine {
-    sender: StatusSender,
-    log_sender: mpsc::Sender<String>,
+    status_sender: StatusSender,
+    log_sender: mpsc::Sender<Log>,
     config: Program,
     start_attempts: u32,
     outputs: Option<Outputs>,
@@ -47,7 +54,7 @@ impl Routine {
                     .await
                     .expect("Failed to create stderr log file"),
                 config,
-                sender,
+                status_sender: sender,
                 log_sender,
                 start_attempts: 0,
                 outputs: None,
@@ -88,7 +95,7 @@ impl Routine {
 
     async fn status(&mut self, status: Status) {
         self.status = status.clone();
-        self.sender
+        self.status_sender
             .send(status)
             .await
             .expect("Receiver was dropped");
@@ -112,26 +119,25 @@ impl Routine {
     }
 
     //TODO: check if there's not a better way
-    async fn log_stdout(&mut self, log: &String) {
+    async fn log(&mut self, log: Log) {
         self.log_sender
             .send(log.clone())
             .await
             .expect("Log receiver dropped");
-        self.stdout_file
-            .write_all(log.as_bytes())
-            .await
-            .expect("Failed to write to stdout log file");
-    }
-
-    async fn log_stderr(&mut self, log: &String) {
-        self.log_sender
-            .send(log.clone())
-            .await
-            .expect("Log receiver dropped");
-        self.stdout_file
-            .write_all(log.as_bytes())
-            .await
-            .expect("Failed to write to stdout log file");
+        match log {
+            Log::Stdout(ref l) => {
+                self.stdout_file
+                    .write_all(l.as_bytes())
+                    .await
+                    .expect("Failed to write to stdout log file");
+            }
+            Log::Stderr(ref l) => {
+                self.stderr_file
+                    .write_all(l.as_bytes())
+                    .await
+                    .expect("Failed to write to stderr log file");
+            }
+        }
     }
 
     async fn listen(&mut self) {
@@ -142,25 +148,22 @@ impl Routine {
         loop {
             let mut stdout_output = Vec::new();
             let mut stderr_output = Vec::new();
-            let output;
+            let log;
 
             select! {
                 Ok(read_result) = stdout.read_until(b'\n', &mut stdout_output) => {
                     if read_result == 0 { break; }
-                    output = String::from_utf8_lossy(&stdout_output).to_string();
+                    log = Log::Stdout(String::from_utf8_lossy(&stdout_output).to_string());
                 },
                 Ok(read_result) = stderr.read_until(b'\n', &mut stderr_output) => {
                     if read_result == 0 { break; }
-                    output = String::from_utf8_lossy(&stderr_output).to_string();
+                    log = Log::Stderr(String::from_utf8_lossy(&stderr_output).to_string());
                 },
                 else => break,
             }
 
-            if !stdout_output.is_empty() {
-                self.log_stdout(&output).await;
-            }
-            if !stderr_output.is_empty() {
-                self.log_stderr(&output).await;
+            if !stdout_output.is_empty() || !stderr_output.is_empty() {
+                self.log(log).await;
             }
         }
     }

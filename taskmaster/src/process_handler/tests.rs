@@ -1,6 +1,5 @@
 use crate::Program;
-use crate::process_handler::Routine;
-use crate::process_handler::Status;
+use crate::process_handler::{Log, Routine, Status};
 use std::time::Duration;
 use tokio::select;
 use tokio::sync::mpsc;
@@ -9,7 +8,7 @@ use tokio::time::sleep;
 #[cfg(test)]
 async fn get_status(
     mut status_receiver: mpsc::Receiver<Status>,
-    mut log_receiver: mpsc::Receiver<String>,
+    mut log_receiver: mpsc::Receiver<Log>,
 ) {
     loop {
         select! {
@@ -26,7 +25,10 @@ async fn get_status(
                 }
             },
             Some(log) = log_receiver.recv() => {
-                println!("Log: {}", log);
+                match log {
+                    Log::Stdout(log) => println!("Stdout: {log}"),
+                    Log::Stderr(log) => println!("Stderr: {log}"),
+                }
             },
             else => break,
         }

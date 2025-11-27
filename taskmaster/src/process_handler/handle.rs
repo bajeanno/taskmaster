@@ -1,10 +1,11 @@
-use crate::{client_handler::ClientId, process_handler::routine::StatusReceiver};
+use crate::{
+    client_handler::ClientId,
+    process_handler::routine::{LogReceiver, StatusReceiver},
+};
 use derive_getters::Getters;
-use tokio::sync::mpsc::Receiver;
 use tokio::task::JoinHandle as TokioJoinHandle;
 
 type JoinHandle = TokioJoinHandle<()>;
-type LogReceiver = Receiver<String>;
 
 #[derive(Getters)]
 #[allow(dead_code)] //TODO: Remove that
