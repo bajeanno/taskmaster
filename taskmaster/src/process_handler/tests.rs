@@ -50,6 +50,6 @@ async fn create_task() {
     };
 
     handle2.await.expect("failed to join status handle");
-    remove_file("/tmp/nginx.stdout").await.inspect_err(|err| eprintln!("{err}")).unwrap();
-    remove_file("/tmp/nginx.stderr").await.inspect_err(|err| eprintln!("{err}")).unwrap();
+    remove_file("/tmp/taskmaster_tests.stdout").await.inspect_err(|err| eprintln!("{err}")).unwrap();
+    remove_file("/tmp/taskmaster_tests.stderr").await.inspect_err(|err| eprintln!("{err}")).unwrap();
 }
