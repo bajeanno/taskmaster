@@ -1,9 +1,9 @@
 use super::parsed_program::{EnvVar, ParsedConfig, ParsedProgram};
 use derive_getters::Getters;
 use libc::sys::types::Pid;
-use std::{fmt::Display, fs::File, io};
+use std::{fmt::Display, fs::File};
 use tokio::process::Command;
-
+use shell_words::split;
 use super::ParseError;
 
 pub struct Config {
@@ -50,9 +50,9 @@ impl TryFrom<ParsedConfig> for Config {
     }
 }
 
-pub fn create_command(cmd: String) -> Result<Command, io::Error> {
+pub fn create_command(cmd: String, name: &String) -> Result<Command, ParseError> {
     let mut command: Command;
-    let mut iter = cmd.split(' ');
+    let mut iter = split(&cmd)?.into_iter();
     if let Some(program) = iter.next() {
         command = Command::new(program);
         iter.for_each(|arg| {
@@ -60,10 +60,7 @@ pub fn create_command(cmd: String) -> Result<Command, io::Error> {
         });
         Ok(command)
     } else {
-        Err(io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "Empty command",
-        ))
+        Err(ParseError::EmptyCommand(name.to_string()))
     }
 }
 
@@ -84,7 +81,8 @@ impl TryFrom<ParsedProgram> for Program {
                 origin.name.unwrap_or_else(|| String::from("")),
             ));
         }
-        let mut cmd = create_command(origin.cmd.clone())?;
+        let name = origin.name.unwrap_or_else(|| String::from(""));
+        let mut cmd = create_command(origin.cmd.clone(), &name)?;
         let env = match origin.env {
             Some(x) => x
                 .into_iter()
@@ -92,11 +90,12 @@ impl TryFrom<ParsedProgram> for Program {
                 .collect::<Vec<EnvVar>>(),
             None => Vec::new(),
         };
+        cmd.env_clear();
         env.iter().for_each(|var| {
             cmd.env(&var.key, &var.value);
         });
         let result = Self {
-            name: origin.name.unwrap_or_else(|| String::from("")),
+            name,
             pids: Vec::new(),
             cmd,
             cmd_str: origin.cmd.clone(),

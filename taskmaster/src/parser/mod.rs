@@ -9,6 +9,8 @@ pub enum ParseError {
     InvalidYaml(serde_yaml::Error),
     InvalidUmask(String, String),
     InvalidSignal(String, String),
+    EmptyCommand(String),
+    CommandParseError(#[from] shell_words::ParseError),
 }
 
 impl From<serde_yaml::Error> for ParseError {
@@ -39,6 +41,16 @@ impl Display for ParseError {
             ParseError::InvalidUmask(sig, prog_name) => write!(
                 f,
                 "Error parsing taskmaster config file: {sig} for program {prog_name}\n\
+                 Consider making a reload request after fixing the issue"
+            ),
+            ParseError::EmptyCommand(prog_name) => write!(
+                f,
+                "Error parsing taskmaster config file: Empty command for program {prog_name}\n\
+                 Consider making a reload request after fixing the issue"
+            ),
+            ParseError::CommandParseError(error) => write!(
+                f,
+                "Error parsing taskmaster config file: {error}\n\
                  Consider making a reload request after fixing the issue"
             ),
         }
