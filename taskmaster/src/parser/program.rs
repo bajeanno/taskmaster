@@ -1,8 +1,8 @@
 use super::parsed_program::{EnvVar, ParsedConfig, ParsedProgram};
 use derive_getters::Getters;
 use libc::sys::types::Pid;
-use tokio::process::Command;
 use std::{fmt::Display, fs::File, io};
+use tokio::process::Command;
 
 use super::ParseError;
 
@@ -36,7 +36,6 @@ pub struct Program {
     stop_time: u32,
     stdout: String,
     stderr: String,
-    env: Vec<EnvVar>,
 }
 
 impl TryFrom<ParsedConfig> for Config {
@@ -60,8 +59,7 @@ pub fn create_command(cmd: String) -> Result<Command, io::Error> {
             command.arg(arg);
         });
         Ok(command)
-    }
-    else {
+    } else {
         Err(io::Error::new(
             std::io::ErrorKind::InvalidInput,
             "Empty command",
@@ -86,10 +84,21 @@ impl TryFrom<ParsedProgram> for Program {
                 origin.name.unwrap_or_else(|| String::from("")),
             ));
         }
+        let mut cmd = create_command(origin.cmd.clone())?;
+        let env = match origin.env {
+            Some(x) => x
+                .into_iter()
+                .map(|(key, value)| EnvVar { key, value })
+                .collect::<Vec<EnvVar>>(),
+            None => Vec::new(),
+        };
+        env.iter().for_each(|var| {
+            cmd.env(&var.key, &var.value);
+        });
         let result = Self {
             name: origin.name.unwrap_or_else(|| String::from("")),
             pids: Vec::new(),
-            cmd: create_command(origin.cmd.clone())?,
+            cmd,
             cmd_str: origin.cmd.clone(),
             umask,
             num_procs: origin.numprocs.unwrap_or(1),
@@ -103,13 +112,6 @@ impl TryFrom<ParsedProgram> for Program {
             stop_time: origin.stoptime.unwrap_or(5),
             stdout: origin.stdout.unwrap_or_else(|| String::from("/dev/null")),
             stderr: origin.stderr.unwrap_or_else(|| String::from("/dev/null")),
-            env: match origin.env {
-                Some(x) => x
-                    .into_iter()
-                    .map(|(key, value)| EnvVar { key, value })
-                    .collect::<Vec<EnvVar>>(),
-                None => Vec::new(),
-            },
         };
         Ok(result)
     }

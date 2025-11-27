@@ -1,22 +1,30 @@
-use crate::{client_handler::ClientId, process_handler::routine::Receiver};
+use crate::{client_handler::ClientId, process_handler::routine::StatusReceiver};
 use derive_getters::Getters;
+use tokio::sync::mpsc::Receiver;
 use tokio::task::JoinHandle as TokioJoinHandle;
 
 type JoinHandle = TokioJoinHandle<()>;
+type LogReceiver = Receiver<String>;
 
 #[derive(Getters)]
 #[allow(dead_code)] //TODO: Remove that
 pub struct Handle {
     pub join_handle: JoinHandle,
-    pub receiver: Receiver,
+    pub status_receiver: StatusReceiver,
+    pub log_receiver: LogReceiver,
 }
 
 #[allow(dead_code)] //TODO: Remove that
 impl Handle {
-    pub fn new(join_handle: tokio::task::JoinHandle<()>, receiver: Receiver) -> Self {
+    pub fn new(
+        join_handle: tokio::task::JoinHandle<()>,
+        status_receiver: StatusReceiver,
+        log_receiver: LogReceiver,
+    ) -> Self {
         Self {
             join_handle,
-            receiver,
+            status_receiver,
+            log_receiver,
         }
     }
 

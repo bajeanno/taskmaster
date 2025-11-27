@@ -1,6 +1,7 @@
 use super::{Handle, Status};
 use crate::parser::program::{AutoRestart, Program};
 use std::process::Stdio;
+use tokio::{fs::File, io::AsyncWriteExt};
 #[allow(unused)] //TODO: remove that
 use tokio::{
     io::{AsyncBufReadExt, BufReader, Error},
@@ -10,8 +11,8 @@ use tokio::{
     time::{Duration, Instant, sleep},
 };
 
-pub type Receiver = mpsc::Receiver<Status>;
-pub type Sender = mpsc::Sender<Status>;
+pub type StatusReceiver = mpsc::Receiver<Status>;
+pub type StatusSender = mpsc::Sender<Status>;
 
 pub struct Outputs {
     stdout: ChildStdout,
@@ -20,25 +21,44 @@ pub struct Outputs {
 
 #[allow(dead_code)] //TODO: Remove that
 pub struct Routine {
-    sender: Sender,
-    attach_sender: Option<mpsc::Sender<String>>,
+    sender: StatusSender,
+    log_sender: mpsc::Sender<String>,
     config: Program,
     start_attempts: u32,
     outputs: Option<Outputs>,
     child: Option<Child>,
     status: Status,
+    stdout_file: File,
+    stderr_file: File,
 }
 
 #[allow(dead_code)] //TODO: Remove that
 impl Routine {
     pub fn spawn(config: Program) -> Result<Handle, Error> {
         let (sender, receiver) = mpsc::channel(100);
+        let (log_sender, log_receiver) = mpsc::channel(100);
 
         let join_handle = tokio::spawn(async move {
             Self {
+                stdout_file: File::create(
+                    config
+                        .stdout()
+                        .clone()
+                        .as_str()
+                )
+                .await
+                .expect("Failed to create stdout log file"),
+                stderr_file: File::create(
+                    config
+                        .stderr()
+                        .clone()
+                        .as_str()
+                )
+                .await
+                .expect("Failed to create stderr log file"),
                 config,
                 sender,
-                attach_sender: None,
+                log_sender,
                 start_attempts: 0,
                 outputs: None,
                 child: None,
@@ -47,7 +67,7 @@ impl Routine {
             .routine()
             .await;
         });
-        Ok(Handle::new(join_handle, receiver))
+        Ok(Handle::new(join_handle, receiver, log_receiver))
     }
 
     async fn routine(mut self) {
@@ -101,14 +121,27 @@ impl Routine {
         Ok(child)
     }
 
+    //TODO: check if there's not a better way
+    async fn log_stdout(&mut self, log: &String) {
+        self.log_sender.send(log.clone()).await.expect("Log receiver dropped");
+        self.stdout_file.write_all(log.as_bytes()).await.expect("Failed to write to stdout log file");
+    }
+
+    async fn log_stderr(&mut self, log: &String){
+        self.log_sender.send(log.clone()).await.expect("Log receiver dropped");
+        self.stdout_file.write_all(log.as_bytes()).await.expect("Failed to write to stdout log file");
+    }
+
     async fn listen(&mut self) {
         let outputs: Outputs = self.outputs.take().expect("Outputs should not be None");
         let mut stdout = BufReader::new(outputs.stdout);
         let mut stderr = BufReader::new(outputs.stderr);
+
         loop {
             let mut stdout_output = Vec::new();
             let mut stderr_output = Vec::new();
             let output;
+
             select! {
                 Ok(read_result) = stdout.read_until(b'\n', &mut stdout_output) => {
                     if read_result == 0 { break; }
@@ -120,8 +153,12 @@ impl Routine {
                 },
                 else => break,
             }
-            if !stdout_output.is_empty() || !stderr_output.is_empty() {
-                println!("{output}");
+
+            if !stdout_output.is_empty() {
+                self.log_stdout(&output).await;
+            }
+            if !stderr_output.is_empty() {
+                self.log_stderr(&output).await;
             }
         }
     }
