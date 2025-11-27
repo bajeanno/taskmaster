@@ -2,13 +2,12 @@ use super::{Handle, Status};
 use crate::parser::program::{AutoRestart, Program};
 use std::process::Stdio;
 use tokio::{fs::File, io::AsyncWriteExt};
-#[allow(unused)] //TODO: remove that
 use tokio::{
     io::{AsyncBufReadExt, BufReader, Error},
-    process::{Child, ChildStderr, ChildStdout, Command},
+    process::{Child, ChildStderr, ChildStdout},
     select,
     sync::mpsc,
-    time::{Duration, Instant, sleep},
+    time::Instant,
 };
 
 #[derive(Clone)]
@@ -26,14 +25,12 @@ pub struct Outputs {
     stderr: ChildStderr,
 }
 
-#[allow(dead_code)] //TODO: Remove that
 pub struct Routine {
     status_sender: StatusSender,
     log_sender: mpsc::Sender<Log>,
     config: Program,
     start_attempts: u32,
     outputs: Option<Outputs>,
-    child: Option<Child>,
     status: Status,
     stdout_file: File,
     stderr_file: File,
@@ -58,7 +55,6 @@ impl Routine {
                 log_sender,
                 start_attempts: 0,
                 outputs: None,
-                child: None,
                 status: Status::NotSpawned,
             }
             .routine()
@@ -84,6 +80,7 @@ impl Routine {
                 )))
                 .await;
             }
+
             if (self.start_attempts > *self.config.start_retries()
                 && start_time.elapsed().as_secs() >= self.config.start_time().clone().into())
                 || *self.config.auto_restart() != AutoRestart::True
