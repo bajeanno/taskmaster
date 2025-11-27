@@ -115,7 +115,6 @@ impl Routine {
         Ok(child)
     }
 
-    //TODO: check if there's not a better way
     async fn log(&mut self, log: Log) {
         self.log_sender
             .send(log.clone())
