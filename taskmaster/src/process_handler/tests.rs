@@ -37,13 +37,19 @@ async fn get_status(mut status_receiver: mpsc::Receiver<Status>, mut log_receive
 #[cfg(test)]
 #[tokio::test]
 async fn create_task() {
+    use tokio::fs::remove_file;
+
     let config = Program::try_from("/Users/basil/42/taskmaster/taskmaster.yaml")
         .expect("Failed to parse program");
     let routine_handle = Routine::spawn(config).expect("failed to spawn tokio::task");
     let handle2 = tokio::spawn(get_status(routine_handle.status_receiver, routine_handle.log_receiver));
+
     select! {
         _ = routine_handle.join_handle => {},
         _ = sleep(Duration::from_secs(3)) => {},
     };
+
     handle2.await.expect("failed to join status handle");
+    remove_file("/tmp/nginx.stdout").await.inspect_err(|err| eprintln!("{err}")).unwrap();
+    remove_file("/tmp/nginx.stderr").await.inspect_err(|err| eprintln!("{err}")).unwrap();
 }
