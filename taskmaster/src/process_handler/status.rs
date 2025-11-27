@@ -1,4 +1,4 @@
-use std::{process::ExitStatus};
+use std::process::ExitStatus;
 
 #[allow(dead_code)]
 #[derive(Clone)]

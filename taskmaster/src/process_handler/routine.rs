@@ -40,22 +40,12 @@ impl Routine {
 
         let join_handle = tokio::spawn(async move {
             Self {
-                stdout_file: File::create(
-                    config
-                        .stdout()
-                        .clone()
-                        .as_str()
-                )
-                .await
-                .expect("Failed to create stdout log file"),
-                stderr_file: File::create(
-                    config
-                        .stderr()
-                        .clone()
-                        .as_str()
-                )
-                .await
-                .expect("Failed to create stderr log file"),
+                stdout_file: File::create(config.stdout().clone().as_str())
+                    .await
+                    .expect("Failed to create stdout log file"),
+                stderr_file: File::create(config.stderr().clone().as_str())
+                    .await
+                    .expect("Failed to create stderr log file"),
                 config,
                 sender,
                 log_sender,
@@ -123,13 +113,25 @@ impl Routine {
 
     //TODO: check if there's not a better way
     async fn log_stdout(&mut self, log: &String) {
-        self.log_sender.send(log.clone()).await.expect("Log receiver dropped");
-        self.stdout_file.write_all(log.as_bytes()).await.expect("Failed to write to stdout log file");
+        self.log_sender
+            .send(log.clone())
+            .await
+            .expect("Log receiver dropped");
+        self.stdout_file
+            .write_all(log.as_bytes())
+            .await
+            .expect("Failed to write to stdout log file");
     }
 
-    async fn log_stderr(&mut self, log: &String){
-        self.log_sender.send(log.clone()).await.expect("Log receiver dropped");
-        self.stdout_file.write_all(log.as_bytes()).await.expect("Failed to write to stdout log file");
+    async fn log_stderr(&mut self, log: &String) {
+        self.log_sender
+            .send(log.clone())
+            .await
+            .expect("Log receiver dropped");
+        self.stdout_file
+            .write_all(log.as_bytes())
+            .await
+            .expect("Failed to write to stdout log file");
     }
 
     async fn listen(&mut self) {
