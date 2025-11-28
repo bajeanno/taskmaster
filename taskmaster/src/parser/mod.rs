@@ -1,5 +1,6 @@
 mod parsed_program;
 pub mod program;
+pub use program::Program;
 use std::fmt::Display;
 use thiserror::Error;
 
