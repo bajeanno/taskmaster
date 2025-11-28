@@ -60,12 +60,11 @@ stdout: /tmp/taskmaster_tests.stdout
 stderr: /tmp/taskmaster_tests.stderr
 env:
   STARTED_BY: taskmaster
-  ANSWER: 42
-"#;
-    let test_file_name = "taskmaster_test.yaml";
+  ANSWER: 42"#;
+    let test_file_name = "/tmp/taskmaster_test.yaml";
     let mut file = File::create(test_file_name).await.unwrap();
     file.write_all(yaml_content.as_bytes()).await.unwrap();
-
+    file.flush().await.unwrap();
     let config = Program::try_from(test_file_name).expect("Failed to parse program");
 
     let routine_handle = Routine::spawn(config).expect("failed to spawn tokio::task");
@@ -79,6 +78,7 @@ env:
     };
 
     handle2.await.expect("failed to join status handle");
+    // sleep(Duration::from_secs(1)).await;
     remove_file("/tmp/taskmaster_tests.stdout")
         .await
         .inspect_err(|err| eprintln!("{err}"))
@@ -87,8 +87,8 @@ env:
         .await
         .inspect_err(|err| eprintln!("{err}"))
         .unwrap();
-    // remove_file(test_file_name)
-    //     .await
-    //     .inspect_err(|err| eprintln!("{err}"))
-    //     .unwrap();
+    remove_file(test_file_name)
+        .await
+        .inspect_err(|err| eprintln!("{err}"))
+        .unwrap();
 }
