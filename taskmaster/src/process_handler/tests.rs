@@ -44,8 +44,7 @@ async fn create_task() {
     };
     // create file /tmp/taskmaster_test.yaml
 
-    let yaml_content = r#"
-cmd: "bash -c \"echo Hello $STARTED_BY!\""
+    let yaml_content = r#"cmd: "bash -c \"echo Hello $STARTED_BY!\""
 numprocs: 1
 umask: 022
 workingdir: /tmp
@@ -63,7 +62,7 @@ env:
   STARTED_BY: taskmaster
   ANSWER: 42
 "#;
-    let test_file_name = "/tmp/taskmaster_test.yaml";
+    let test_file_name = "taskmaster_test.yaml";
     let mut file = File::create(test_file_name).await.unwrap();
     file.write_all(yaml_content.as_bytes()).await.unwrap();
 
@@ -88,8 +87,8 @@ env:
         .await
         .inspect_err(|err| eprintln!("{err}"))
         .unwrap();
-    remove_file(test_file_name)
-        .await
-        .inspect_err(|err| eprintln!("{err}"))
-        .unwrap();
+    // remove_file(test_file_name)
+    //     .await
+    //     .inspect_err(|err| eprintln!("{err}"))
+    //     .unwrap();
 }
