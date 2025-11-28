@@ -1,6 +1,5 @@
 mod parsed_program;
 pub mod program;
-pub use program::Program;
 use std::fmt::Display;
 use thiserror::Error;
 
@@ -11,7 +10,7 @@ pub enum ParseError {
     InvalidUmask(String, String),
     InvalidSignal(String, String),
     EmptyCommand(String),
-    CommandParseError(#[from] shell_words::ParseError),
+    CommandError(#[from] shell_words::ParseError),
 }
 
 impl From<serde_yaml::Error> for ParseError {
@@ -49,7 +48,7 @@ impl Display for ParseError {
                 "Error parsing taskmaster config file: Empty command for program {prog_name}\n\
                  Consider making a reload request after fixing the issue"
             ),
-            ParseError::CommandParseError(error) => write!(
+            ParseError::CommandError(error) => write!(
                 f,
                 "Error parsing taskmaster config file: {error}\n\
                  Consider making a reload request after fixing the issue"

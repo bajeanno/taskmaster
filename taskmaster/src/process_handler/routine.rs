@@ -82,7 +82,7 @@ impl Routine {
             }
 
             if (self.start_attempts > *self.config.start_retries()
-                && start_time.elapsed().as_secs() >= self.config.start_time().clone().into())
+                && start_time.elapsed().as_secs() >= (*self.config.start_time()).into())
                 || *self.config.auto_restart() != AutoRestart::True
             {
                 break;

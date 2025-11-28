@@ -1,10 +1,10 @@
+use super::ParseError;
 use super::parsed_program::{EnvVar, ParsedConfig, ParsedProgram};
 use derive_getters::Getters;
 use libc::sys::types::Pid;
+use shell_words::split;
 use std::{fmt::Display, fs::File};
 use tokio::process::Command;
-use shell_words::split;
-use super::ParseError;
 
 pub struct Config {
     pub programs: Vec<Program>,

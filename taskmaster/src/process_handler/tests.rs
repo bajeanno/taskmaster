@@ -1,4 +1,4 @@
-use crate::parser::Program;
+use crate::parser::program::Program;
 use crate::process_handler::{Log, Routine, Status};
 use std::time::Duration;
 use tokio::select;
@@ -38,7 +38,10 @@ async fn get_status(
 #[cfg(test)]
 #[tokio::test]
 async fn create_task() {
-    use tokio::{fs::{File, remove_file}, io::AsyncWriteExt};
+    use tokio::{
+        fs::{File, remove_file},
+        io::AsyncWriteExt,
+    };
     // create file /tmp/taskmaster_test.yaml
 
     let yaml_content = r#"
@@ -62,9 +65,7 @@ env:
 "#;
     let test_file_name = "/tmp/taskmaster_test.yaml";
     let mut file = File::create(test_file_name).await.unwrap();
-    file.write_all(yaml_content.as_bytes())
-        .await
-        .unwrap();
+    file.write_all(yaml_content.as_bytes()).await.unwrap();
 
     let config = Program::try_from(test_file_name).expect("Failed to parse program");
 
