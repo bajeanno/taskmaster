@@ -5,7 +5,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ParseError {
-    OpenningFile(#[from] std::io::Error),
+    OpeningFile(#[from] std::io::Error),
     InvalidYaml(serde_yaml::Error),
     InvalidUmask(String, String),
     InvalidSignal(String, String),
@@ -22,7 +22,7 @@ impl From<serde_yaml::Error> for ParseError {
 impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ParseError::OpenningFile(err) => write!(
+            ParseError::OpeningFile(err) => write!(
                 f,
                 "Error opening taskmaster config file: {err}\n\
                  Consider making a reload request after creating one"
