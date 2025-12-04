@@ -115,6 +115,11 @@ impl Routine {
         Ok(child)
     }
 
+    /// Sends a log message over the channel and writes it to the appropriate output file.
+    ///
+    /// This function performs two operations:
+    /// 1. Sends the log message through the log channel to any receivers
+    /// 2. Writes the log message to the corresponding output file (stdout or stderr)
     async fn log(&mut self, log: Log) {
         self.log_sender
             .send(log.clone())
