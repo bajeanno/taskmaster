@@ -2,13 +2,6 @@ use crate::parser::{ParseError, program::AutoRestart};
 use serde::{Deserialize, Deserializer};
 use std::{collections::HashMap, fs::File};
 
-#[derive(Debug, Deserialize)]
-#[allow(dead_code)] // TODO: remove this
-pub struct EnvVar {
-    pub key: String,
-    pub value: String,
-}
-
 impl<'de> Deserialize<'de> for AutoRestart {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

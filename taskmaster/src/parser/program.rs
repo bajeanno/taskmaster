@@ -1,5 +1,5 @@
 use super::ParseError;
-use super::parsed_program::{EnvVar, ParsedConfig, ParsedProgram};
+use super::parsed_program::{ParsedConfig, ParsedProgram};
 use derive_getters::Getters;
 use libc::sys::types::Pid;
 use std::{fmt::Display, fs::File};
@@ -74,25 +74,23 @@ impl TryFrom<ParsedProgram> for Program {
                 origin.name.clone().unwrap_or_else(|| String::from("")),
             )
         })?;
+
         if umask >= 0o777 {
             return Err(ParseError::InvalidUmask(
                 "Invalid umask".to_string(),
                 origin.name.unwrap_or_else(|| String::from("")),
             ));
         }
+
         let name = origin.name.unwrap_or_else(|| String::from(""));
         let mut cmd = create_command(origin.cmd.clone(), &name)?;
-        let env = match origin.env {
-            Some(x) => x
-                .into_iter()
-                .map(|(key, value)| EnvVar { key, value })
-                .collect::<Vec<EnvVar>>(),
-            None => Vec::new(),
-        };
         cmd.env_clear();
-        env.iter().for_each(|var| {
-            cmd.env(&var.key, &var.value);
-        });
+        if let Some(env) = origin.env {
+            env.iter().for_each(|(key, value)| {
+                cmd.env(key, value);
+            });
+        }
+
         let result = Self {
             name,
             pids: Vec::new(),
@@ -129,10 +127,7 @@ impl Display for Program {
         write!(
             f,
             "{:<15}{:50}{: ^15?}{:>10o}",
-            self.name.clone(),
-            self.cmd_str.clone(),
-            self.pids,
-            self.umask,
+            self.name, self.cmd_str, self.pids, self.umask,
         )
     }
 }
