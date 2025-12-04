@@ -53,11 +53,7 @@ impl TryFrom<&str> for ParsedProgram {
     type Error = ParseError;
 
     fn try_from(origin: &str) -> Result<Self, ParseError> {
-        println!("opening file {}", origin);
-        let file = File::open(origin).map_err(|err| ParseError::OpeningFile(err))?;
-        println!("parsing");
-        let result: Self = serde_yaml::from_reader(file)?;
-        println!("reading file");
+        let result: Self = serde_yaml::from_str(origin)?;
         Ok(result)
     }
 }
