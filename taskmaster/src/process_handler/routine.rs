@@ -144,18 +144,16 @@ impl Routine {
     async fn listen(&mut self, outputs: Outputs) {
         let mut stdout = BufReader::new(outputs.stdout);
         let mut stderr = BufReader::new(outputs.stderr);
-
+        let mut stdout_output;
+        let mut stderr_output;
         loop {
-            let mut stdout_output = Vec::new();
-            let mut stderr_output = Vec::new();
-            let log;
-
+            stdout_output = Vec::new();
+            stderr_output = Vec::new();
             select! {
                 read_result = stdout.read_until(b'\n', &mut stdout_output) => {
                     match read_result {
                         Ok(read_result) => {
                             if read_result == 0 { break; }
-                            log = Log::Stdout(String::from_utf8_lossy(&stdout_output).to_string());
                         },
                         Err(err) => {
                             eprintln!("Error encountered while reading stdout: {err}");
@@ -167,7 +165,6 @@ impl Routine {
                     match read_result {
                         Ok(read_result) => {
                             if read_result == 0 { break; }
-                            log = Log::Stderr(String::from_utf8_lossy(&stderr_output).to_string());
                         },
                         Err(err) => {
                             eprintln!("Error encountered while reading stderr: {err}");
@@ -178,9 +175,18 @@ impl Routine {
                 else => break,
             }
 
-            if !stdout_output.is_empty() || !stderr_output.is_empty() {
-                self.log(log).await;
+            if !stdout_output.is_empty() {
+                self.log(Log::Stdout(String::from_utf8_lossy(&stdout_output).to_string())).await;
             }
+            if !stderr_output.is_empty() {
+                self.log(Log::Stderr(String::from_utf8_lossy(&stderr_output).to_string())).await;
+            }
+        }
+        if !stdout_output.is_empty() {
+            self.log(Log::Stdout(String::from_utf8_lossy(&stdout_output).to_string())).await;
+        }
+        if !stderr_output.is_empty() {
+            self.log(Log::Stderr(String::from_utf8_lossy(&stderr_output).to_string())).await;
         }
     }
 }
