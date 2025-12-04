@@ -59,7 +59,7 @@ env:
   ANSWER: 42"#;
     let config = Program::try_from(yaml_content).expect("Failed to parse program");
 
-    let routine_handle = Routine::spawn(config).expect("failed to spawn tokio::task");
+    let routine_handle = Routine::spawn(config).await.expect("failed to spawn tokio::task");
     let handle2 = tokio::spawn(get_status(
         routine_handle.status_receiver,
         routine_handle.log_receiver,
