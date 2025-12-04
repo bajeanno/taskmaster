@@ -80,7 +80,8 @@ env:
 
     let mut file = File::open(stdout_file).expect("failed to open stdout file");
     let mut buffer: Vec<u8> = Vec::new();
-    file.read_to_end(&mut buffer).expect("failed to read stdout file");
+    file.read_to_end(&mut buffer)
+        .expect("failed to read stdout file");
     {
         let buffer = String::from_utf8(buffer).expect("failed to convert stdout to string");
         assert_eq!(buffer.trim(), "Hello taskmaster!");
@@ -88,7 +89,8 @@ env:
 
     file = File::open(stderr_file).expect("failed to open stderr file");
     buffer = Vec::new();
-    file.read_to_end(&mut buffer).expect("failed to read stderr file");
+    file.read_to_end(&mut buffer)
+        .expect("failed to read stderr file");
     {
         let buffer = String::from_utf8(buffer).expect("failed to convert stderr to string");
         assert_eq!(buffer.trim(), "");
