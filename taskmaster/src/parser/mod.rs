@@ -9,7 +9,7 @@ pub enum ParseError {
     OpeningFile(#[from] std::io::Error),
     #[error("Error parsing taskmaster config file: {0}\n\
      Consider making a reload request after fixing the issue")]
-    InvalidYaml(serde_yaml::Error),
+    InvalidYaml(#[from] serde_yaml::Error),
     #[error("Error parsing taskmaster config file: invalid stopsignal {0} for program \
      {1}\n\
      Consider making a reload request after fixing the issue")]
@@ -23,10 +23,4 @@ pub enum ParseError {
     #[error("Error parsing taskmaster config file: {0}\n\
      Consider making a reload request after fixing the issue")]
     CommandError(#[from] shell_words::ParseError),
-}
-
-impl From<serde_yaml::Error> for ParseError {
-    fn from(err: serde_yaml::Error) -> ParseError {
-        ParseError::InvalidYaml(err)
-    }
 }
