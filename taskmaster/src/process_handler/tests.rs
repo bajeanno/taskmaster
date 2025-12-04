@@ -26,8 +26,8 @@ async fn get_status(
             },
             Some(log) = log_receiver.recv() => {
                 match log {
-                    Log::Stdout(log) => println!("Stdout: {log}"),
-                    Log::Stderr(log) => println!("Stderr: {log}"),
+                    Log::Stdout(log) => assert_eq!(log, "Hello taskmaster!\n"),
+                    Log::Stderr(log) => assert_eq!(log, ""),
                 }
             },
             else => break,
@@ -38,6 +38,8 @@ async fn get_status(
 #[tokio::test]
 #[cfg(test)]
 async fn create_task() {
+    use std::{fs::File, io::Read};
+
     use tokio::fs::remove_file;
 
     let yaml_content = r#"cmd: "bash -c \"echo Hello $STARTED_BY!\""
@@ -71,13 +73,31 @@ env:
         _ = routine_handle.join_handle => {},
         _ = sleep(Duration::from_secs(3)) => {},
     };
-
     handle2.await.expect("failed to join status handle");
-    // sleep(Duration::from_secs(1)).await;
-    remove_file("/tmp/taskmaster_tests.stdout")
-        .await
-        .inspect_err(|err| eprintln!("{err}"))
-        .unwrap();
+
+    let stdout_file = "/tmp/taskmaster_tests.stdout";
+    let stderr_file = "/tmp/taskmaster_tests.stderr";
+
+    let mut file = File::open(stdout_file).expect("failed to open stdout file");
+    let mut buffer: Vec<u8> = Vec::new();
+    file.read_to_end(&mut buffer).expect("failed to read stdout file");
+    {
+        let buffer = String::from_utf8(buffer).expect("failed to convert stdout to string");
+        assert_eq!(buffer.trim(), "Hello taskmaster!");
+    }
+
+    file = File::open(stderr_file).expect("failed to open stderr file");
+    buffer = Vec::new();
+    file.read_to_end(&mut buffer).expect("failed to read stderr file");
+    {
+        let buffer = String::from_utf8(buffer).expect("failed to convert stderr to string");
+        assert_eq!(buffer.trim(), "");
+    }
+
+    // remove_file("/tmp/taskmaster_tests.stdout")
+    //     .await
+    //     .inspect_err(|err| eprintln!("{err}"))
+    //     .unwrap();
     remove_file("/tmp/taskmaster_tests.stderr")
         .await
         .inspect_err(|err| eprintln!("{err}"))

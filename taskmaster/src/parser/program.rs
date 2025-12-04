@@ -121,7 +121,6 @@ impl TryFrom<&str> for Program {
     type Error = ParseError;
 
     fn try_from(origin: &str) -> Result<Self, ParseError> {
-        println!("parsing program {}", origin);
         Self::try_from(ParsedProgram::try_from(origin)?)
     }
 }
