@@ -176,17 +176,29 @@ impl Routine {
             }
 
             if !stdout_output.is_empty() {
-                self.log(Log::Stdout(String::from_utf8_lossy(&stdout_output).to_string())).await;
+                self.log(Log::Stdout(
+                    String::from_utf8_lossy(&stdout_output).to_string(),
+                ))
+                .await;
             }
             if !stderr_output.is_empty() {
-                self.log(Log::Stderr(String::from_utf8_lossy(&stderr_output).to_string())).await;
+                self.log(Log::Stderr(
+                    String::from_utf8_lossy(&stderr_output).to_string(),
+                ))
+                .await;
             }
         }
         if !stdout_output.is_empty() {
-            self.log(Log::Stdout(String::from_utf8_lossy(&stdout_output).to_string())).await;
+            self.log(Log::Stdout(
+                String::from_utf8_lossy(&stdout_output).to_string(),
+            ))
+            .await;
         }
         if !stderr_output.is_empty() {
-            self.log(Log::Stderr(String::from_utf8_lossy(&stderr_output).to_string())).await;
+            self.log(Log::Stderr(
+                String::from_utf8_lossy(&stderr_output).to_string(),
+            ))
+            .await;
         }
     }
 }
