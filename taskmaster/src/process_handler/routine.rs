@@ -30,7 +30,6 @@ pub struct Routine {
     log_sender: mpsc::Sender<Log>,
     config: Program,
     start_attempts: u32,
-    outputs: Option<Outputs>,
     status: Status,
     stdout_file: File,
     stderr_file: File,
@@ -54,7 +53,6 @@ impl Routine {
                 status_sender: sender,
                 log_sender,
                 start_attempts: 0,
-                outputs: None,
                 status: Status::NotSpawned,
             }
             .routine()
@@ -69,7 +67,17 @@ impl Routine {
             start_time = Instant::now();
             if let Ok(mut child) = self.start().await {
                 self.status(Status::Starting).await;
-                self.listen().await;
+                let outputs = Outputs {
+                    stdout: child
+                        .stdout
+                        .take()
+                        .expect("Child process stdout not captured"),
+                    stderr: child
+                        .stderr
+                        .take()
+                        .expect("Child process stderr not captured"),
+                };
+                self.listen(outputs).await;
                 self.status(Status::Exited(
                     child.wait().await.expect("error waiting for child"),
                 ))
@@ -100,18 +108,12 @@ impl Routine {
 
     async fn start(&mut self) -> Result<Child, Error> {
         self.start_attempts += 1;
-
-        let mut child = self
+        let child = self
             .config
             .cmd
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
-
-        self.outputs = Some(Outputs {
-            stdout: child.stdout.take().expect("Failed to open stdout"),
-            stderr: child.stderr.take().expect("Failed to open stderr"),
-        });
         Ok(child)
     }
 
@@ -141,8 +143,7 @@ impl Routine {
         }
     }
 
-    async fn listen(&mut self) {
-        let outputs: Outputs = self.outputs.take().expect("Outputs should not be None");
+    async fn listen(&mut self, outputs: Outputs) {
         let mut stdout = BufReader::new(outputs.stdout);
         let mut stderr = BufReader::new(outputs.stderr);
 
@@ -152,13 +153,29 @@ impl Routine {
             let log;
 
             select! {
-                Ok(read_result) = stdout.read_until(b'\n', &mut stdout_output) => {
-                    if read_result == 0 { break; }
-                    log = Log::Stdout(String::from_utf8_lossy(&stdout_output).to_string());
+                read_result = stdout.read_until(b'\n', &mut stdout_output) => {
+                    match read_result {
+                        Ok(read_result) => {
+                            if read_result == 0 { break; }
+                            log = Log::Stdout(String::from_utf8_lossy(&stdout_output).to_string());
+                        },
+                        Err(err) => {
+                            eprintln!("Error encountered while reading stdout: {err}");
+                            break;
+                        },
+                    }
                 },
-                Ok(read_result) = stderr.read_until(b'\n', &mut stderr_output) => {
-                    if read_result == 0 { break; }
-                    log = Log::Stderr(String::from_utf8_lossy(&stderr_output).to_string());
+                read_result = stderr.read_until(b'\n', &mut stderr_output) => {
+                    match read_result {
+                        Ok(read_result) => {
+                            if read_result == 0 { break; }
+                            log = Log::Stderr(String::from_utf8_lossy(&stderr_output).to_string());
+                        },
+                        Err(err) => {
+                            eprintln!("Error encountered while reading stderr: {err}");
+                            break;
+                        },
+                    }
                 },
                 else => break,
             }
