@@ -40,15 +40,13 @@ impl Routine {
     pub async fn spawn(config: Program) -> Result<Handle, Error> {
         let (status_sender, status_receiver) = mpsc::channel(100);
         let (log_sender, log_receiver) = mpsc::channel(100);
+        let stdout_file = File::create(config.stdout().clone().as_str()).await?;
+        let stderr_file = File::create(config.stderr().clone().as_str()).await?;
 
         let join_handle = tokio::spawn(async move {
             Self {
-                stdout_file: File::create(config.stdout().clone().as_str())
-                    .await
-                    .expect("Failed to create stdout log file"),
-                stderr_file: File::create(config.stderr().clone().as_str())
-                    .await
-                    .expect("Failed to create stderr log file"),
+                stdout_file,
+                stderr_file,
                 config,
                 status_sender,
                 log_sender,
