@@ -2,7 +2,6 @@ use super::ParseError;
 use super::parsed_program::{EnvVar, ParsedConfig, ParsedProgram};
 use derive_getters::Getters;
 use libc::sys::types::Pid;
-use shell_words::split;
 use std::{fmt::Display, fs::File};
 use tokio::process::Command;
 
@@ -52,7 +51,7 @@ impl TryFrom<ParsedConfig> for Config {
 
 pub fn create_command(cmd: String, name: &String) -> Result<Command, ParseError> {
     let mut command: Command;
-    let mut iter = split(&cmd)?.into_iter();
+    let mut iter = shell_words::split(&cmd)?.into_iter();
     if let Some(program) = iter.next() {
         command = Command::new(program);
         iter.for_each(|arg| {
