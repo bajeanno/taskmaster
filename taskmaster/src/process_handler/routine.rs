@@ -127,20 +127,37 @@ impl Routine {
             .expect("Log receiver dropped");
         match log {
             Log::Stdout(ref l) => {
-                self.stdout_file
-                    .write_all(l.as_bytes())
-                    .await
-                    .expect("Failed to write to stdout log file");
+                if let Err(_err) = self.stdout_file.write_all(l.as_bytes()).await {
+                    todo!()
+                }
             }
             Log::Stderr(ref l) => {
-                self.stderr_file
-                    .write_all(l.as_bytes())
-                    .await
-                    .expect("Failed to write to stderr log file");
+                if let Err(_err) = self.stderr_file.write_all(l.as_bytes()).await {
+                    todo!()
+                }
             }
         }
     }
 
+    ///  Listens to the outputs of a child process and logs them.
+    ///
+    ///  This function reads from both stdout and stderr streams of a child process,
+    ///  splitting the output by newlines and logging each line as it arrives.
+    ///
+    ///  The function uses `tokio::select!` to concurrently read from both streams,
+    ///  continuing until either stream is exhausted (read returns 0 bytes) or an
+    ///  error occurs. After the main loop exits, it flushes any remaining data that
+    ///  may not have been terminated by a newline character.
+    ///
+    ///  # Arguments
+    ///
+    ///  * `outputs` - An `Outputs` struct containing the stdout and stderr handles
+    ///    from the child process.
+    ///
+    ///  # Panics
+    ///
+    ///  Will panic if the log sender has been dropped, which would indicate a
+    ///  critical failure in the channel communication.
     async fn listen(&mut self, outputs: Outputs) {
         let mut stdout = BufReader::new(outputs.stdout);
         let mut stderr = BufReader::new(outputs.stderr);
