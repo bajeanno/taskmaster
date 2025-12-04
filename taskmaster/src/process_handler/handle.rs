@@ -17,7 +17,7 @@ pub struct Handle {
 
 #[allow(dead_code)] //TODO: Remove that
 impl Handle {
-    pub fn new(
+    pub(super) fn new(
         join_handle: tokio::task::JoinHandle<()>,
         status_receiver: StatusReceiver,
         log_receiver: LogReceiver,
