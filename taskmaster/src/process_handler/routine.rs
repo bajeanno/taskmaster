@@ -37,8 +37,8 @@ pub struct Routine {
 
 #[allow(dead_code)] //TODO: Remove that
 impl Routine {
-    pub fn spawn(config: Program) -> Result<Handle, Error> {
-        let (sender, receiver) = mpsc::channel(100);
+    pub async fn spawn(config: Program) -> Result<Handle, Error> {
+        let (status_sender, status_receiver) = mpsc::channel(100);
         let (log_sender, log_receiver) = mpsc::channel(100);
 
         let join_handle = tokio::spawn(async move {
@@ -50,7 +50,7 @@ impl Routine {
                     .await
                     .expect("Failed to create stderr log file"),
                 config,
-                status_sender: sender,
+                status_sender,
                 log_sender,
                 start_attempts: 0,
                 status: Status::NotSpawned,
@@ -58,7 +58,7 @@ impl Routine {
             .routine()
             .await;
         });
-        Ok(Handle::new(join_handle, receiver, log_receiver))
+        Ok(Handle::new(join_handle, status_receiver, log_receiver))
     }
 
     async fn routine(mut self) {
