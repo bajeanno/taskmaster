@@ -85,9 +85,17 @@ impl Routine {
                         .take()
                         .expect("Child process stderr not captured"),
                 };
+
                 match self.listen(outputs).await {
-                    Ok(()) => {}
-                    Err(err) => eprintln!("{err}"),
+                    Ok(()) => {},
+                    Err(LogError::SenderDropped(err)) => {
+                        eprintln!("Log receiver dropped: {err}");
+                        eprintln!("Initiating process killing");
+                        child.kill().await.expect("Failed to kill child process"); //TODO: replace with appropriate signal sending
+                    }
+                    Err(LogError::FileWriteError(err)) => {
+                        eprintln!("Error writing to log file: {err}");
+                    }
                 }
                 self.status(Status::Exited(
                     child.wait().await.expect("error waiting for child"),
