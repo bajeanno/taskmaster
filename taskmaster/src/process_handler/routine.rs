@@ -1,6 +1,8 @@
 use super::{Handle, Status};
 use crate::parser::program::{AutoRestart, Program};
 use std::process::Stdio;
+use thiserror::Error;
+use tokio::sync::mpsc::error::SendError;
 use tokio::{fs::File, io::AsyncWriteExt};
 use tokio::{
     io::{AsyncBufReadExt, BufReader, Error},
@@ -23,6 +25,14 @@ pub type StatusSender = mpsc::Sender<Status>;
 pub struct Outputs {
     stdout: ChildStdout,
     stderr: ChildStderr,
+}
+
+#[derive(Error, Debug)]
+enum LogError {
+    #[error("{0}")]
+    SenderDropped(#[from] SendError<Log>),
+    #[error("{0}")]
+    FileWriteError(#[from] std::io::Error),
 }
 
 pub struct Routine {
@@ -75,7 +85,10 @@ impl Routine {
                         .take()
                         .expect("Child process stderr not captured"),
                 };
-                self.listen(outputs).await;
+                match self.listen(outputs).await {
+                    Ok(()) => {}
+                    Err(err) => eprintln!("{err}"),
+                }
                 self.status(Status::Exited(
                     child.wait().await.expect("error waiting for child"),
                 ))
@@ -120,23 +133,14 @@ impl Routine {
     /// This function performs two operations:
     /// 1. Sends the log message through the log channel to any receivers
     /// 2. Writes the log message to the corresponding output file (stdout or stderr)
-    async fn log(&mut self, log: Log) {
-        self.log_sender
-            .send(log.clone())
-            .await
-            .expect("Log receiver dropped");
+    async fn log(&mut self, log: Log) -> Result<(), LogError> {
+        self.log_sender.send(log.clone()).await?;
+
         match log {
-            Log::Stdout(ref l) => {
-                if let Err(_err) = self.stdout_file.write_all(l.as_bytes()).await {
-                    todo!()
-                }
-            }
-            Log::Stderr(ref l) => {
-                if let Err(_err) = self.stderr_file.write_all(l.as_bytes()).await {
-                    todo!()
-                }
-            }
+            Log::Stdout(ref l) => self.stdout_file.write_all(l.as_bytes()).await?,
+            Log::Stderr(ref l) => self.stderr_file.write_all(l.as_bytes()).await?,
         }
+        Ok(())
     }
 
     ///  Listens to the outputs of a child process and logs them.
@@ -158,7 +162,7 @@ impl Routine {
     ///
     ///  Will panic if the log sender has been dropped, which would indicate a
     ///  critical failure in the channel communication.
-    async fn listen(&mut self, outputs: Outputs) {
+    async fn listen(&mut self, outputs: Outputs) -> Result<(), LogError> {
         let mut stdout = BufReader::new(outputs.stdout);
         let mut stderr = BufReader::new(outputs.stderr);
         let mut stdout_output;
@@ -196,26 +200,27 @@ impl Routine {
                 self.log(Log::Stdout(
                     String::from_utf8_lossy(&stdout_output).to_string(),
                 ))
-                .await;
+                .await?;
             }
             if !stderr_output.is_empty() {
                 self.log(Log::Stderr(
                     String::from_utf8_lossy(&stderr_output).to_string(),
                 ))
-                .await;
+                .await?;
             }
         }
         if !stdout_output.is_empty() {
             self.log(Log::Stdout(
                 String::from_utf8_lossy(&stdout_output).to_string(),
             ))
-            .await;
+            .await?;
         }
         if !stderr_output.is_empty() {
             self.log(Log::Stderr(
                 String::from_utf8_lossy(&stderr_output).to_string(),
             ))
-            .await;
+            .await?;
         }
+        Ok(())
     }
 }
