@@ -87,7 +87,7 @@ impl Routine {
                 };
 
                 match self.listen(outputs).await {
-                    Ok(()) => {},
+                    Ok(()) => {}
                     Err(LogError::SenderDropped(err)) => {
                         eprintln!("Log receiver dropped: {err}");
                         eprintln!("Initiating process killing");
