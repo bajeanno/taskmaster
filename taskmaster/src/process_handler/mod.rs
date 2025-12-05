@@ -1,8 +1,8 @@
-#[cfg(test)]
-mod tests;
 mod handle;
 mod routine;
 mod status;
+#[cfg(test)]
+mod tests;
 
 pub use handle::Handle;
 #[allow(unused)]
