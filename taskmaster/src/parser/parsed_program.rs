@@ -93,13 +93,20 @@ impl ParsedProgram {
             sig => Err(ParseError::InvalidSignal(sig.to_string(), name.to_string())),
         }
     }
+
+    fn set_name(&mut self, name: &str) {
+        if self.name.is_none() {
+            self.name = Some(name.to_string());
+        }
+    }
 }
 
 impl ParsedConfig {
     pub fn new(file: File) -> Result<Self, ParseError> {
-        let new_config: Self = serde_yaml::from_reader(file)?;
-        for (name, program) in &new_config.programs {
             program.check_signal(name)?;
+        let mut new_config: Self = serde_yaml::from_reader(file)?;
+        for (name, program) in &mut new_config.programs {
+            program.set_name(name);
         }
         Ok(new_config)
     }
