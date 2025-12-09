@@ -1,6 +1,6 @@
 use crate::parser::{ParseError, program::AutoRestart};
 use serde::{Deserialize, Deserializer};
-use std::{collections::HashMap, fs::File};
+use std::{collections::HashMap, ffi::c_int, fs::File};
 
 impl<'de> Deserialize<'de> for AutoRestart {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -51,49 +51,48 @@ impl TryFrom<&str> for ParsedProgram {
     }
 }
 
-impl ParsedProgram {
-    fn check_signal(&self, name: &str) -> Result<String, ParseError> {
-        match self
-            .stopsignal
-            .clone()
-            .unwrap_or_else(|| String::from("INT"))
-            .as_ref()
-        {
-            "HUP" => Ok(String::from("HUP")),
-            "INT" => Ok(String::from("INT")),
-            "QUIT" => Ok(String::from("QUIT")),
-            "ILL" => Ok(String::from("ILL")),
-            "TRAP" => Ok(String::from("TRAP")),
-            "ABRT" => Ok(String::from("ABRT")),
-            "EMT" => Ok(String::from("EMT")),
-            "FPE" => Ok(String::from("FPE")),
-            "KILL" => Ok(String::from("KILL")),
-            "BUS" => Ok(String::from("BUS")),
-            "SEGV" => Ok(String::from("SEGV")),
-            "SYS" => Ok(String::from("SYS")),
-            "PIPE" => Ok(String::from("PIPE")),
-            "ALRM" => Ok(String::from("ALRM")),
-            "TERM" => Ok(String::from("TERM")),
-            "URG" => Ok(String::from("URG")),
-            "STOP" => Ok(String::from("STOP")),
-            "TSTP" => Ok(String::from("TSTP")),
-            "CONT" => Ok(String::from("CONT")),
-            "CHLD" => Ok(String::from("CHLD")),
-            "TTIN" => Ok(String::from("TTIN")),
-            "TTOU" => Ok(String::from("TTOU")),
-            "IO" => Ok(String::from("IO")),
-            "XCPU" => Ok(String::from("XCPU")),
-            "XFSZ" => Ok(String::from("XFSZ")),
-            "VTALRM" => Ok(String::from("VTALRM")),
-            "PROF" => Ok(String::from("PROF")),
-            "WINCH" => Ok(String::from("WINCH")),
-            "INFO" => Ok(String::from("INFO")),
-            "USR1" => Ok(String::from("USR1")),
-            "USR2" => Ok(String::from("USR2")),
-            sig => Err(ParseError::InvalidSignal(sig.to_string(), name.to_string())),
-        }
+pub fn get_signal(signal: Option<String>, name: &str) -> Result<c_int, ParseError> {
+    match signal
+        .clone()
+        .unwrap_or_else(|| String::from("INT"))
+        .as_ref()
+    {
+        "HUP" => Ok(libc::signal::SIGHUP),
+        "INT" => Ok(libc::signal::SIGINT),
+        "QUIT" => Ok(libc::signal::SIGQUIT),
+        "ILL" => Ok(libc::signal::SIGILL),
+        "TRAP" => Ok(libc::signal::SIGTRAP),
+        "ABRT" => Ok(libc::signal::SIGABRT),
+        "EMT" => Ok(libc::signal::SIGEMT),
+        "FPE" => Ok(libc::signal::SIGFPE),
+        "KILL" => Ok(libc::signal::SIGKILL),
+        "BUS" => Ok(libc::signal::SIGBUS),
+        "SEGV" => Ok(libc::signal::SIGSEGV),
+        "SYS" => Ok(libc::signal::SIGSYS),
+        "PIPE" => Ok(libc::signal::SIGPIPE),
+        "ALRM" => Ok(libc::signal::SIGALRM),
+        "TERM" => Ok(libc::signal::SIGTERM),
+        "URG" => Ok(libc::signal::SIGURG),
+        "STOP" => Ok(libc::signal::SIGSTOP),
+        "TSTP" => Ok(libc::signal::SIGTSTP),
+        "CONT" => Ok(libc::signal::SIGCONT),
+        "CHLD" => Ok(libc::signal::SIGCHLD),
+        "TTIN" => Ok(libc::signal::SIGTTIN),
+        "TTOU" => Ok(libc::signal::SIGTTOU),
+        "IO" => Ok(libc::signal::SIGIO),
+        "XCPU" => Ok(libc::signal::SIGXCPU),
+        "XFSZ" => Ok(libc::signal::SIGXFSZ),
+        "VTALRM" => Ok(libc::signal::SIGVTALRM),
+        "PROF" => Ok(libc::signal::SIGPROF),
+        "WINCH" => Ok(libc::signal::SIGWINCH),
+        "INFO" => Ok(libc::signal::SIGINFO),
+        "USR1" => Ok(libc::signal::SIGUSR1),
+        "USR2" => Ok(libc::signal::SIGUSR2),
+        sig => Err(ParseError::InvalidSignal(sig.to_string(), name.to_string())),
     }
+}
 
+impl ParsedProgram {
     fn set_name(&mut self, name: &str) {
         if self.name.is_none() {
             self.name = Some(name.to_string());
@@ -103,9 +102,9 @@ impl ParsedProgram {
 
 impl ParsedConfig {
     pub fn new(file: File) -> Result<Self, ParseError> {
-            program.check_signal(name)?;
         let mut new_config: Self = serde_yaml::from_reader(file)?;
         for (name, program) in &mut new_config.programs {
+            get_signal(program.stopsignal.clone(), name)?;
             program.set_name(name);
         }
         Ok(new_config)

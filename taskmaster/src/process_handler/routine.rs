@@ -1,5 +1,6 @@
 use super::{Handle, Status};
 use crate::parser::program::{AutoRestart, Program};
+use std::ffi::c_int;
 use std::process::Stdio;
 use thiserror::Error;
 use tokio::sync::mpsc::error::SendError;
@@ -91,7 +92,11 @@ impl Routine {
                     Err(LogError::SenderDropped(err)) => {
                         eprintln!("Log receiver dropped: {err}");
                         eprintln!("Initiating process killing");
-                        child.kill().await.expect("Failed to kill child process"); //TODO: replace with appropriate signal sending
+                        if let Some(pid) = child.id() {
+                            unsafe {
+                                libc::signal::kill(pid as c_int, libc::signal::SIGKILL);
+                            }
+                        }
                     }
                     Err(LogError::FileWriteError(err)) => {
                         eprintln!("Error writing to log file: {err}");

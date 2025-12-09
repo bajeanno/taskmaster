@@ -1,7 +1,10 @@
+use crate::parser::parsed_program::get_signal;
+
 use super::ParseError;
 use super::parsed_program::{ParsedConfig, ParsedProgram};
 use derive_getters::Getters;
 use libc::sys::types::Pid;
+use std::ffi::c_int;
 use std::{fmt::Display, fs::File};
 use tokio::process::Command;
 
@@ -31,7 +34,7 @@ pub struct Program {
     exit_codes: Vec<u8>,
     start_retries: u32,
     start_time: u32,
-    stop_signal: String, // check for valid signal
+    stop_signal: c_int, // check for valid signal
     stop_time: u32,
     stdout: String,
     stderr: String,
@@ -92,7 +95,7 @@ impl TryFrom<ParsedProgram> for Program {
         }
 
         let result = Self {
-            name,
+            name: name.clone(),
             pids: Vec::new(),
             cmd,
             cmd_str: origin.cmd.clone(),
@@ -104,7 +107,7 @@ impl TryFrom<ParsedProgram> for Program {
             exit_codes: origin.exitcodes.unwrap_or_else(|| Vec::from([0])),
             start_retries: origin.startretries.unwrap_or(0),
             start_time: origin.starttime.unwrap_or(0),
-            stop_signal: origin.stopsignal.unwrap_or_else(|| String::from("INT")), // check for valid signal
+            stop_signal: get_signal(origin.stopsignal, name.as_str())?,
             stop_time: origin.stoptime.unwrap_or(5),
             stdout: origin.stdout.unwrap_or_else(|| String::from("/dev/null")),
             stderr: origin.stderr.unwrap_or_else(|| String::from("/dev/null")),
