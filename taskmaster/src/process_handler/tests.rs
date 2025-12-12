@@ -26,8 +26,14 @@ async fn get_status(
             },
             Some(log) = log_receiver.recv() => {
                 match log {
-                    Log::Stdout(log) => assert_eq!(log, "Hello taskmaster!\n"),
-                    Log::Stderr(log) => assert_eq!(log, ""),
+                    Log::Stdout(log, name) => {
+                        assert_eq!(log, "Hello taskmaster!\n");
+                        assert_eq!(name, "taskmaster_test_task");
+                    },
+                    Log::Stderr(log, name) => {
+                        assert_eq!(log, "");
+                        assert_eq!(name, "taskmaster_test_task");
+                    },
                 }
             },
             else => break,
@@ -43,6 +49,7 @@ async fn create_task() {
     use tokio::fs::remove_file;
 
     let yaml_content = r#"cmd: "bash -c \"echo Hello $STARTED_BY!\""
+name: "taskmaster_test_task"
 numprocs: 1
 umask: 022
 workingdir: /tmp
