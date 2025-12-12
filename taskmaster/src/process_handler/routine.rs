@@ -112,12 +112,28 @@ impl Routine {
                 .await;
             }
 
-            if (self.start_attempts > *self.config.start_retries()
-                && start_time.elapsed().as_secs() >= (*self.config.start_time()).into())
-                || *self.config.auto_restart() != AutoRestart::True
+            if self.start_attempts > *self.config.start_retries()
+                && start_time.elapsed().as_secs() >= (*self.config.start_time()).into()
             {
                 break;
             }
+            if *self.config.auto_restart() == AutoRestart::False {
+                break;
+            }
+            if *self.config.auto_restart() == AutoRestart::Unexpected
+                && self.check_expected_status()
+            {
+                break;
+            }
+        }
+    }
+
+    fn check_expected_status(&self) -> bool {
+        if let Status::Exited(exit_status) = &self.status {
+            let exit_code = exit_status.code().unwrap_or_default() as u8;
+            self.config.exit_codes().contains(&exit_code)
+        } else {
+            false
         }
     }
 
