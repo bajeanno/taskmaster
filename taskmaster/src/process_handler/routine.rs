@@ -10,7 +10,7 @@ use tokio::{
     time::Instant,
 };
 
-#[allow(dead_code)] //TODO: remove that
+#[derive(Clone, Debug)]
 pub enum Log {
     Stdout(String, String),
     Stderr(String, String),
@@ -196,9 +196,9 @@ impl Routine {
 async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputType) {
     match output {
         OutputType::Stdout(file) => match log {
-            Log::Stdout(ref l, _) => {
+            Log::Stdout(ref l, ref name) => {
                 let _ = file.write_all(l.as_bytes()).await.inspect_err(|err| {
-                    eprintln!("Failed to write process stdout output to log file: {err}");
+                    eprintln!("Taskmaster error: {name}: Failed to write process stdout output to log file: {err}");
                 });
             }
             _ => panic!(
@@ -206,9 +206,9 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputT
             ),
         },
         OutputType::Stderr(file) => match log {
-            Log::Stderr(ref l, _) => {
+            Log::Stderr(ref l, ref name) => {
                 let _ = file.write_all(l.as_bytes()).await.inspect_err(|err| {
-                    eprintln!("Failed to write process stderr output to log file: {err}");
+                    eprintln!("Taskmaster error: {name}: Failed to write process stderr output to log file: {err}");
                 });
             }
             _ => panic!(
@@ -217,9 +217,9 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputT
         },
     };
     log_sender
-        .send(log)
+        .send(log.clone())
         .await
-        .expect("Log receiver was dropped");
+        .expect("Taskmaster error: {log.1}: Log receiver was dropped");
 }
 
 async fn listen_and_log<R: AsyncBufRead + Unpin>(
@@ -248,7 +248,9 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
                 dispatch_log(log, &mut sender, output_type).await;
             }
             Err(err) => {
-                eprintln!("Error encountered while reading stderr: {err}");
+                eprintln!(
+                    "Taskmaster error: {name}: Error encountered while reading stderr: {err}"
+                );
                 break;
             }
         }
