@@ -103,10 +103,10 @@ env:
         assert_eq!(buffer.trim(), "");
     }
 
-    // remove_file("/tmp/taskmaster_tests.stdout")
-    //     .await
-    //     .inspect_err(|err| eprintln!("{err}"))
-    //     .unwrap();
+    remove_file("/tmp/taskmaster_tests.stdout")
+        .await
+        .inspect_err(|err| eprintln!("{err}"))
+        .unwrap();
     remove_file("/tmp/taskmaster_tests.stderr")
         .await
         .inspect_err(|err| eprintln!("{err}"))
