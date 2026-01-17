@@ -83,9 +83,8 @@ impl Routine {
     }
 
     async fn routine(mut self, stdout_file: &Mutex<OutputType>, stderr_file: &Mutex<OutputType>) {
-        let mut start_time: Instant;
         loop {
-            start_time = Instant::now();
+            let start_time = Instant::now();
             if let Ok(mut child) = self.start().await {
                 self.status(Status::Starting).await;
                 let outputs = Outputs::new(&mut child);
@@ -102,26 +101,56 @@ impl Routine {
                 .await;
             }
 
-            if self.start_attempts > *self.config.start_retries()
-                && start_time.elapsed().as_secs() >= (*self.config.start_time()).into()
-            {
-                break;
-            }
-            if *self.config.auto_restart() == AutoRestart::False {
-                break;
-            }
-            if *self.config.auto_restart() == AutoRestart::Unexpected
-                && self.check_expected_status()
-            {
+            if !self.should_try_restart(start_time) {
                 break;
             }
         }
     }
 
-    fn check_expected_status(&self) -> bool {
+    /// Condition for restart:
+    /// - The programmed failed to start (i.e. it crashed before `config.start_time` seconds
+    ///   elapsed):
+    ///   - We already attempted to start the program `config.start_retries` times (note that the
+    ///     attempted start count is reset whenever the program starts successfully):
+    ///     returns false (we don't want to retry)
+    ///   - otherwise return true (we want to retry)
+    ///
+    /// - The program started properly:
+    ///   - `config.auto_restart` is `false`: Return false (we don't want to restart)
+    ///   - `config.auto_restart` is `unexpected` and the exit status is in `config.exitcodes`: Return false (we don't want to restart)
+    ///   - otherwise return true (we want to restart)
+    ///   
+    fn should_try_restart(&mut self, start_time: Instant) -> bool {
+        let started_properly = start_time.elapsed().as_secs() >= (*self.config.start_time()).into();
+
+        if started_properly {
+            self.start_attempts = 0;
+
+            if *self.config.auto_restart() == AutoRestart::False {
+                return false;
+            }
+
+            if *self.config.auto_restart() == AutoRestart::Unexpected && self.is_expected_status() {
+                return false;
+            }
+
+            return true;
+        } else {
+            // started_properly == false
+
+            if self.start_attempts >= *self.config.start_retries() {
+                return false;
+            }
+            return true;
+        }
+    }
+
+    fn is_expected_status(&self) -> bool {
         if let Status::Exited(exit_status) = &self.status {
-            let exit_code = exit_status.code().unwrap_or_default() as u8;
-            self.config.exit_codes().contains(&exit_code)
+            match exit_status.code() {
+                Some(exit_status) => self.config.exit_codes().contains(&(exit_status as u8)),
+                None => false,
+            }
         } else {
             false
         }
