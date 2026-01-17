@@ -1,5 +1,5 @@
 use crate::parser::program::Program;
-use crate::process_handler::{Log, Routine, Status};
+use crate::process_handler::{Log, LogType, Routine, Status};
 use std::time::Duration;
 use tokio::select;
 use tokio::sync::mpsc;
@@ -25,14 +25,14 @@ async fn get_status(
                 }
             },
             Some(log) = log_receiver.recv() => {
-                match log {
-                    Log::Stdout(log, name) => {
-                        assert_eq!(log, "Hello taskmaster!\n");
-                        assert_eq!(name, "taskmaster_test_task");
+                match log.log_type {
+                    LogType::Stdout => {
+                        assert_eq!(log.message, "Hello taskmaster!\n");
+                        assert_eq!(log.program_name, "taskmaster_test_task");
                     },
-                    Log::Stderr(log, name) => {
-                        assert_eq!(log, "");
-                        assert_eq!(name, "taskmaster_test_task");
+                    LogType::Stderr => {
+                        assert_eq!(log.message, "");
+                        assert_eq!(log.program_name, "taskmaster_test_task");
                     },
                 }
             },

@@ -1,5 +1,6 @@
 use super::{Handle, Status};
 use crate::parser::program::{AutoRestart, Program};
+use std::panic;
 use std::process::Stdio;
 use tokio::io::AsyncBufRead;
 use tokio::{fs::File, io::AsyncWriteExt};
@@ -11,9 +12,16 @@ use tokio::{
 };
 
 #[derive(Clone, Debug)]
-pub enum Log {
-    Stdout(String, String),
-    Stderr(String, String),
+pub enum LogType {
+    Stdout,
+    Stderr,
+}
+
+#[derive(Clone, Debug)]
+pub struct Log {
+    pub message: String,
+    pub program_name: String,
+    pub log_type: LogType,
 }
 
 pub type StatusReceiver = mpsc::Receiver<Status>;
@@ -119,7 +127,7 @@ impl Routine {
     ///   - `config.auto_restart` is `false`: Return false (we don't want to restart)
     ///   - `config.auto_restart` is `unexpected` and the exit status is in `config.exitcodes`: Return false (we don't want to restart)
     ///   - otherwise return true (we want to restart)
-    ///   
+    ///
     fn should_try_restart(&mut self, start_time: Instant) -> bool {
         let started_properly = start_time.elapsed().as_secs() >= (*self.config.start_time()).into();
 
@@ -130,7 +138,7 @@ impl Routine {
                 return false;
             }
 
-            if *self.config.auto_restart() == AutoRestart::Unexpected && self.is_expected_status() {
+            if *self.config.auto_restart() == AutoRestart::OnFailure && self.is_expected_status() {
                 return false;
             }
 
@@ -229,30 +237,23 @@ impl Routine {
 /// 1. Sends the log message through the log channel to any receivers
 /// 2. Writes the log message to the corresponding output file (stdout or stderr)
 async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputType) {
-    match output {
-        OutputType::Stdout(file) => match log {
-            Log::Stdout(ref l, ref name) => {
-                let _ = file.write_all(l.as_bytes()).await.inspect_err(|err| {
-                    eprintln!("Taskmaster error: {name}: Failed to write process stdout output to log file: {err}");
-                });
-            }
-            _ => panic!(
-                "log function was called with the file for stdout, but the log was an stderr"
-            ),
-        },
-        OutputType::Stderr(file) => match log {
-            Log::Stderr(ref l, ref name) => {
-                let _ = file.write_all(l.as_bytes()).await.inspect_err(|err| {
-                    eprintln!("Taskmaster error: {name}: Failed to write process stderr output to log file: {err}");
-                });
-            }
-            _ => panic!(
-                "log function was called with the file for stderr, but the log was an stdout"
-            ),
-        },
-    };
+    match (output, &log.log_type) {
+        (OutputType::Stdout(file), LogType::Stdout) => {
+            let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
+                eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.program_name);
+            });
+        }
+        (OutputType::Stderr(file), LogType::Stderr) => {
+            let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
+                eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.program_name);
+            });
+        }
+        _ => panic!(
+            "log function was called with differents values for output and log_type, expected same values"
+        ),
+    }
     log_sender
-        .send(log.clone())
+        .send(log)
         .await
         .expect("Taskmaster error: {log.1}: Log receiver was dropped");
 }
@@ -271,14 +272,16 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
             Ok(0) => break,
             Ok(_) => {
                 let log = match output_type {
-                    OutputType::Stderr(_) => Log::Stderr(
-                        String::from_utf8_lossy(&buffer).to_string(),
-                        name.to_string(),
-                    ),
-                    OutputType::Stdout(_) => Log::Stdout(
-                        String::from_utf8_lossy(&buffer).to_string(),
-                        name.to_string(),
-                    ),
+                    OutputType::Stderr(_) => Log {
+                        message: String::from_utf8_lossy(&buffer).to_string(),
+                        program_name: name.to_string(),
+                        log_type: LogType::Stdout,
+                    },
+                    OutputType::Stdout(_) => Log {
+                        message: String::from_utf8_lossy(&buffer).to_string(),
+                        program_name: name.to_string(),
+                        log_type: LogType::Stderr,
+                    },
                 };
                 dispatch_log(log, &mut sender, output_type).await;
             }
