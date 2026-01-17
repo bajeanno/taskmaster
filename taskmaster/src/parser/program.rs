@@ -70,8 +70,8 @@ impl TryFrom<ParsedProgram> for Program {
     type Error = ParseError;
 
     fn try_from(origin: ParsedProgram) -> Result<Self, ParseError> {
-        let umask_str = origin.umask.as_deref().unwrap_or_else(|| "000");
-        let umask = u32::from_str_radix(&umask_str, 8).map_err(|_| {
+        let umask_str = origin.umask.as_deref().unwrap_or("000");
+        let umask = u32::from_str_radix(umask_str, 8).map_err(|_| {
             ParseError::InvalidUmask(
                 "Invalid umask".to_string(),
                 origin.name.clone().unwrap_or_else(|| String::from("")),
@@ -96,7 +96,7 @@ impl TryFrom<ParsedProgram> for Program {
 
         let result = Self {
             stop_signal: get_signal(origin.stopsignal.as_deref(), &name)?,
-            name: name,
+            name,
             pids: Vec::new(),
             cmd,
             cmd_str: origin.cmd,

@@ -134,14 +134,15 @@ impl Routine {
                 return false;
             }
 
-            return true;
+            true
         } else {
             // started_properly == false
 
             if self.start_attempts >= *self.config.start_retries() {
                 return false;
             }
-            return true;
+
+            true
         }
     }
 

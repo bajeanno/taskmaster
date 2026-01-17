@@ -52,7 +52,7 @@ impl TryFrom<&str> for ParsedProgram {
 }
 
 pub fn get_signal(signal: Option<&str>, name: &str) -> Result<c_int, ParseError> {
-    match signal.unwrap_or_else(|| "INT").as_ref() {
+    match signal.unwrap_or("INT") {
         "HUP" => Ok(libc::signal::SIGHUP),
         "INT" => Ok(libc::signal::SIGINT),
         "QUIT" => Ok(libc::signal::SIGQUIT),
