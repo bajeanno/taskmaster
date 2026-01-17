@@ -49,7 +49,7 @@ impl Outputs {
     }
 }
 
-enum OutputType {
+enum OutputFile {
     Stdout(File),
     Stderr(File),
 }
@@ -73,8 +73,8 @@ impl Routine {
     pub async fn spawn(config: Program) -> Result<Handle, Error> {
         let (status_sender, status_receiver) = mpsc::channel(100);
         let (log_sender, log_receiver) = mpsc::channel(100);
-        let stdout_file = Mutex::new(OutputType::Stdout(File::create(config.stdout()).await?));
-        let stderr_file = Mutex::new(OutputType::Stderr(File::create(config.stderr()).await?));
+        let stdout_file = Mutex::new(OutputFile::Stdout(File::create(config.stdout()).await?));
+        let stderr_file = Mutex::new(OutputFile::Stderr(File::create(config.stderr()).await?));
 
         let join_handle = tokio::spawn(async move {
             Self {
@@ -90,7 +90,7 @@ impl Routine {
         Ok(Handle::new(join_handle, status_receiver, log_receiver))
     }
 
-    async fn routine(mut self, stdout_file: &Mutex<OutputType>, stderr_file: &Mutex<OutputType>) {
+    async fn routine(mut self, stdout_file: &Mutex<OutputFile>, stderr_file: &Mutex<OutputFile>) {
         loop {
             let start_time = Instant::now();
             if let Ok(mut child) = self.start().await {
@@ -206,8 +206,8 @@ impl Routine {
     async fn listen(
         &self,
         outputs: Outputs,
-        stdout_file: &Mutex<OutputType>,
-        stderr_file: &Mutex<OutputType>,
+        stdout_file: &Mutex<OutputFile>,
+        stderr_file: &Mutex<OutputFile>,
     ) {
         let stdout = BufReader::new(outputs.stdout);
         let stderr = BufReader::new(outputs.stderr);
@@ -236,14 +236,14 @@ impl Routine {
 /// This function performs two operations:
 /// 1. Sends the log message through the log channel to any receivers
 /// 2. Writes the log message to the corresponding output file (stdout or stderr)
-async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputType) {
+async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputFile) {
     match (output, &log.log_type) {
-        (OutputType::Stdout(file), LogType::Stdout) => {
+        (OutputFile::Stdout(file), LogType::Stdout) => {
             let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
                 eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.program_name);
             });
         }
-        (OutputType::Stderr(file), LogType::Stderr) => {
+        (OutputFile::Stderr(file), LogType::Stderr) => {
             let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
                 eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.program_name);
             });
@@ -261,7 +261,7 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputT
 async fn listen_and_log<R: AsyncBufRead + Unpin>(
     mut output: R,
     mut sender: LogSender,
-    output_type: &mut OutputType,
+    output_file: &mut OutputFile,
     name: &str,
 ) {
     loop {
@@ -271,19 +271,19 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
         match bytes_read {
             Ok(0) => break,
             Ok(_) => {
-                let log = match output_type {
-                    OutputType::Stdout(_) => Log {
+                let log = match output_file {
+                    OutputFile::Stdout(_) => Log {
                         message: String::from_utf8_lossy(&buffer).to_string(),
                         program_name: name.to_string(),
                         log_type: LogType::Stdout,
                     },
-                    OutputType::Stderr(_) => Log {
+                    OutputFile::Stderr(_) => Log {
                         message: String::from_utf8_lossy(&buffer).to_string(),
                         program_name: name.to_string(),
                         log_type: LogType::Stderr,
                     },
                 };
-                dispatch_log(log, &mut sender, output_type).await;
+                dispatch_log(log, &mut sender, output_file).await;
             }
             Err(err) => {
                 eprintln!(
