@@ -24,6 +24,7 @@ async fn get_status(
                     }
                 }
             },
+
             Some(log) = log_receiver.recv() => {
                 match log.log_type {
                     LogType::Stdout => {

@@ -272,12 +272,12 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
             Ok(0) => break,
             Ok(_) => {
                 let log = match output_type {
-                    OutputType::Stderr(_) => Log {
+                    OutputType::Stdout(_) => Log {
                         message: String::from_utf8_lossy(&buffer).to_string(),
                         program_name: name.to_string(),
                         log_type: LogType::Stdout,
                     },
-                    OutputType::Stdout(_) => Log {
+                    OutputType::Stderr(_) => Log {
                         message: String::from_utf8_lossy(&buffer).to_string(),
                         program_name: name.to_string(),
                         log_type: LogType::Stderr,
