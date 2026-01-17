@@ -16,7 +16,7 @@ pub struct Config {
 pub enum AutoRestart {
     True,
     False,
-    Unexpected,
+    OnFailure,
 }
 
 #[derive(Debug, Getters)]

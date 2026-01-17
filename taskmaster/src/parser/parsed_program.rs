@@ -11,7 +11,7 @@ impl<'de> Deserialize<'de> for AutoRestart {
         match s.as_str() {
             "true" => Ok(AutoRestart::True),
             "false" => Ok(AutoRestart::False),
-            "unexpected" => Ok(AutoRestart::Unexpected),
+            "unexpected" => Ok(AutoRestart::OnFailure),
             _ => Err(serde::de::Error::custom("unexpected value")),
         }
     }
