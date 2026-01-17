@@ -72,9 +72,7 @@ impl TryFrom<ParsedProgram> for Program {
     fn try_from(origin: ParsedProgram) -> Result<Self, ParseError> {
         let umask_str = origin.umask.as_deref().unwrap_or("000");
         let umask = u32::from_str_radix(umask_str, 8).map_err(|_| {
-            ParseError::InvalidUmask(
-                origin.name.clone().unwrap_or_else(|| String::from("")),
-            )
+            ParseError::InvalidUmask(origin.name.clone().unwrap_or_else(|| String::from("")))
         })?;
 
         if umask >= 0o777 {
