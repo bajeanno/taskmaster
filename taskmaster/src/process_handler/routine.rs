@@ -65,12 +65,8 @@ impl Routine {
     pub async fn spawn(config: Program) -> Result<Handle, Error> {
         let (status_sender, status_receiver) = mpsc::channel(100);
         let (log_sender, log_receiver) = mpsc::channel(100);
-        let stdout_file = Mutex::new(OutputType::Stdout(
-            File::create(config.stdout().clone().as_str()).await?,
-        ));
-        let stderr_file = Mutex::new(OutputType::Stderr(
-            File::create(config.stderr().clone().as_str()).await?,
-        ));
+        let stdout_file = Mutex::new(OutputType::Stdout(File::create(config.stdout()).await?));
+        let stderr_file = Mutex::new(OutputType::Stderr(File::create(config.stderr()).await?));
 
         let join_handle = tokio::spawn(async move {
             Self {
@@ -94,13 +90,7 @@ impl Routine {
                 self.status(Status::Starting).await;
                 let outputs = Outputs::new(&mut child);
 
-                self.listen(
-                    outputs,
-                    stdout_file,
-                    stderr_file,
-                    &self.config.name().clone(),
-                )
-                .await;
+                self.listen(outputs, stdout_file, stderr_file).await;
                 self.status(Status::Exited(
                     child.wait().await.expect("error waiting for child"),
                 ))
@@ -176,11 +166,10 @@ impl Routine {
     ///  Will panic if the log sender has been dropped, which would indicate a
     ///  critical failure in the channel communication.
     async fn listen(
-        &mut self,
+        &self,
         outputs: Outputs,
         stdout_file: &Mutex<OutputType>,
         stderr_file: &Mutex<OutputType>,
-        name: &str,
     ) {
         let stdout = BufReader::new(outputs.stdout);
         let stderr = BufReader::new(outputs.stderr);
@@ -193,13 +182,13 @@ impl Routine {
                 stdout,
                 self.log_sender.clone(),
                 &mut stdout_file_mutex_guard,
-                name
+                self.config.name()
             ),
             listen_and_log(
                 stderr,
                 self.log_sender.clone(),
                 &mut stderr_file_mutex_guard,
-                name
+                self.config.name()
             ),
         );
     }

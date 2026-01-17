@@ -51,12 +51,8 @@ impl TryFrom<&str> for ParsedProgram {
     }
 }
 
-pub fn get_signal(signal: Option<String>, name: &str) -> Result<c_int, ParseError> {
-    match signal
-        .clone()
-        .unwrap_or_else(|| String::from("INT"))
-        .as_ref()
-    {
+pub fn get_signal(signal: Option<&str>, name: &str) -> Result<c_int, ParseError> {
+    match signal.unwrap_or_else(|| "INT").as_ref() {
         "HUP" => Ok(libc::signal::SIGHUP),
         "INT" => Ok(libc::signal::SIGINT),
         "QUIT" => Ok(libc::signal::SIGQUIT),
@@ -104,7 +100,7 @@ impl ParsedConfig {
     pub fn new(file: File) -> Result<Self, ParseError> {
         let mut new_config: Self = serde_yaml::from_reader(file)?;
         for (name, program) in &mut new_config.programs {
-            get_signal(program.stopsignal.clone(), name)?;
+            get_signal(program.stopsignal.as_deref(), name)?;
             program.set_name(name);
         }
         Ok(new_config)

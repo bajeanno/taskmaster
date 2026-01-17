@@ -10,8 +10,8 @@ pub async fn run(session: Session) -> Result<(), ()> {
     loop {
         let prompt = match rl.readline("tmcli> ") {
             Ok(line) => {
-                rl.add_history_entry(line.as_str());
-                line.clone()
+                rl.add_history_entry(&line);
+                line
             }
             Err(ReadlineError::Interrupted) => {
                 continue;

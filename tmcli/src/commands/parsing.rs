@@ -24,7 +24,6 @@ pub fn parse_command(
     match args
         .next()
         .ok_or(ParseError::MissingArgument)?
-        .as_str()
         .trim()
     {
         "status" => Ok(Some(Command::ListTasks)),

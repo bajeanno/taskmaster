@@ -52,17 +52,17 @@ impl TryFrom<ParsedConfig> for Config {
     }
 }
 
-pub fn create_command(cmd: String, name: &String) -> Result<Command, ParseError> {
-    let mut command: Command;
-    let mut iter = shell_words::split(&cmd)?.into_iter();
+pub fn create_command(cmd: &str, name: String) -> Result<Command, ParseError> {
+    let mut iter = shell_words::split(cmd)?.into_iter();
+
     if let Some(program) = iter.next() {
-        command = Command::new(program);
+        let mut command = Command::new(program);
         iter.for_each(|arg| {
             command.arg(arg);
         });
         Ok(command)
     } else {
-        Err(ParseError::EmptyCommand(name.to_string()))
+        Err(ParseError::EmptyCommand(name))
     }
 }
 
@@ -70,7 +70,7 @@ impl TryFrom<ParsedProgram> for Program {
     type Error = ParseError;
 
     fn try_from(origin: ParsedProgram) -> Result<Self, ParseError> {
-        let umask_str = origin.umask.clone().unwrap_or_else(|| String::from("000"));
+        let umask_str = origin.umask.as_deref().unwrap_or_else(|| "000");
         let umask = u32::from_str_radix(&umask_str, 8).map_err(|_| {
             ParseError::InvalidUmask(
                 "Invalid umask".to_string(),
@@ -86,7 +86,7 @@ impl TryFrom<ParsedProgram> for Program {
         }
 
         let name = origin.name.unwrap_or_else(|| String::from(""));
-        let mut cmd = create_command(origin.cmd.clone(), &name)?;
+        let mut cmd = create_command(&origin.cmd, name.clone())?;
         cmd.env_clear();
         if let Some(env) = origin.env {
             env.iter().for_each(|(key, value)| {
@@ -95,10 +95,11 @@ impl TryFrom<ParsedProgram> for Program {
         }
 
         let result = Self {
-            name: name.clone(),
+            stop_signal: get_signal(origin.stopsignal.as_deref(), &name)?,
+            name: name,
             pids: Vec::new(),
             cmd,
-            cmd_str: origin.cmd.clone(),
+            cmd_str: origin.cmd,
             umask,
             num_procs: origin.numprocs.unwrap_or(1),
             working_dir: origin.workingdir.unwrap_or_else(|| String::from("/")),
@@ -107,7 +108,6 @@ impl TryFrom<ParsedProgram> for Program {
             exit_codes: origin.exitcodes.unwrap_or_else(|| Vec::from([0])),
             start_retries: origin.startretries.unwrap_or(0),
             start_time: origin.starttime.unwrap_or(0),
-            stop_signal: get_signal(origin.stopsignal, name.as_str())?,
             stop_time: origin.stoptime.unwrap_or(5),
             stdout: origin.stdout.unwrap_or_else(|| String::from("/dev/null")),
             stderr: origin.stderr.unwrap_or_else(|| String::from("/dev/null")),
