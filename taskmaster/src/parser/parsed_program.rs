@@ -84,15 +84,10 @@ pub fn get_signal(signal: Option<&str>, name: &str) -> Result<c_int, ParseError>
         "INFO" => Ok(libc::signal::SIGINFO),
         "USR1" => Ok(libc::signal::SIGUSR1),
         "USR2" => Ok(libc::signal::SIGUSR2),
-        sig => Err(ParseError::InvalidSignal(sig.to_string(), name.to_string())),
-    }
-}
-
-impl ParsedProgram {
-    fn set_name(&mut self, name: &str) {
-        if self.name.is_none() {
-            self.name = Some(name.to_string());
-        }
+        sig => Err(ParseError::InvalidSignal {
+            signal: sig.to_string(),
+            program_name: name.to_string(),
+        }),
     }
 }
 
@@ -101,7 +96,9 @@ impl ParsedConfig {
         let mut new_config: Self = serde_yaml::from_reader(file)?;
         for (name, program) in &mut new_config.programs {
             get_signal(program.stopsignal.as_deref(), name)?;
-            program.set_name(name);
+            if program.name.is_none() {
+                program.name = Some(name.to_string());
+            }
         }
         Ok(new_config)
     }

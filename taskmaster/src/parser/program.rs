@@ -73,14 +73,12 @@ impl TryFrom<ParsedProgram> for Program {
         let umask_str = origin.umask.as_deref().unwrap_or("000");
         let umask = u32::from_str_radix(umask_str, 8).map_err(|_| {
             ParseError::InvalidUmask(
-                "Invalid umask".to_string(),
                 origin.name.clone().unwrap_or_else(|| String::from("")),
             )
         })?;
 
         if umask >= 0o777 {
             return Err(ParseError::InvalidUmask(
-                "Invalid umask".to_string(),
                 origin.name.unwrap_or_else(|| String::from("")),
             ));
         }
