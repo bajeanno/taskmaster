@@ -1,9 +1,7 @@
 use crate::parser::program::Program;
 use crate::process_handler::{Log, LogType, Routine, Status};
-use std::time::Duration;
 use tokio::select;
 use tokio::sync::mpsc;
-use tokio::time::sleep;
 
 #[cfg(test)]
 async fn get_status(
