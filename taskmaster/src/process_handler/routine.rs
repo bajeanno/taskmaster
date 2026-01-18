@@ -234,8 +234,20 @@ impl Routine {
 
 /// Sends a log message over the channel and writes it to the appropriate output file.
 /// This function performs two operations:
-/// 1. Sends the log message through the log channel to any receivers
-/// 2. Writes the log message to the corresponding output file (stdout or stderr)
+/// - Write the log message to the corresponding output file (stdout or stderr)
+/// - Send the log message through the log channel to any receivers
+///
+/// # Arguments
+///
+/// * `log` - A `Log` struct containing the log type, the task's name and the log itself
+/// * `log_sender` - A `mspc::Sender<Log>` to send log to the manager coroutine
+/// * `output` - A `OutputType` enum that contains the file to write in
+///
+/// # Panics
+///
+/// Will panic if the `OutputType` and the `LogType` enums are not accorded.
+/// That should never happen because those structs are both constructed side by side.
+///
 async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputType) {
     match (output, &log.log_type) {
         (OutputType::Stdout(file), LogType::Stdout) => {
