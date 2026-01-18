@@ -265,7 +265,7 @@ impl Routine {
 /// # Arguments
 ///
 /// * `log` - A `Log` struct containing the log type, the task's name and the log itself
-/// * `log_sender` - A `mspc::Sender<Log>` to send log to the manager coroutine
+/// * `log_sender` - A `mpsc::Sender<Log>` to send log to the manager coroutine
 /// * `output` - A `OutputFile` enum that contains the file to write in
 ///
 /// # Panics
