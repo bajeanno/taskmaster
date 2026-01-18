@@ -77,10 +77,7 @@ env:
         routine_handle.log_receiver,
     ));
 
-    select! {
-        _ = routine_handle.join_handle => {},
-        _ = sleep(Duration::from_secs(3)) => {},
-    };
+    routine_handle.join_handle.await.unwrap();
     handle2.await.expect("failed to join status handle");
 
     let stdout_file = "/tmp/taskmaster_tests.stdout";
