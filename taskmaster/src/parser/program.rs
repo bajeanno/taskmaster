@@ -83,7 +83,6 @@ impl TryFrom<ParsedProgram> for Program {
 
         let name = origin.name.unwrap_or_else(|| String::from(""));
         let mut cmd = create_command(&origin.cmd, name.clone())?;
-        cmd.env_clear();
         if let Some(env) = origin.env {
             env.iter().for_each(|(key, value)| {
                 cmd.env(key, value);
