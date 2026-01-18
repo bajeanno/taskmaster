@@ -17,7 +17,7 @@ async fn get_status(
                     Status::NotSpawned => println!("Status: NotSpawned"),
                     Status::Starting => println!("Status: Starting"),
                     Status::Running => println!("Status: Running"),
-                    Status::FailedToStart{ error_message: _, exit_code: _ } => println!("Status: FailedToStart"),
+                    Status::FailedToStart{ error_message, exit_code: _ } => println!("Status: FailedToStart: {error_message}"),
                     Status::Exited(_) => {
                         println!("Status: Exited");
                         break;
