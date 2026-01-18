@@ -290,9 +290,15 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputF
         ),
     }
     log_sender
-        .send(log)
+        .send(log.clone())
         .await
-        .expect("Taskmaster error: {log.1}: Log receiver was dropped");
+        .inspect_err(|_| {
+            eprintln!(
+                "Taskmaster error: {}: Log receiver was dropped",
+                log.program_name
+            )
+        })
+        .unwrap()
 }
 
 async fn listen_and_log<R: AsyncBufRead + Unpin>(
