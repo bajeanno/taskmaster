@@ -75,7 +75,7 @@ impl TryFrom<ParsedProgram> for Program {
             ParseError::InvalidUmask(origin.name.clone().unwrap_or_else(|| String::from("")))
         })?;
 
-        if umask >= 0o777 {
+        if umask > 0o777 {
             return Err(ParseError::InvalidUmask(
                 origin.name.unwrap_or_else(|| String::from("")),
             ));
