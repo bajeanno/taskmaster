@@ -28,12 +28,4 @@ impl Handle {
             log_receiver,
         }
     }
-
-    pub async fn attach(&self, _client: ClientId) {
-        todo!()
-    }
-
-    pub async fn detach(&self) {
-        todo!()
-    }
 }
