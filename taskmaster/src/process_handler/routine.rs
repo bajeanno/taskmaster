@@ -97,15 +97,38 @@ impl Routine {
                 self.status(Status::Starting).await;
                 let outputs = Outputs::new(&mut child);
 
-                self.listen(outputs, stdout_file, stderr_file).await;
-                self.status(Status::Exited(
-                    child.wait().await.expect("error waiting for child"),
-                ))
-                .await;
+                let wait_duration =
+                    tokio::time::Duration::from_secs((*self.config.start_time()).into());
+
+                let startup_completed = tokio::select! {
+                    _ = tokio::time::sleep(wait_duration) => {
+                        true
+                    }
+                    exit_status = child.wait() => {
+                        self.status(Status::FailedToStart{
+                            error_message: String::from("Process crashed before finishing initialization"),
+                            exit_code: Some(
+                                exit_status.expect("Error getting exit status from subprocess").code().expect("unable to retreive exit code") as u8
+                            ),
+                        }).await;
+                        false
+                    }
+                };
+
+                if startup_completed {
+                    self.status(Status::Running).await;
+                    self.listen(outputs, stdout_file, stderr_file).await;
+                    //TODO: Would be nice to share the exit code inside the enum
+                    self.status(Status::Exited(
+                        child.wait().await.expect("error waiting for child"),
+                    ))
+                    .await;
+                }
             } else {
-                self.status(Status::FailedToStart(String::from(
-                    "Error spawning sub-process",
-                )))
+                self.status(Status::FailedToStart {
+                    error_message: String::from("Error spawning sub-process"),
+                    exit_code: None,
+                })
                 .await;
             }
 

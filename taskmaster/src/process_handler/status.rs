@@ -6,6 +6,9 @@ pub enum Status {
     NotSpawned,
     Starting,
     Running,
-    FailedToStart(String),
+    FailedToStart {
+        error_message: String,
+        exit_code: Option<u8>,
+    },
     Exited(ExitStatus),
 }
