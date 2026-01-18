@@ -282,7 +282,7 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputF
         }
         (OutputFile::Stderr(file), LogType::Stderr) => {
             let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
-                eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.program_name);
+                eprintln!("Taskmaster error: {}: Failed to write process stderr output to log file: {err}", log.program_name);
             });
         }
         _ => panic!(
