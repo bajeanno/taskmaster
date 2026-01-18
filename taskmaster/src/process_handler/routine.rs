@@ -100,7 +100,7 @@ impl Routine {
                 let wait_duration =
                     tokio::time::Duration::from_secs((*self.config.start_time()).into());
 
-                let startup_completed = tokio::select! {
+                let startup_completed = *self.config.start_time() == 0 || tokio::select! {
                     _ = tokio::time::sleep(wait_duration) => {
                         true
                     }
