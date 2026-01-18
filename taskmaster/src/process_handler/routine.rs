@@ -273,7 +273,7 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputF
 async fn listen_and_log<R: AsyncBufRead + Unpin>(
     mut output: R,
     mut sender: LogSender,
-    output_type: &mut OutputFile,
+    output_file: &mut OutputFile,
     name: &str,
 ) {
     loop {
@@ -283,7 +283,7 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
         match bytes_read {
             Ok(0) => break,
             Ok(_) => {
-                let log = match output_type {
+                let log = match output_file {
                     OutputFile::Stdout(_) => Log {
                         message: String::from_utf8_lossy(&buffer).to_string(),
                         program_name: name.to_string(),
@@ -295,7 +295,7 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
                         log_type: LogType::Stderr,
                     },
                 };
-                dispatch_log(log, &mut sender, output_type).await;
+                dispatch_log(log, &mut sender, output_file).await;
             }
             Err(err) => {
                 eprintln!(
