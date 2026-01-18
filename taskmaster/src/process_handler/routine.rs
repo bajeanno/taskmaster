@@ -71,8 +71,9 @@ pub struct Routine {
 #[allow(dead_code)] //TODO: Remove that
 impl Routine {
     pub async fn spawn(config: Program) -> Result<Handle, Error> {
-        let (status_sender, status_receiver) = mpsc::channel(100);
-        let (log_sender, log_receiver) = mpsc::channel(100);
+        const BUFFER_SIZE: usize = 100; // 100 is a temporary value
+        let (status_sender, status_receiver) = mpsc::channel(BUFFER_SIZE);
+        let (log_sender, log_receiver) = mpsc::channel(BUFFER_SIZE);
         let stdout_file = Mutex::new(OutputFile::Stdout(File::create(config.stdout()).await?));
         let stderr_file = Mutex::new(OutputFile::Stderr(File::create(config.stderr()).await?));
 
