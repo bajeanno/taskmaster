@@ -100,20 +100,21 @@ impl Routine {
                 let wait_duration =
                     tokio::time::Duration::from_secs((*self.config.start_time()).into());
 
-                let startup_completed = *self.config.start_time() == 0 || tokio::select! {
-                    _ = tokio::time::sleep(wait_duration) => {
-                        true
-                    }
-                    exit_status = child.wait() => {
-                        self.status(Status::FailedToStart{
-                            error_message: String::from("Process crashed before finishing initialization"),
-                            exit_code: Some(
-                                exit_status.expect("Error getting exit status from subprocess").code().expect("unable to retreive exit code") as u8
-                            ),
-                        }).await;
-                        false
-                    }
-                };
+                let startup_completed = *self.config.start_time() == 0
+                    || tokio::select! {
+                        _ = tokio::time::sleep(wait_duration) => {
+                            true
+                        }
+                        exit_status = child.wait() => {
+                            self.status(Status::FailedToStart{
+                                error_message: String::from("Process crashed before finishing initialization"),
+                                exit_code: Some(
+                                    exit_status.expect("Error getting exit status from subprocess").code().expect("unable to retreive exit code") as u8
+                                ),
+                            }).await;
+                            false
+                        }
+                    };
 
                 if startup_completed {
                     self.status(Status::Running).await;
