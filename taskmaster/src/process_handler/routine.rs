@@ -261,7 +261,7 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputF
             });
         }
         _ => panic!(
-            "log function was called with differents values for output and log_type, expected same values"
+            "log function was called with different values for output and log_type, expected same values"
         ),
     }
     log_sender
