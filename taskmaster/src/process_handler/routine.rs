@@ -49,7 +49,7 @@ impl Outputs {
     }
 }
 
-enum OutputType {
+enum OutputFile {
     Stdout(File),
     Stderr(File),
 }
@@ -73,8 +73,8 @@ impl Routine {
     pub async fn spawn(config: Program) -> Result<Handle, Error> {
         let (status_sender, status_receiver) = mpsc::channel(100);
         let (log_sender, log_receiver) = mpsc::channel(100);
-        let stdout_file = Mutex::new(OutputType::Stdout(File::create(config.stdout()).await?));
-        let stderr_file = Mutex::new(OutputType::Stderr(File::create(config.stderr()).await?));
+        let stdout_file = Mutex::new(OutputFile::Stdout(File::create(config.stdout()).await?));
+        let stderr_file = Mutex::new(OutputFile::Stderr(File::create(config.stderr()).await?));
 
         let join_handle = tokio::spawn(async move {
             Self {
@@ -90,7 +90,7 @@ impl Routine {
         Ok(Handle::new(join_handle, status_receiver, log_receiver))
     }
 
-    async fn routine(mut self, stdout_file: &Mutex<OutputType>, stderr_file: &Mutex<OutputType>) {
+    async fn routine(mut self, stdout_file: &Mutex<OutputFile>, stderr_file: &Mutex<OutputFile>) {
         loop {
             let start_time = Instant::now();
             if let Ok(mut child) = self.start().await {
@@ -206,8 +206,8 @@ impl Routine {
     async fn listen(
         &self,
         outputs: Outputs,
-        stdout_file: &Mutex<OutputType>,
-        stderr_file: &Mutex<OutputType>,
+        stdout_file: &Mutex<OutputFile>,
+        stderr_file: &Mutex<OutputFile>,
     ) {
         let stdout = BufReader::new(outputs.stdout);
         let stderr = BufReader::new(outputs.stderr);
@@ -241,21 +241,21 @@ impl Routine {
 ///
 /// * `log` - A `Log` struct containing the log type, the task's name and the log itself
 /// * `log_sender` - A `mspc::Sender<Log>` to send log to the manager coroutine
-/// * `output` - A `OutputType` enum that contains the file to write in
+/// * `output` - A `OutputFile` enum that contains the file to write in
 ///
 /// # Panics
 ///
-/// Will panic if the `OutputType` and the `LogType` enums are not accorded.
+/// Will panic if the `OutputFile` and the `LogType` enums are not accorded.
 /// That should never happen because those structs are both constructed side by side.
 ///
-async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputType) {
+async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputFile) {
     match (output, &log.log_type) {
-        (OutputType::Stdout(file), LogType::Stdout) => {
+        (OutputFile::Stdout(file), LogType::Stdout) => {
             let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
                 eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.program_name);
             });
         }
-        (OutputType::Stderr(file), LogType::Stderr) => {
+        (OutputFile::Stderr(file), LogType::Stderr) => {
             let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
                 eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.program_name);
             });
@@ -273,7 +273,7 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputT
 async fn listen_and_log<R: AsyncBufRead + Unpin>(
     mut output: R,
     mut sender: LogSender,
-    output_type: &mut OutputType,
+    output_type: &mut OutputFile,
     name: &str,
 ) {
     loop {
@@ -284,12 +284,12 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
             Ok(0) => break,
             Ok(_) => {
                 let log = match output_type {
-                    OutputType::Stdout(_) => Log {
+                    OutputFile::Stdout(_) => Log {
                         message: String::from_utf8_lossy(&buffer).to_string(),
                         program_name: name.to_string(),
                         log_type: LogType::Stdout,
                     },
-                    OutputType::Stderr(_) => Log {
+                    OutputFile::Stderr(_) => Log {
                         message: String::from_utf8_lossy(&buffer).to_string(),
                         program_name: name.to_string(),
                         log_type: LogType::Stderr,
