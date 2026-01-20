@@ -91,53 +91,79 @@ impl Routine {
         Ok(Handle::new(join_handle, status_receiver, log_receiver))
     }
 
-    async fn routine(mut self, stdout_file: &Mutex<OutputFile>, stderr_file: &Mutex<OutputFile>) {
+    async fn routine_2(mut self, stdout_file: &Mutex<OutputFile>, stderr_file: &Mutex<OutputFile>) {
         loop {
             let start_time = Instant::now();
-            if let Ok(mut child) = self.start().await {
-                self.status(Status::Starting).await;
-                let outputs = Outputs::new(&mut child);
 
-                let wait_duration =
-                    tokio::time::Duration::from_secs((*self.config.start_time()).into());
-
-                let startup_completed = *self.config.start_time() == 0
-                    || tokio::select! {
-                        _ = tokio::time::sleep(wait_duration) => {
-                            true
-                        }
-                        exit_status = child.wait() => {
-                            self.status(Status::FailedToStart{
-                                error_message: String::from("Process crashed before finishing initialization"),
-                                exit_code: Some(
-                                    exit_status.expect("Error getting exit status from subprocess").code().expect("unable to retreive exit code") as u8
-                                ),
-                            }).await;
-                            false
-                        }
-                    };
-
-                if startup_completed {
-                    self.status(Status::Running).await;
-                    self.listen(outputs, stdout_file, stderr_file).await;
-                    //TODO: Would be nice to share the exit code inside the enum
-                    self.status(Status::Exited(
-                        child.wait().await.expect("error waiting for child"),
-                    ))
-                    .await;
-                }
-            } else {
-                self.status(Status::FailedToStart {
-                    error_message: String::from("Error spawning sub-process"),
-                    exit_code: None,
-                })
-                .await;
-            }
+            self.run_program(stdout_file, stderr_file).await;
 
             if !self.should_try_restart(start_time) {
                 break;
             }
         }
+    }
+
+    async fn run_program(
+        &mut self,
+        stdout_file: &Mutex<OutputFile>,
+        stderr_file: &Mutex<OutputFile>,
+    ) {
+        match self.start().await {
+            Ok(child) => {
+                self.handle_running_child(child, stdout_file, stderr_file)
+                    .await
+            }
+            Err(err) => {
+                self.status(Status::FailedToStart {
+                    error_message: format!("Error spawning sub-process: {err}"),
+                    exit_code: None,
+                })
+                .await
+            }
+        }
+    }
+
+    async fn handle_running_child(
+        &mut self,
+        mut child: Child,
+        stdout_file: &Mutex<OutputFile>,
+        stderr_file: &Mutex<OutputFile>,
+    ) {
+        self.status(Status::Starting).await;
+
+        let outputs = Outputs::new(&mut child);
+
+        match *self.config.start_time() {
+            0 => {}
+            start_time => {
+                tokio::select! {
+                    _ = tokio::time::sleep(Duration::from_secs(start_time as u64)) => { }
+
+                    exit_status = child.wait() => {
+                        self.status(Status::FailedToStart{
+                            error_message: "Process crashed before finishing initialization".to_owned(),
+                            exit_code: Some(
+                                exit_status
+                                    .expect("Error getting exit status from subprocess")
+                                    .code()
+                                    .expect("unable to retrieve exit code")
+                                    as u8
+                            )
+                        }).await;
+                        return;
+                    }
+                }
+            }
+        }
+
+        self.status(Status::Running).await;
+        // TODO need to listen also before running is validated
+        self.listen(outputs, stdout_file, stderr_file).await;
+        //TODO: Would be nice to share the exit code inside the enum
+        self.status(Status::Exited(
+            child.wait().await.expect("error waiting for child"),
+        ))
+        .await;
     }
 
     /// Condition for restart:
