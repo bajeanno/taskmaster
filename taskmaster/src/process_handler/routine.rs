@@ -8,7 +8,7 @@ use tokio::{
     io::{AsyncBufReadExt, BufReader, Error},
     process::{Child, ChildStderr, ChildStdout},
     sync::{Mutex, mpsc},
-    time::Instant,
+    time::{Instant, Duration}
 };
 
 #[derive(Clone, Debug)]
@@ -91,7 +91,7 @@ impl Routine {
         Ok(Handle::new(join_handle, status_receiver, log_receiver))
     }
 
-    async fn routine_2(mut self, stdout_file: &Mutex<OutputFile>, stderr_file: &Mutex<OutputFile>) {
+    async fn routine(mut self, stdout_file: &Mutex<OutputFile>, stderr_file: &Mutex<OutputFile>) {
         loop {
             let start_time = Instant::now();
 
