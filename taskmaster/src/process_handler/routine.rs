@@ -114,9 +114,8 @@ impl Routine {
                     .await
             }
             Err(err) => {
-                self.status(Status::FailedToStart {
+                self.status(Status::FailedToSpawn {
                     error_message: format!("Error spawning sub-process: {err}"),
-                    exit_code: None,
                 })
                 .await
             }
@@ -140,15 +139,13 @@ impl Routine {
                     _ = tokio::time::sleep(Duration::from_secs(start_time as u64)) => { }
 
                     exit_status = child.wait() => {
-                        self.status(Status::FailedToStart{
+                        self.status(Status::FailedToInit {
                             error_message: "Process crashed before finishing initialization".to_owned(),
-                            exit_code: Some(
-                                exit_status
-                                    .expect("Error getting exit status from subprocess")
-                                    .code()
-                                    .expect("unable to retrieve exit code")
-                                    as u8
-                            )
+                            exit_code: exit_status
+                                .expect("Error getting exit status from subprocess")
+                                .code()
+                                .expect("unable to retrieve exit code")
+                                as u8
                         }).await;
                         return;
                     }
