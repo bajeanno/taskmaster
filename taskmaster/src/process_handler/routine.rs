@@ -54,12 +54,6 @@ enum OutputFile {
     Stderr(File),
 }
 
-// #[derive(Error, Debug)]
-// enum LogError {
-//     #[error("{0}")]
-//     FileWriteError(#[from] std::io::Error),
-// }
-
 pub struct Routine {
     status_sender: StatusSender,
     log_sender: LogSender,
