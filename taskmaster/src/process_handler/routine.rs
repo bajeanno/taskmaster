@@ -213,6 +213,10 @@ impl Routine {
         }
     }
 
+    /// Registers status to Routine struct and sends it to backend thread (task manager)
+    ///
+    /// # Arguments
+    /// * status - The `Status` enum that describes the current status of the subprocess handled by Routine
     async fn status(&mut self, status: Status) {
         self.status = status.clone();
         self.status_sender
@@ -221,6 +225,7 @@ impl Routine {
             .expect("Receiver was dropped");
     }
 
+    /// Starts the subprocess
     async fn start(&mut self) -> Result<Child, Error> {
         self.start_attempts += 1;
         let child = self
