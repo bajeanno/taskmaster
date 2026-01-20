@@ -108,7 +108,7 @@ impl Routine {
         stdout_file: &Mutex<OutputFile>,
         stderr_file: &Mutex<OutputFile>,
     ) {
-        match self.start().await {
+        match self.child_spawn().await {
             Ok(child) => {
                 self.handle_running_child(child, stdout_file, stderr_file)
                     .await
@@ -225,8 +225,8 @@ impl Routine {
             .expect("Receiver was dropped");
     }
 
-    /// Starts the subprocess
-    async fn start(&mut self) -> Result<Child, Error> {
+    /// Spawns the child and upgrades the start_attempts counter
+    async fn child_spawn(&mut self) -> Result<Child, Error> {
         self.start_attempts += 1;
         let child = self
             .config
