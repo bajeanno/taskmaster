@@ -8,7 +8,7 @@ use tokio::{
     io::{AsyncBufReadExt, BufReader, Error},
     process::{Child, ChildStderr, ChildStdout},
     sync::{Mutex, mpsc},
-    time::{Instant, Duration}
+    time::{Duration, Instant},
 };
 
 #[derive(Clone, Debug)]
