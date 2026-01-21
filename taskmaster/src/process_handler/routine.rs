@@ -25,6 +25,23 @@ pub struct Log {
     pub log_type: LogType,
 }
 
+impl Log {
+    fn new(output_file: &mut OutputFile, buffer: &Vec<u8>, name: &str) -> Self {
+        match output_file {
+            OutputFile::Stdout(_) => Log {
+                message: String::from_utf8_lossy(buffer).to_string(),
+                program_name: name.to_string(),
+                log_type: LogType::Stdout,
+            },
+            OutputFile::Stderr(_) => Log {
+                message: String::from_utf8_lossy(buffer).to_string(),
+                program_name: name.to_string(),
+                log_type: LogType::Stderr,
+            },
+        }
+    }
+}
+
 pub type StatusReceiver = mpsc::Receiver<Status>;
 pub type LogReceiver = mpsc::Receiver<Log>;
 pub type StatusSender = mpsc::Sender<Status>;
@@ -358,18 +375,7 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
         match bytes_read {
             Ok(0) => break,
             Ok(_) => {
-                let log = match output_file {
-                    OutputFile::Stdout(_) => Log {
-                        message: String::from_utf8_lossy(&buffer).to_string(),
-                        program_name: name.to_string(),
-                        log_type: LogType::Stdout,
-                    },
-                    OutputFile::Stderr(_) => Log {
-                        message: String::from_utf8_lossy(&buffer).to_string(),
-                        program_name: name.to_string(),
-                        log_type: LogType::Stderr,
-                    },
-                };
+                let log = Log::new(output_file, &buffer, name);
                 dispatch_log(log, &mut sender, output_file).await;
             }
             Err(err) => {
