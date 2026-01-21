@@ -24,7 +24,6 @@ pub enum AutoRestart {
     OnFailure,
 }
 
-//TODO: check deafult values
 #[allow(dead_code)] // TODO: remove this
 #[derive(Debug, Getters, Deserialize)]
 pub struct Program {
@@ -34,17 +33,17 @@ pub struct Program {
     pids: Vec<Pid>,
     #[serde(deserialize_with = "create_umask")]
     umask: u32,
-    #[serde(deserialize_with = "create_command")] //TODO: add env to command
+    #[serde(deserialize_with = "create_command")]
     pub cmd: Command,
-    #[serde(default)]
+    #[serde(default = "default_num_procs")]
     num_procs: u32,
-    #[serde(default)]
+    #[serde(default = "default_work_dir")]
     working_dir: String,
     #[serde(default)]
     auto_start: bool,
     #[serde(default)]
     auto_restart: AutoRestart,
-    #[serde(default)]
+    #[serde(default = "default_exit_codes")]
     exit_codes: Vec<u8>,
     #[serde(default)]
     start_retries: u32,
@@ -123,6 +122,20 @@ fn default_output() -> String {
 
 fn default_signal() -> Signal {
     Signal::SIGINT
+}
+
+fn default_num_procs() -> u32 {
+    1
+}
+
+fn default_work_dir() -> String {
+    String::from("/")
+}
+
+fn default_exit_codes() -> Vec<u8> {
+    let mut vec = vec![];
+    vec.push(0);
+    vec
 }
 
 #[cfg(test)]
