@@ -1,12 +1,9 @@
 use super::ParseError;
-use serde::{Deserializer, de};
 use derive_getters::Getters;
 use libc::sys::types::Pid;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer, de};
 use signal::Signal;
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::{fmt::Display, fs::File};
+use std::{collections::HashMap, fmt::Display, fs::File, str::FromStr};
 use tokio::process::Command as TokioCommand;
 
 #[derive(Debug, Deserialize)]
@@ -25,6 +22,44 @@ pub enum AutoRestart {
     True,
     False,
     OnFailure,
+}
+
+//TODO: check deafult values
+#[allow(dead_code)] // TODO: remove this
+#[derive(Debug, Getters, Deserialize)]
+pub struct Program {
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    pids: Vec<Pid>,
+    #[serde(deserialize_with = "create_umask")]
+    umask: u32,
+    #[serde(deserialize_with = "create_command")] //TODO: add env to command
+    pub cmd: Command,
+    #[serde(default)]
+    num_procs: u32,
+    #[serde(default)]
+    working_dir: String,
+    #[serde(default)]
+    auto_start: bool,
+    #[serde(default)]
+    auto_restart: AutoRestart,
+    #[serde(default)]
+    exit_codes: Vec<u8>,
+    #[serde(default)]
+    start_retries: u32,
+    #[serde(default)]
+    start_time: u32,
+    #[serde(default = "default_signal", deserialize_with = "deserialize_signal")]
+    stop_signal: Signal,
+    #[serde(default)]
+    stop_time: u32,
+    #[serde(default = "default_output")]
+    stdout: String,
+    #[serde(default = "default_output")]
+    stderr: String,
+    #[serde(default)]
+    env: HashMap<String, String>,
 }
 
 impl Default for AutoRestart {
@@ -88,44 +123,6 @@ fn default_output() -> String {
 
 fn default_signal() -> Signal {
     Signal::SIGINT
-}
-
-//TODO: check deafult values
-#[allow(dead_code)] // TODO: remove this
-#[derive(Debug, Getters, Deserialize)]
-pub struct Program {
-    #[serde(default)]
-    name: String,
-    #[serde(default)]
-    pids: Vec<Pid>,
-    #[serde(deserialize_with = "create_umask")]
-    umask: u32,
-    #[serde(deserialize_with = "create_command")] //TODO: add env to command
-    pub cmd: Command,
-    #[serde(default)]
-    num_procs: u32,
-    #[serde(default)]
-    working_dir: String,
-    #[serde(default)]
-    auto_start: bool,
-    #[serde(default)]
-    auto_restart: AutoRestart,
-    #[serde(default)]
-    exit_codes: Vec<u8>,
-    #[serde(default)]
-    start_retries: u32,
-    #[serde(default)]
-    start_time: u32,
-    #[serde(default = "default_signal", deserialize_with = "deserialize_signal")]
-    stop_signal: Signal,
-    #[serde(default)]
-    stop_time: u32,
-    #[serde(default = "default_output")]
-    stdout: String,
-    #[serde(default = "default_output")]
-    stderr: String,
-    #[serde(default)]
-    env: HashMap<String, String>,
 }
 
 #[cfg(test)]
