@@ -10,6 +10,7 @@ use tokio::{
     sync::{Mutex, mpsc},
     time::{Duration, Instant},
 };
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub enum LogType {
@@ -30,21 +31,21 @@ pub type StatusSender = mpsc::Sender<Status>;
 pub type LogSender = mpsc::Sender<Log>;
 
 pub struct Outputs {
-    stdout: ChildStdout,
-    stderr: ChildStderr,
+    stdout: BufReader<ChildStdout>,
+    stderr: BufReader<ChildStderr>,
 }
 
 impl Outputs {
     pub fn new(child: &mut Child) -> Self {
         Self {
-            stdout: child
+            stdout: BufReader::new(child
                 .stdout
                 .take()
-                .expect("Child process stdout not captured"),
-            stderr: child
+                .expect("Child process stdout not captured")),
+            stderr: BufReader::new(child
                 .stderr
                 .take()
-                .expect("Child process stderr not captured"),
+                .expect("Child process stderr not captured")),
         }
     }
 }
@@ -59,7 +60,7 @@ pub struct Routine {
     log_sender: LogSender,
     config: Program,
     start_attempts: u32,
-    status: Status,
+    // status: Status,
 }
 
 #[allow(dead_code)] //TODO: Remove that
@@ -77,8 +78,8 @@ impl Routine {
         const BUFFER_SIZE: usize = 100; // 100 is a temporary value
         let (status_sender, status_receiver) = mpsc::channel(BUFFER_SIZE);
         let (log_sender, log_receiver) = mpsc::channel(BUFFER_SIZE);
-        let stdout_file = Mutex::new(OutputFile::Stdout(File::create(config.stdout()).await?));
-        let stderr_file = Mutex::new(OutputFile::Stderr(File::create(config.stderr()).await?));
+        let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(File::create(config.stdout()).await?)));
+        let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(File::create(config.stderr()).await?)));
 
         let join_handle = tokio::spawn(async move {
             Self {
@@ -86,21 +87,23 @@ impl Routine {
                 status_sender,
                 log_sender,
                 start_attempts: 0,
-                status: Status::NotSpawned,
+                // status: Status::NotSpawned,
             }
-            .routine(&stdout_file, &stderr_file)
+            .routine(stdout_file, stderr_file)
             .await;
         });
         Ok(Handle::new(join_handle, status_receiver, log_receiver))
     }
 
-    async fn routine(mut self, stdout_file: &Mutex<OutputFile>, stderr_file: &Mutex<OutputFile>) {
+    async fn routine(mut self, stdout_file: Arc<Mutex<OutputFile>>, stderr_file: Arc<Mutex<OutputFile>>) {
         loop {
             let start_time = Instant::now();
 
-            self.run_program(stdout_file, stderr_file).await;
+            self.status(Status::Starting).await;
+            let status = self.run_program(Arc::clone(&stdout_file), Arc::clone(&stderr_file)).await;
+            self.status(status.clone()).await;
 
-            if !self.should_try_restart(start_time) {
+            if !self.should_try_restart(start_time, status) {
                 break;
             }
         }
@@ -108,32 +111,32 @@ impl Routine {
 
     async fn run_program(
         &mut self,
-        stdout_file: &Mutex<OutputFile>,
-        stderr_file: &Mutex<OutputFile>,
-    ) {
+        stdout_file: Arc<Mutex<OutputFile>>,
+        stderr_file: Arc<Mutex<OutputFile>>,
+    ) -> Status {
         match self.child_spawn().await {
             Ok(child) => {
+                self.status(Status::Running).await;
                 self.handle_running_child(child, stdout_file, stderr_file)
                     .await
             }
             Err(err) => {
-                self.status(Status::FailedToSpawn {
+                Status::FailedToSpawn {
                     error_message: format!("Error spawning sub-process: {err}"),
-                })
-                .await
+                }
             }
         }
     }
 
     async fn handle_running_child(
-        &mut self,
+        &self,
         mut child: Child,
-        stdout_file: &Mutex<OutputFile>,
-        stderr_file: &Mutex<OutputFile>,
-    ) {
-        self.status(Status::Starting).await;
+        stdout_file: Arc<Mutex<OutputFile>>,
+        stderr_file: Arc<Mutex<OutputFile>>,
+    ) -> Status {
 
         let outputs = Outputs::new(&mut child);
+        let listen_task = tokio::spawn(Self::listen(outputs, stdout_file, stderr_file, self.log_sender.clone(), self.config.name().clone()));
 
         match *self.config.start_time() {
             0 => {}
@@ -142,28 +145,20 @@ impl Routine {
                     _ = tokio::time::sleep(Duration::from_secs(start_time as u64)) => { }
 
                     exit_status = child.wait() => {
-                        self.status(Status::FailedToInit {
-                            error_message: "Process crashed before finishing initialization".to_owned(),
-                            exit_code: exit_status
-                                .expect("Error getting exit status from subprocess")
-                                .code()
-                                .expect("unable to retrieve exit code")
-                                as u8
-                        }).await;
-                        return;
+                        listen_task.await.expect("Listen task panicked");
+                        return Status::FailedToInit { error_message: "Failed to init".to_string(), exit_code: exit_status.expect("Failed to get exit status").code().expect("Failed to get exit code") as u8};
                     }
                 }
             }
         }
 
         self.status(Status::Running).await;
-        // TODO need to listen also before running is validated
-        self.listen(outputs, stdout_file, stderr_file).await;
+        listen_task.await.expect("Listen task panicked");
+        //TODO: Need to listen also before running is validated
         //TODO: Would be nice to share the exit code inside the enum
-        self.status(Status::Exited(
+        Status::Exited(
             child.wait().await.expect("error waiting for child"),
-        ))
-        .await;
+        )
     }
 
     /// Condition for restart:
@@ -179,7 +174,7 @@ impl Routine {
     ///   - `config.auto_restart` is `unexpected` and the exit status is in `config.exitcodes`: Return false (we don't want to restart)
     ///   - otherwise return true (we want to restart)
     ///
-    fn should_try_restart(&mut self, start_time: Instant) -> bool {
+    fn should_try_restart(&mut self, start_time: Instant, status: Status) -> bool {
         let started_properly = start_time.elapsed().as_secs() >= (*self.config.start_time()).into();
 
         if started_properly {
@@ -189,7 +184,7 @@ impl Routine {
                 return false;
             }
 
-            if *self.config.auto_restart() == AutoRestart::OnFailure && self.is_expected_status() {
+            if *self.config.auto_restart() == AutoRestart::OnFailure && self.is_expected_status(status) {
                 return false;
             }
 
@@ -205,8 +200,8 @@ impl Routine {
         }
     }
 
-    fn is_expected_status(&self) -> bool {
-        if let Status::Exited(exit_status) = &self.status {
+    fn is_expected_status(&self, status: Status) -> bool {
+        if let Status::Exited(exit_status) = status {
             match exit_status.code() {
                 Some(exit_status) => self.config.exit_codes().contains(&(exit_status as u8)),
                 None => false,
@@ -220,8 +215,8 @@ impl Routine {
     ///
     /// # Arguments
     /// * status - The `Status` enum that describes the current status of the subprocess handled by Routine
-    async fn status(&mut self, status: Status) {
-        self.status = status.clone();
+    async fn status(& self, status: Status) {
+        // self.status = status.clone();
         self.status_sender
             .send(status)
             .await
@@ -260,13 +255,14 @@ impl Routine {
     ///  Will panic if the log sender has been dropped, which would indicate a
     ///  critical failure in the channel communication.
     async fn listen(
-        &self,
         outputs: Outputs,
-        stdout_file: &Mutex<OutputFile>,
-        stderr_file: &Mutex<OutputFile>,
+        stdout_file: Arc<Mutex<OutputFile>>,
+        stderr_file: Arc<Mutex<OutputFile>>,
+        log_sender: LogSender,
+        program_name: String,
     ) {
-        let stdout = BufReader::new(outputs.stdout);
-        let stderr = BufReader::new(outputs.stderr);
+        let stdout = outputs.stdout;
+        let stderr = outputs.stderr;
 
         let mut stdout_file_mutex_guard = stdout_file.lock().await;
         let mut stderr_file_mutex_guard = stderr_file.lock().await;
@@ -274,15 +270,15 @@ impl Routine {
         tokio::join!(
             listen_and_log(
                 stdout,
-                self.log_sender.clone(),
+                log_sender.clone(),
                 &mut stdout_file_mutex_guard,
-                self.config.name()
+                &program_name
             ),
             listen_and_log(
                 stderr,
-                self.log_sender.clone(),
+                log_sender,
                 &mut stderr_file_mutex_guard,
-                self.config.name()
+                &program_name
             ),
         );
     }
