@@ -26,7 +26,7 @@ pub struct Log {
 }
 
 impl Log {
-    fn new(output_file: &mut OutputFile, buffer: &Vec<u8>, name: &str) -> Self {
+    fn new(output_file: &mut OutputFile, buffer: &[u8], name: &str) -> Self {
         match output_file {
             OutputFile::Stdout(_) => Log {
                 message: String::from_utf8_lossy(buffer).to_string(),
