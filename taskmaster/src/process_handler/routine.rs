@@ -81,7 +81,6 @@ pub struct Routine {
     log_sender: LogSender,
     config: Program,
     start_attempts: u32,
-    // status: Status,
 }
 
 #[allow(dead_code)] //TODO: Remove that
@@ -112,7 +111,6 @@ impl Routine {
                 status_sender,
                 log_sender,
                 start_attempts: 0,
-                // status: Status::NotSpawned,
             }
             .routine(stdout_file, stderr_file)
             .await;
@@ -188,8 +186,6 @@ impl Routine {
 
         self.status(Status::Running).await;
         listen_task.await.expect("Listen task panicked");
-        //TODO: Need to listen also before running is validated
-        //TODO: Would be nice to share the exit code inside the enum
         Status::Exited(child.wait().await.expect("error waiting for child"))
     }
 
@@ -250,7 +246,6 @@ impl Routine {
     /// # Arguments
     /// * status - The `Status` enum that describes the current status of the subprocess handled by Routine
     async fn status(&self, status: Status) {
-        // self.status = status.clone();
         self.status_sender
             .send(status)
             .await
