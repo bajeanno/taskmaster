@@ -28,37 +28,37 @@ pub enum AutoRestart {
 #[derive(Debug, Getters, Deserialize)]
 pub struct Program {
     #[serde(default)]
-    name: String,
+    name: String, //defaults to yaml section name
     #[serde(default)]
-    pids: Vec<Pid>,
-    #[serde(deserialize_with = "create_umask")]
-    umask: u32,
+    pids: Vec<Pid>, //defaults to empty Vec
+    #[serde(default = "default_umask", deserialize_with = "create_umask")]
+    umask: u32, //TODO: ad umask default
     #[serde(deserialize_with = "create_command")]
     pub cmd: Command,
     #[serde(default = "default_num_procs")]
-    num_procs: u32,
+    num_procs: u32, //defaults to 1
     #[serde(default = "default_work_dir")]
-    working_dir: String,
+    working_dir: String, //defaults to "/"
     #[serde(default)]
-    auto_start: bool,
+    auto_start: bool, //defaults to False
     #[serde(default)]
-    auto_restart: AutoRestart,
+    auto_restart: AutoRestart, //defaults to AutoRestart::False
     #[serde(default = "default_exit_codes")]
-    exit_codes: Vec<u8>,
+    exit_codes: Vec<u8>, //defaults to vec![0]
     #[serde(default)]
-    start_retries: u32,
+    start_retries: u32, //defaults to 0
     #[serde(default)]
-    start_time: u32,
+    start_time: u32, //defaults to 0
     #[serde(default = "default_signal", deserialize_with = "deserialize_signal")]
-    stop_signal: Signal,
+    stop_signal: Signal, //defaults to Signal::SIGINT
     #[serde(default)]
-    stop_time: u32,
+    stop_time: u32, //defaults to 0
     #[serde(default = "default_output")]
-    stdout: String,
+    stdout: String, //defaults to "/dev/null"
     #[serde(default = "default_output")]
-    stderr: String,
+    stderr: String, //defaults to "/dev/null"
     #[serde(default)]
-    env: HashMap<String, String>,
+    env: HashMap<String, String>, //defaults to empty HashMap
 }
 
 impl Default for AutoRestart {
@@ -133,9 +133,11 @@ fn default_work_dir() -> String {
 }
 
 fn default_exit_codes() -> Vec<u8> {
-    let mut vec = vec![];
-    vec.push(0);
-    vec
+    vec![0]
+}
+
+fn default_umask() -> u32 {
+    0o666
 }
 
 #[cfg(test)]
