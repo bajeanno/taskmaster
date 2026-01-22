@@ -32,7 +32,7 @@ pub struct Program {
     #[serde(default)]
     pids: Vec<Pid>, //defaults to empty Vec
     #[serde(default = "default_umask", deserialize_with = "create_umask")]
-    umask: u32, //TODO: ad umask default
+    umask: u32,
     #[serde(deserialize_with = "create_command")]
     pub cmd: Command,
     #[serde(default = "default_num_procs")]
