@@ -17,9 +17,10 @@ pub struct Command {
     string: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Deserialize, Default)]
 pub enum AutoRestart {
     True,
+    #[default]
     False,
     OnFailure,
 }
@@ -59,12 +60,6 @@ pub struct Program {
     stderr: String, //defaults to "/dev/null"
     #[serde(default)]
     env: HashMap<String, String>, //defaults to empty HashMap
-}
-
-impl Default for AutoRestart {
-    fn default() -> Self {
-        Self::False
-    }
 }
 
 fn deserialize_signal<'de, D>(deserializer: D) -> Result<Signal, D::Error>
