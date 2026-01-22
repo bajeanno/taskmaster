@@ -85,15 +85,6 @@ pub struct Routine {
 
 #[allow(dead_code)] //TODO: Remove that
 impl Routine {
-    /// Spawns the routine and returns the handle to it
-    ///
-    /// # Arguments
-    /// * config - `Program` struct that describes the task to run
-    ///
-    /// # return values
-    /// * `Result<Handle, Error>`
-    ///     - `Handle` is a custom struct containing a public tokio::task::JoinHandle<()>
-    ///     - `Error` is tokio::io::Error enum
     pub async fn spawn(config: Program) -> Result<Handle, Error> {
         const BUFFER_SIZE: usize = 100; // 100 is a temporary value
         let (status_sender, status_receiver) = mpsc::channel(BUFFER_SIZE);
@@ -241,10 +232,7 @@ impl Routine {
         }
     }
 
-    /// Registers status to Routine struct and sends it to backend thread (task manager)
-    ///
-    /// # Arguments
-    /// * status - The `Status` enum that describes the current status of the subprocess handled by Routine
+    /// Sends status to task manager
     async fn status(&self, status: Status) {
         self.status_sender
             .send(status)
