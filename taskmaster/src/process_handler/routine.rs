@@ -26,7 +26,7 @@ pub struct Log {
 }
 
 impl Log {
-    fn new(output_file: &mut OutputFile, buffer: &[u8], name: &str) -> Self {
+    fn new(output_file: &OutputFile, buffer: &[u8], name: &str) -> Self {
         match output_file {
             OutputFile::Stdout(_) => Log {
                 message: String::from_utf8_lossy(buffer).to_string(),
@@ -117,13 +117,16 @@ impl Routine {
         loop {
             let start_time = Instant::now();
 
-            self.status(Status::Starting).await;
+            self.send_new_status_to_task_manager(Status::Starting).await;
             let status = self
                 .run_program(Arc::clone(&stdout_file), Arc::clone(&stderr_file))
                 .await;
-            self.status(status.clone()).await;
 
-            if !self.should_try_restart(start_time, status) {
+            let should_try_restart = self.should_try_restart(start_time, &status);
+
+            self.send_new_status_to_task_manager(status).await;
+
+            if !should_try_restart {
                 break;
             }
         }
@@ -136,13 +139,11 @@ impl Routine {
     ) -> Status {
         match self.child_spawn().await {
             Ok(child) => {
-                self.status(Status::Running).await;
+                self.send_new_status_to_task_manager(Status::Running).await;
                 self.handle_running_child(child, stdout_file, stderr_file)
                     .await
             }
-            Err(err) => Status::FailedToSpawn {
-                error_message: format!("Error spawning sub-process: {err}"),
-            },
+            Err(err) => Status::FailedToSpawn(err),
         }
     }
 
@@ -169,13 +170,18 @@ impl Routine {
 
                     exit_status = child.wait() => {
                         listen_task.await.expect("Listen task panicked");
-                        return Status::FailedToInit { error_message: "Failed to init".to_string(), exit_code: exit_status.expect("Failed to get exit status").code().expect("Failed to get exit code") as u8};
+                        return Status::ErrorDuringStartup {
+                            exit_code: exit_status
+                                .expect("Failed to get exit status")
+                                .code()
+                                .expect("Failed to get exit code") as u8
+                        };
                     }
                 }
             }
         }
 
-        self.status(Status::Running).await;
+        self.send_new_status_to_task_manager(Status::Running).await;
         listen_task.await.expect("Listen task panicked");
         Status::Exited(child.wait().await.expect("error waiting for child"))
     }
@@ -193,7 +199,7 @@ impl Routine {
     ///   - `config.auto_restart` is `unexpected` and the exit status is in `config.exitcodes`: Return false (we don't want to restart)
     ///   - otherwise return true (we want to restart)
     ///
-    fn should_try_restart(&mut self, start_time: Instant, status: Status) -> bool {
+    fn should_try_restart(&mut self, start_time: Instant, status: &Status) -> bool {
         let started_properly = start_time.elapsed().as_secs() >= (*self.config.start_time()).into();
 
         if started_properly {
@@ -211,8 +217,6 @@ impl Routine {
 
             true
         } else {
-            // started_properly == false
-
             if self.start_attempts >= *self.config.start_retries() {
                 return false;
             }
@@ -221,7 +225,7 @@ impl Routine {
         }
     }
 
-    fn is_expected_status(&self, status: Status) -> bool {
+    fn is_expected_status(&self, status: &Status) -> bool {
         if let Status::Exited(exit_status) = status {
             match exit_status.code() {
                 Some(exit_status) => self.config.exit_codes().contains(&(exit_status as u8)),
@@ -232,8 +236,7 @@ impl Routine {
         }
     }
 
-    /// Sends status to task manager
-    async fn status(&self, status: Status) {
+    async fn send_new_status_to_task_manager(&self, status: Status) {
         self.status_sender
             .send(status)
             .await
