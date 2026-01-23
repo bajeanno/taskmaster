@@ -12,7 +12,12 @@ async fn check(mut status_receiver: mpsc::Receiver<Status>, mut log_receiver: mp
                     Status::NotSpawned => println!("Status: NotSpawned"),
                     Status::Starting => println!("Status: Starting"),
                     Status::Running => println!("Status: Running"),
-                    Status::FailedToStart{ error_message, exit_code: _ } => println!("Status: FailedToStart: {error_message}"),
+                    Status::ErrorDuringStartup { exit_code } => {
+                        println!("Status: ErrorDuringStartup: exit code: {exit_code}")
+                    },
+                    Status::FailedToSpawn(error) => {
+                        println!("Status: FailedToSpawn: {error}")
+                    },
                     Status::Exited(_) => {
                         println!("Status: Exited");
                         break;
@@ -72,10 +77,7 @@ env:
         routine_handle.log_receiver,
     ));
 
-    routine_handle
-        .join_handle
-        .await
-        .expect("failed to join handle");
+    routine_handle.join_handle.await.unwrap();
     handle2.await.expect("failed to join status handle");
 
     let stdout_file = "/tmp/taskmaster_tests.stdout";

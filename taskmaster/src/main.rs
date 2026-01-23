@@ -26,7 +26,7 @@ fn entrypoint() -> Result<()> {
     let tasks = get_tasks_from_config("taskmaster.yaml");
 
     if !cfg!(debug_assertions) {
-        daeemonize()?
+        daemonize()?
     }
 
     start_server(port, tasks)
@@ -75,7 +75,7 @@ fn get_tasks_from_config(config_file: &str) -> Vec<Program> {
     })
 }
 
-fn daeemonize() -> Result<()> {
+fn daemonize() -> Result<()> {
     unsafe {
         daemonize::Daemonize::new()
             .stdout("./server_output")
