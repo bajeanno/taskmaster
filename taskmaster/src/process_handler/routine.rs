@@ -249,6 +249,7 @@ impl Routine {
         let child = self
             .config
             .cmd
+            .command
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
