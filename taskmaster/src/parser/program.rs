@@ -32,9 +32,9 @@ pub struct Program {
     name: String, //defaults to yaml section name
     #[serde(default)]
     pids: Vec<Pid>, //defaults to empty Vec
-    #[serde(default = "default_umask", deserialize_with = "create_umask")]
+    #[serde(default = "default_umask", deserialize_with = "deserialize_umask")]
     umask: u32,
-    #[serde(deserialize_with = "create_command")]
+    #[serde(deserialize_with = "deserialize_command")]
     pub cmd: Command,
     #[serde(default = "default_num_procs")]
     num_procs: u32, //defaults to 1
@@ -71,7 +71,7 @@ where
     Ok(signal)
 }
 
-fn create_umask<'de, D>(deserializer: D) -> Result<u32, D::Error>
+fn deserialize_umask<'de, D>(deserializer: D) -> Result<u32, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -87,7 +87,7 @@ where
     }
 }
 
-fn create_command<'de, D>(deserializer: D) -> Result<Command, D::Error>
+fn deserialize_command<'de, D>(deserializer: D) -> Result<Command, D::Error>
 where
     D: Deserializer<'de>,
 {
