@@ -21,12 +21,7 @@ pub enum ParseError {
 pub fn parse_command(
     mut args: impl Iterator<Item = String>,
 ) -> Result<Option<Command>, ParseError> {
-    match args
-        .next()
-        .ok_or(ParseError::MissingArgument)?
-        .as_str()
-        .trim()
-    {
+    match args.next().ok_or(ParseError::MissingArgument)?.trim() {
         "status" => Ok(Some(Command::ListTasks)),
         "start" => {
             let program = args.next().ok_or(ParseError::MissingArgument)?;

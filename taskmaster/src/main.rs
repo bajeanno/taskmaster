@@ -1,6 +1,7 @@
 mod client_handler;
 mod error;
 mod parser;
+mod process_handler;
 mod server;
 mod tasks_manager;
 

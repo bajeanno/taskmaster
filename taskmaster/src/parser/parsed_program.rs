@@ -1,20 +1,6 @@
-use crate::parser::ParseError;
+use crate::parser::{ParseError, program::AutoRestart};
 use serde::{Deserialize, Deserializer};
-use std::{collections::HashMap, fs::File};
-
-#[derive(Debug, PartialEq)]
-pub enum AutoRestart {
-    True,
-    False,
-    Unexpected,
-}
-
-#[derive(Debug, Deserialize)]
-#[allow(dead_code)] // TODO: remove this
-pub struct EnvVar {
-    pub key: String,
-    pub value: String,
-}
+use std::{collections::HashMap, ffi::c_int, fs::File};
 
 impl<'de> Deserialize<'de> for AutoRestart {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -25,7 +11,7 @@ impl<'de> Deserialize<'de> for AutoRestart {
         match s.as_str() {
             "true" => Ok(AutoRestart::True),
             "false" => Ok(AutoRestart::False),
-            "unexpected" => Ok(AutoRestart::Unexpected),
+            "unexpected" => Ok(AutoRestart::OnFailure),
             _ => Err(serde::de::Error::custom("unexpected value")),
         }
     }
@@ -55,55 +41,64 @@ pub struct ParsedProgram {
     pub env: Option<HashMap<String, String>>,
 }
 
-impl ParsedProgram {
-    fn check_signal(&self, name: &str) -> Result<String, ParseError> {
-        match self
-            .stopsignal
-            .clone()
-            .unwrap_or_else(|| String::from("INT"))
-            .as_ref()
-        {
-            "HUP" => Ok(String::from("HUP")),
-            "INT" => Ok(String::from("INT")),
-            "QUIT" => Ok(String::from("QUIT")),
-            "ILL" => Ok(String::from("ILL")),
-            "TRAP" => Ok(String::from("TRAP")),
-            "ABRT" => Ok(String::from("ABRT")),
-            "EMT" => Ok(String::from("EMT")),
-            "FPE" => Ok(String::from("FPE")),
-            "KILL" => Ok(String::from("KILL")),
-            "BUS" => Ok(String::from("BUS")),
-            "SEGV" => Ok(String::from("SEGV")),
-            "SYS" => Ok(String::from("SYS")),
-            "PIPE" => Ok(String::from("PIPE")),
-            "ALRM" => Ok(String::from("ALRM")),
-            "TERM" => Ok(String::from("TERM")),
-            "URG" => Ok(String::from("URG")),
-            "STOP" => Ok(String::from("STOP")),
-            "TSTP" => Ok(String::from("TSTP")),
-            "CONT" => Ok(String::from("CONT")),
-            "CHLD" => Ok(String::from("CHLD")),
-            "TTIN" => Ok(String::from("TTIN")),
-            "TTOU" => Ok(String::from("TTOU")),
-            "IO" => Ok(String::from("IO")),
-            "XCPU" => Ok(String::from("XCPU")),
-            "XFSZ" => Ok(String::from("XFSZ")),
-            "VTALRM" => Ok(String::from("VTALRM")),
-            "PROF" => Ok(String::from("PROF")),
-            "WINCH" => Ok(String::from("WINCH")),
-            "INFO" => Ok(String::from("INFO")),
-            "USR1" => Ok(String::from("USR1")),
-            "USR2" => Ok(String::from("USR2")),
-            sig => Err(ParseError::InvalidSignal(sig.to_string(), name.to_string())),
-        }
+#[cfg(test)]
+impl TryFrom<&str> for ParsedProgram {
+    type Error = ParseError;
+
+    fn try_from(origin: &str) -> Result<Self, ParseError> {
+        let result: Self = serde_yaml::from_str(origin)?;
+        Ok(result)
+    }
+}
+
+pub fn get_signal(signal: Option<&str>, name: &str) -> Result<c_int, ParseError> {
+    match signal.unwrap_or("INT") {
+        "HUP" => Ok(libc::signal::SIGHUP),
+        "INT" => Ok(libc::signal::SIGINT),
+        "QUIT" => Ok(libc::signal::SIGQUIT),
+        "ILL" => Ok(libc::signal::SIGILL),
+        "TRAP" => Ok(libc::signal::SIGTRAP),
+        "ABRT" => Ok(libc::signal::SIGABRT),
+        "EMT" => Ok(libc::signal::SIGEMT),
+        "FPE" => Ok(libc::signal::SIGFPE),
+        "KILL" => Ok(libc::signal::SIGKILL),
+        "BUS" => Ok(libc::signal::SIGBUS),
+        "SEGV" => Ok(libc::signal::SIGSEGV),
+        "SYS" => Ok(libc::signal::SIGSYS),
+        "PIPE" => Ok(libc::signal::SIGPIPE),
+        "ALRM" => Ok(libc::signal::SIGALRM),
+        "TERM" => Ok(libc::signal::SIGTERM),
+        "URG" => Ok(libc::signal::SIGURG),
+        "STOP" => Ok(libc::signal::SIGSTOP),
+        "TSTP" => Ok(libc::signal::SIGTSTP),
+        "CONT" => Ok(libc::signal::SIGCONT),
+        "CHLD" => Ok(libc::signal::SIGCHLD),
+        "TTIN" => Ok(libc::signal::SIGTTIN),
+        "TTOU" => Ok(libc::signal::SIGTTOU),
+        "IO" => Ok(libc::signal::SIGIO),
+        "XCPU" => Ok(libc::signal::SIGXCPU),
+        "XFSZ" => Ok(libc::signal::SIGXFSZ),
+        "VTALRM" => Ok(libc::signal::SIGVTALRM),
+        "PROF" => Ok(libc::signal::SIGPROF),
+        "WINCH" => Ok(libc::signal::SIGWINCH),
+        "INFO" => Ok(libc::signal::SIGINFO),
+        "USR1" => Ok(libc::signal::SIGUSR1),
+        "USR2" => Ok(libc::signal::SIGUSR2),
+        sig => Err(ParseError::InvalidSignal {
+            signal: sig.to_string(),
+            program_name: name.to_string(),
+        }),
     }
 }
 
 impl ParsedConfig {
     pub fn new(file: File) -> Result<Self, ParseError> {
-        let new_config: Self = serde_yaml::from_reader(file)?;
-        for (name, program) in &new_config.programs {
-            program.check_signal(name)?;
+        let mut new_config: Self = serde_yaml::from_reader(file)?;
+        for (name, program) in &mut new_config.programs {
+            get_signal(program.stopsignal.as_deref(), name)?;
+            if program.name.is_none() {
+                program.name = Some(name.to_string());
+            }
         }
         Ok(new_config)
     }
