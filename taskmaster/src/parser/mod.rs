@@ -1,4 +1,6 @@
 pub mod program;
+#[cfg(test)]
+mod tests;
 
 use thiserror::Error;
 

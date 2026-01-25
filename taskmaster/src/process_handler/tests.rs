@@ -49,7 +49,7 @@ async fn create_task() {
 
     use tokio::fs::remove_file;
 
-    let yaml_content = r#"cmd: "bash -c \"echo Hello $STARTED_BY!\""
+    let yaml_content = r#"cmd: 'bash -c "echo Hello $STARTED_BY!"'
 name: "taskmaster_test_task"
 numprocs: 1
 umask: 022
@@ -64,6 +64,7 @@ stopsignal: TERM
 stoptime: 10
 stdout: /tmp/taskmaster_tests.stdout
 stderr: /tmp/taskmaster_tests.stderr
+clearenv: true
 env:
   STARTED_BY: taskmaster
   ANSWER: 42"#;
