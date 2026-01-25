@@ -172,11 +172,19 @@ impl Config {
             .for_each(|program| program.add_env());
     }
 
-    pub fn parse(file: &str) -> Result<Vec<Program>, ParseError> {
-        let file = File::open(file).map_err(ParseError::OpeningFile)?;
-        let mut config: Self =
+    pub(super) fn from_reader(file: impl std::io::Read) -> Result<Config, ParseError> {
+        let map: HashMap<String, Program> =
             serde_yaml::from_reader(file).inspect_err(|err| eprintln!("{err}"))?;
+        let mut config = Self {
+            programs: map.into_iter().map(|(_, program)| program).collect(),
+        };
         config.add_envs();
-        Ok(config.programs)
+        Ok(config)
+    }
+
+    pub fn parse(file: &str) -> Result<Config, ParseError> {
+        let file = File::open(file).map_err(ParseError::OpeningFile)?;
+        let config = Self::from_reader(file)?;
+        Ok(config)
     }
 }
