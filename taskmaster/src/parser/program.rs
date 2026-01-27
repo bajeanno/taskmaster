@@ -59,6 +59,8 @@ pub struct Program {
     #[serde(default = "default_output")]
     stderr: String, //defaults to "/dev/null"
     #[serde(default)]
+    clear_env: bool,
+    #[serde(default)]
     env: HashMap<String, String>, //defaults to empty HashMap
 }
 
@@ -158,6 +160,9 @@ impl Display for Program {
 
 impl Program {
     fn add_env(&mut self) {
+        if self.clear_env {
+            self.cmd.command.env_clear();
+        }
         self.env.iter().for_each(|(key, val)| {
             self.cmd.command.env(key, val);
             println!("putting {key}: {val} in env")

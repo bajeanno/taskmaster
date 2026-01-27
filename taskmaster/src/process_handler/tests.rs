@@ -64,6 +64,7 @@ stopsignal: TERM
 stoptime: 10
 stdout: /tmp/taskmaster_tests.stdout
 stderr: /tmp/taskmaster_tests.stderr
+clear_env: true
 env:
   STARTED_BY: taskmaster
   ANSWER: 42"#;
