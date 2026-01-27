@@ -29,39 +29,39 @@ pub enum AutoRestart {
 #[derive(Debug, Getters, Deserialize)]
 pub struct Program {
     #[serde(default)]
-    name: String, //defaults to yaml section name
+    name: String,
     #[serde(default)]
-    pids: Vec<Pid>, //defaults to empty Vec
+    pids: Vec<Pid>,
     #[serde(default = "default_umask", deserialize_with = "deserialize_umask")]
     umask: u32,
     #[serde(deserialize_with = "deserialize_command")]
     pub cmd: Command,
     #[serde(default = "default_num_procs")]
-    num_procs: u32, //defaults to 1
+    num_procs: u32,
     #[serde(default = "default_work_dir")]
-    working_dir: String, //defaults to "/"
+    working_dir: String,
     #[serde(default)]
-    auto_start: bool, //defaults to False
+    auto_start: bool,
     #[serde(default)]
-    auto_restart: AutoRestart, //defaults to AutoRestart::False
+    auto_restart: AutoRestart,
     #[serde(default = "default_exit_codes")]
-    exit_codes: Vec<u8>, //defaults to vec![0]
+    exit_codes: Vec<u8>,
     #[serde(default)]
-    start_retries: u32, //defaults to 0
+    start_retries: u32,
     #[serde(default)]
-    start_time: u32, //defaults to 0
+    start_time: u32,
     #[serde(default = "default_signal", deserialize_with = "deserialize_signal")]
-    stop_signal: Signal, //defaults to Signal::SIGINT
+    stop_signal: Signal,
     #[serde(default)]
-    stop_time: u32, //defaults to 0
+    stop_time: u32,
     #[serde(default = "default_output")]
-    stdout: String, //defaults to "/dev/null"
+    stdout: String,
     #[serde(default = "default_output")]
-    stderr: String, //defaults to "/dev/null"
+    stderr: String,
     #[serde(default)]
     clear_env: bool,
     #[serde(default)]
-    env: HashMap<String, String>, //defaults to empty HashMap
+    env: HashMap<String, String>,
 }
 
 fn deserialize_signal<'de, D>(deserializer: D) -> Result<Signal, D::Error>
