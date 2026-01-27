@@ -4,7 +4,10 @@ use tokio::select;
 use tokio::sync::mpsc;
 
 #[cfg(test)]
-async fn check(mut status_receiver: mpsc::Receiver<Status>, mut log_receiver: mpsc::Receiver<Log>) {
+async fn check_realtime_output_and_status(
+    mut status_receiver: mpsc::Receiver<Status>,
+    mut log_receiver: mpsc::Receiver<Log>,
+) {
     loop {
         select! {
             Some(status) = status_receiver.recv() => {
@@ -73,7 +76,7 @@ env:
     let routine_handle = Routine::spawn(config)
         .await
         .expect("failed to spawn tokio::task");
-    let handle2 = tokio::spawn(check(
+    let handle2 = tokio::spawn(check_realtime_output_and_status(
         routine_handle.status_receiver,
         routine_handle.log_receiver,
     ));
