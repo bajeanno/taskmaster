@@ -68,8 +68,12 @@ fn deserialize_signal<'de, D>(deserializer: D) -> Result<Signal, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let signal: Signal = Signal::from_str(String::deserialize(deserializer)?.as_str())
-        .map_err(|_| de::Error::custom("Failed to convert signal from string"))?;
+    let signal: Signal = Signal::from_str(
+        String::deserialize(deserializer)
+            .map_err(|err| serde::de::Error::custom(format!("Failed to parse signal: {err}")))?
+            .as_str(),
+    )
+    .map_err(|err| de::Error::custom(format!("Failed to convert signal from string: {err}")))?;
     Ok(signal)
 }
 
@@ -77,9 +81,11 @@ fn deserialize_umask<'de, D>(deserializer: D) -> Result<u32, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let umask_str = String::deserialize(deserializer)?;
-    let umask = u32::from_str_radix(umask_str.as_str(), 8)
-        .map_err(|_| serde::de::Error::custom("ParseIntError on umask parsing"))?;
+    let umask_str = String::deserialize(deserializer)
+        .map_err(|err| serde::de::Error::custom(format!("Failed to parse umask: {err}")))?;
+    let umask = u32::from_str_radix(umask_str.as_str(), 8).map_err(|err| {
+        serde::de::Error::custom(format!("ParseIntError on umask parsing: {err}"))
+    })?;
     if umask > 0o777 {
         Err(serde::de::Error::custom(
             "umask is greater than 0o777 (max value accepted)",
@@ -93,9 +99,10 @@ fn deserialize_command<'de, D>(deserializer: D) -> Result<Command, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let cmd = String::deserialize(deserializer)?;
+    let cmd = String::deserialize(deserializer)
+        .map_err(|err| serde::de::Error::custom(format!("Failed to parse command: {err}")))?;
     let parts = shell_words::split(&cmd)
-        .map_err(|_| serde::de::Error::custom("Failed to parse command"))?;
+        .map_err(|err| serde::de::Error::custom(format!("Failed to parse command: {err}")))?;
 
     let mut parts_iter = parts.into_iter();
     let program = parts_iter
