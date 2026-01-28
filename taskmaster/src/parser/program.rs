@@ -187,7 +187,15 @@ impl Config {
         let map: HashMap<String, Program> =
             serde_yaml::from_reader(file).inspect_err(|err| eprintln!("{err}"))?;
         let mut config = Self {
-            programs: map.into_iter().map(|(_, program)| program).collect(),
+            programs: map
+                .into_iter()
+                .map(|(name, mut program)| {
+                    if program.name.is_empty() {
+                        program.name = name;
+                    }
+                    program
+                })
+                .collect(),
         };
         config.add_envs();
         Ok(config)
