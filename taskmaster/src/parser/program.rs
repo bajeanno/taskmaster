@@ -192,7 +192,6 @@ impl Config {
 
     pub fn parse(file: &str) -> Result<Config, ParseError> {
         let file = File::open(file).map_err(ParseError::OpeningFile)?;
-        let config = Self::from_reader(file)?;
-        Ok(config)
+        Self::from_reader(file)
     }
 }
