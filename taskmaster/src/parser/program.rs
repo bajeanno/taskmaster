@@ -144,17 +144,6 @@ fn default_umask() -> u32 {
     0o666
 }
 
-#[cfg(test)]
-impl TryFrom<&str> for Program {
-    type Error = ParseError;
-
-    fn try_from(origin: &str) -> Result<Self, ParseError> {
-        let mut result: Self = serde_yaml::from_str(origin)?;
-        result.add_env();
-        Ok(result)
-    }
-}
-
 impl Display for Program {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -183,7 +172,7 @@ impl Config {
             .for_each(|program| program.add_env());
     }
 
-    pub(super) fn from_reader(file: impl std::io::Read) -> Result<Config, ParseError> {
+    pub fn from_reader(file: impl std::io::Read) -> Result<Config, ParseError> {
         let map: HashMap<String, Program> =
             serde_yaml::from_reader(file).inspect_err(|err| eprintln!("{err}"))?;
         let mut config = Self {
