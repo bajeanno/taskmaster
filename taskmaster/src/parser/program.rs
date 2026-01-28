@@ -165,7 +165,6 @@ impl Program {
         }
         self.env.iter().for_each(|(key, val)| {
             self.cmd.command.env(key, val);
-            println!("putting {key}: {val} in env")
         });
     }
 }
