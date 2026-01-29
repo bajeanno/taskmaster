@@ -1,10 +1,9 @@
-use crate::parser::program::Program;
 use crate::process_handler::{Log, LogType, Routine, Status};
 use tokio::select;
 use tokio::sync::mpsc;
 
 #[cfg(test)]
-async fn get_status(
+async fn check_realtime_output_and_status(
     mut status_receiver: mpsc::Receiver<Status>,
     mut log_receiver: mpsc::Receiver<Log>,
 ) {
@@ -48,34 +47,46 @@ async fn get_status(
 #[tokio::test]
 #[cfg(test)]
 async fn create_task() {
-    use std::{fs::File, io::Read};
+    use std::{
+        fs::File,
+        io::{Cursor, Read},
+    };
 
     use tokio::fs::remove_file;
 
-    let yaml_content = r#"cmd: "bash -c \"echo Hello $STARTED_BY!\""
-name: "taskmaster_test_task"
-numprocs: 1
-umask: 022
-workingdir: /tmp
-autostart: true
-exitcodes:
-  - 0
-  - 2
-startretries: 5
-starttime: 0
-stopsignal: TERM
-stoptime: 10
-stdout: /tmp/taskmaster_tests.stdout
-stderr: /tmp/taskmaster_tests.stderr
-env:
-  STARTED_BY: taskmaster
-  ANSWER: 42"#;
-    let config = Program::try_from(yaml_content).expect("Failed to parse program");
+    use crate::config::Config;
+
+    let yaml_content = r#"programs:
+    taskmaster_test_task:
+        cmd: "bash -c \"echo Hello $STARTED_BY!\""
+        numprocs: 1
+        umask: 022
+        workingdir: /tmp
+        autostart: true
+        exitcodes:
+        - 0
+        - 2
+        startretries: 5
+        starttime: 0
+        stopsignal: SIGTERM
+        stoptime: 10
+        stdout: /tmp/taskmaster_tests.stdout
+        stderr: /tmp/taskmaster_tests.stderr
+        clearenv: true
+        env:
+            STARTED_BY: taskmaster
+            ANSWER: 42"#;
+    let config = Config::from_reader(Cursor::new(yaml_content))
+        .expect("Parse error")
+        .programs
+        .into_iter()
+        .next()
+        .expect("Config vector is empty");
 
     let routine_handle = Routine::spawn(config)
         .await
         .expect("failed to spawn tokio::task");
-    let handle2 = tokio::spawn(get_status(
+    let handle2 = tokio::spawn(check_realtime_output_and_status(
         routine_handle.status_receiver,
         routine_handle.log_receiver,
     ));

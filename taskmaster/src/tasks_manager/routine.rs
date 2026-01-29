@@ -1,6 +1,6 @@
 use super::Handle;
 use super::Message;
-use crate::parser::program::Program;
+use crate::config::Program;
 use tokio::sync::mpsc;
 
 pub type Sender = mpsc::Sender<Message>;
