@@ -1,12 +1,12 @@
 mod client_handler;
+mod config;
 mod error;
-mod parser;
 mod process_handler;
 mod server;
 mod tasks_manager;
 
+use config::{Config, Program};
 use error::{Error, Result};
-use parser::program::{Config, Program};
 use server::Server;
 
 const DEFAULT_PORT: i32 = 4444;

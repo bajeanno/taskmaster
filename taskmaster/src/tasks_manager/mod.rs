@@ -16,7 +16,7 @@ pub use api::Api;
 #[cfg(test)]
 pub use api::MockApi;
 
-use crate::parser::program::Program;
+use crate::config::Program;
 
 pub async fn spawn(tasks: Vec<Program>) -> Handle {
     Routine::spawn(tasks).await

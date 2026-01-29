@@ -54,7 +54,7 @@ async fn create_task() {
 
     use tokio::fs::remove_file;
 
-    use crate::parser::program::Config;
+    use crate::config::Config;
 
     let yaml_content = r#"taskmaster_test_task:
     cmd: "bash -c \"echo Hello $STARTED_BY!\""

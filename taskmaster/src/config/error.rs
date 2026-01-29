@@ -1,5 +1,3 @@
-pub mod program;
-
 use thiserror::Error;
 
 #[derive(Error, Debug)]

@@ -1,15 +1,9 @@
-use super::ParseError;
 use derive_getters::Getters;
 use libc::sys::types::Pid;
 use serde::{Deserialize, Deserializer, de};
 use signal::Signal;
-use std::{collections::HashMap, fmt::Display, fs::File, str::FromStr};
+use std::{collections::HashMap, fmt::Display, str::FromStr};
 use tokio::process::Command as TokioCommand;
-
-#[derive(Debug, Deserialize)]
-pub struct Config {
-    pub programs: Vec<Program>,
-}
 
 #[derive(Debug)]
 pub struct Command {
@@ -27,8 +21,9 @@ pub enum AutoRestart {
 
 #[allow(dead_code)] // TODO: remove this
 #[derive(Debug, Getters, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Program {
-    #[serde(default)]
+    #[serde(skip)]
     name: String,
     #[serde(default)]
     pids: Vec<Pid>,
@@ -155,7 +150,7 @@ impl Display for Program {
 }
 
 impl Program {
-    fn add_env(&mut self) {
+    pub(super) fn add_env(&mut self) {
         if self.clear_env {
             self.cmd.command.env_clear();
         }
@@ -163,34 +158,8 @@ impl Program {
             self.cmd.command.env(key, val);
         });
     }
-}
 
-impl Config {
-    fn add_envs(&mut self) {
-        self.programs
-            .iter_mut()
-            .for_each(|program| program.add_env());
-    }
-
-    pub fn from_reader(file: impl std::io::Read) -> Result<Config, ParseError> {
-        let map: HashMap<String, Program> = serde_yaml::from_reader(file)?;
-        let mut config = Self {
-            programs: map
-                .into_iter()
-                .map(|(name, mut program)| {
-                    if program.name.is_empty() {
-                        program.name = name;
-                    }
-                    program
-                })
-                .collect(),
-        };
-        config.add_envs();
-        Ok(config)
-    }
-
-    pub fn parse(file: &str) -> Result<Config, ParseError> {
-        let file = File::open(file).map_err(ParseError::OpeningFile)?;
-        Self::from_reader(file)
+    pub(super) fn name_mut(&mut self) -> &mut String {
+        &mut self.name
     }
 }
