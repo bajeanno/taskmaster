@@ -29,11 +29,7 @@ fn entrypoint() -> Result<()> {
         daemonize()?
     }
 
-    if let Some(tasks) = tasks {
-        start_server(port, tasks)
-    } else {
-        Ok(())
-    }
+    start_server(port, tasks)
 }
 
 fn parse_args(port: Option<String>) -> Result<Args> {
@@ -72,12 +68,12 @@ mod taskmaster {
     }
 }
 
-fn get_tasks_from_config(config_file: &str) -> Option<Vec<Program>> {
+fn get_tasks_from_config(config_file: &str) -> Vec<Program> {
     match Config::parse(config_file) {
-        Ok(config) => Some(config.programs),
+        Ok(config) => config.programs,
         Err(err) => {
             eprintln!("Warning {err}");
-            None
+            Vec::new()
         }
     }
 }
