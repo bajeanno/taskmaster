@@ -173,8 +173,7 @@ impl Config {
     }
 
     pub fn from_reader(file: impl std::io::Read) -> Result<Config, ParseError> {
-        let map: HashMap<String, Program> =
-            serde_yaml::from_reader(file).inspect_err(|err| eprintln!("{err}"))?;
+        let map: HashMap<String, Program> = serde_yaml::from_reader(file)?;
         let mut config = Self {
             programs: map
                 .into_iter()
