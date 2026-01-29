@@ -56,25 +56,26 @@ async fn create_task() {
 
     use crate::config::Config;
 
-    let yaml_content = r#"taskmaster_test_task:
-    cmd: "bash -c \"echo Hello $STARTED_BY!\""
-    numprocs: 1
-    umask: 022
-    workingdir: /tmp
-    autostart: true
-    exitcodes:
-    - 0
-    - 2
-    startretries: 5
-    starttime: 0
-    stopsignal: TERM
-    stoptime: 10
-    stdout: /tmp/taskmaster_tests.stdout
-    stderr: /tmp/taskmaster_tests.stderr
-    clear_env: true
-    env:
-        STARTED_BY: taskmaster
-        ANSWER: 42"#;
+    let yaml_content = r#"programs:
+    taskmaster_test_task:
+        cmd: "bash -c \"echo Hello $STARTED_BY!\""
+        numprocs: 1
+        umask: 022
+        workingdir: /tmp
+        autostart: true
+        exitcodes:
+        - 0
+        - 2
+        startretries: 5
+        starttime: 0
+        stopsignal: SIGTERM
+        stoptime: 10
+        stdout: /tmp/taskmaster_tests.stdout
+        stderr: /tmp/taskmaster_tests.stderr
+        clearenv: true
+        env:
+            STARTED_BY: taskmaster
+            ANSWER: 42"#;
     let config = Config::from_reader(Cursor::new(yaml_content))
         .expect("Parse error")
         .programs
