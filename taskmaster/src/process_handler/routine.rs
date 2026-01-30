@@ -1,5 +1,5 @@
 use super::{Handle, Status};
-use crate::parser::program::{AutoRestart, Program};
+use crate::config::program::{AutoRestart, Program};
 use std::panic;
 use std::process::Stdio;
 use std::sync::Arc;
