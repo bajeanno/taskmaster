@@ -1,5 +1,8 @@
 #[allow(unused)]
-use crate::parser::program::{Command, Config, Program};
+use crate::config::{
+    Config,
+    program::{Command, Program},
+};
 use signal::Signal;
 use std::collections::HashMap;
 use std::io::Cursor;

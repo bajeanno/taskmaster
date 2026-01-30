@@ -1,6 +1,9 @@
 pub mod program;
 pub use program::Program;
 
+#[cfg(test)]
+mod tests;
+
 mod error;
 pub use error::ParseError;
 
