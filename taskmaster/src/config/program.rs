@@ -8,7 +8,7 @@ use tokio::process::Command as TokioCommand;
 #[derive(Debug)]
 pub struct Command {
     pub command: TokioCommand,
-    string: String,
+    pub(super) string: String,
 }
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Default)]
@@ -20,63 +20,63 @@ pub enum AutoRestart {
 }
 
 #[allow(dead_code)] // TODO: remove this
-#[derive(Debug, Getters, Deserialize)]
+#[derive(Debug, Getters, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Program {
     #[serde(skip)]
-    name: String,
+    pub(super) name: String,
 
     #[serde(default)]
-    pids: Vec<Pid>,
+    pub(super) pids: Vec<Pid>,
 
     #[serde(default = "default_umask", deserialize_with = "deserialize_umask")]
-    umask: u32,
+    pub(super) umask: u32,
 
     #[serde(deserialize_with = "deserialize_command")]
     pub cmd: Command,
 
     #[serde(rename = "numprocs", default = "default_num_procs")]
-    num_procs: u32,
+    pub(super) num_procs: u32,
 
     #[serde(rename = "workingdir", default = "default_work_dir")]
-    working_dir: String,
+    pub(super) working_dir: String,
 
     #[serde(rename = "autostart", default)]
-    auto_start: bool,
+    pub(super) auto_start: bool,
 
     #[serde(rename = "autorestart", default)]
-    auto_restart: AutoRestart,
+    pub(super) auto_restart: AutoRestart,
 
     #[serde(rename = "exitcodes", default = "default_exit_codes")]
-    exit_codes: Vec<u8>,
+    pub(super) exit_codes: Vec<u8>,
 
     #[serde(rename = "startretries", default)]
-    start_retries: u32,
+    pub(super) start_retries: u32,
 
     #[serde(rename = "starttime", default)]
-    start_time: u32,
+    pub(super) start_time: u32,
 
     #[serde(
         rename = "stopsignal",
         default = "default_signal",
         deserialize_with = "deserialize_signal"
     )]
-    stop_signal: Signal,
+    pub(super) stop_signal: Signal,
 
     #[serde(rename = "stoptime", default)]
-    stop_time: u32,
+    pub(super) stop_time: u32,
 
     #[serde(default = "default_output")]
-    stdout: String,
+    pub(super) stdout: String,
 
     #[serde(default = "default_output")]
-    stderr: String,
+    pub(super) stderr: String,
 
     #[serde(rename = "clearenv", default)]
-    clear_env: bool,
+    pub(super) clear_env: bool,
 
     #[serde(default)]
-    env: HashMap<String, String>,
+    pub(super) env: HashMap<String, String>,
 }
 
 fn deserialize_signal<'de, D>(deserializer: D) -> Result<Signal, D::Error>
@@ -157,6 +157,12 @@ fn default_exit_codes() -> Vec<u8> {
 
 fn default_umask() -> u32 {
     0o666
+}
+
+impl PartialEq for Command {
+    fn eq(&self, other: &Self) -> bool {
+        self.string == other.string
+    }
 }
 
 impl Display for Program {
