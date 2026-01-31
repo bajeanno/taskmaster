@@ -234,3 +234,123 @@ fn parsing_with_num_procs() {
     );
     assert_config_parses_to(&yaml_content, program);
 }
+
+#[test]
+fn parsing_with_start_retries() {
+    let mut builder = TestProgramBuilder::new("echo test");
+    builder.start_retries = 5;
+    let program = builder.build();
+    let yaml_content = yaml_with_fields(
+        "echo test",
+        r#"
+        startretries: 5"#,
+    );
+    assert_config_parses_to(&yaml_content, program);
+}
+
+#[test]
+fn parsing_with_start_time() {
+    let mut builder = TestProgramBuilder::new("echo test");
+    builder.start_time = 10;
+    let program = builder.build();
+    let yaml_content = yaml_with_fields(
+        "echo test",
+        r#"
+        starttime: 10"#,
+    );
+    assert_config_parses_to(&yaml_content, program);
+}
+
+#[test]
+fn parsing_with_stop_time() {
+    let mut builder = TestProgramBuilder::new("echo test");
+    builder.stop_time = 15;
+    let program = builder.build();
+    let yaml_content = yaml_with_fields(
+        "echo test",
+        r#"
+        stoptime: 15"#,
+    );
+    assert_config_parses_to(&yaml_content, program);
+}
+
+#[test]
+fn parsing_with_stop_signal() {
+    let mut builder = TestProgramBuilder::new("echo test");
+    builder.stop_signal = Signal::SIGTERM;
+    let program = builder.build();
+    let yaml_content = yaml_with_fields(
+        "echo test",
+        r#"
+        stopsignal: "SIGTERM""#,
+    );
+    assert_config_parses_to(&yaml_content, program);
+}
+
+#[test]
+fn parsing_with_auto_restart() {
+    let mut builder = TestProgramBuilder::new("echo test");
+    builder.auto_restart = AutoRestart::True;
+    let program = builder.build();
+    let yaml_content = yaml_with_fields(
+        "echo test",
+        r#"
+        autorestart: true"#,
+    );
+    assert_config_parses_to(&yaml_content, program);
+}
+
+#[test]
+fn parsing_with_clear_env() {
+    let mut builder = TestProgramBuilder::new("echo test");
+    builder.clear_env = true;
+    let program = builder.build();
+    let yaml_content = yaml_with_fields(
+        "echo test",
+        r#"
+        clearenv: true"#,
+    );
+    assert_config_parses_to(&yaml_content, program);
+}
+
+#[test]
+fn parsing_with_stdout() {
+    let mut builder = TestProgramBuilder::new("echo test");
+    builder.stdout = "/var/log/stdout.log".to_string();
+    let program = builder.build();
+    let yaml_content = yaml_with_fields(
+        "echo test",
+        r#"
+        stdout: "/var/log/stdout.log""#,
+    );
+    assert_config_parses_to(&yaml_content, program);
+}
+
+#[test]
+fn parsing_with_stderr() {
+    let mut builder = TestProgramBuilder::new("echo test");
+    builder.stderr = "/var/log/stderr.log".to_string();
+    let program = builder.build();
+    let yaml_content = yaml_with_fields(
+        "echo test",
+        r#"
+        stderr: "/var/log/stderr.log""#,
+    );
+    assert_config_parses_to(&yaml_content, program);
+}
+
+#[test]
+fn parsing_with_env() {
+    let mut builder = TestProgramBuilder::new("echo test");
+    builder.env.insert("VAR1".to_string(), "value1".to_string());
+    builder.env.insert("VAR2".to_string(), "value2".to_string());
+    let program = builder.build();
+    let yaml_content = yaml_with_fields(
+        "echo test",
+        r#"
+        env:
+            VAR1: "value1"
+            VAR2: "value2""#,
+    );
+    assert_config_parses_to(&yaml_content, program);
+}
