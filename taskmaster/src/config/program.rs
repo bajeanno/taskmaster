@@ -13,9 +13,12 @@ pub struct Command {
 
 #[derive(Debug, PartialEq, Eq, Deserialize, Default)]
 pub enum AutoRestart {
+    #[serde(rename = "true")]
     True,
     #[default]
+    #[serde(rename = "false")]
     False,
+    #[serde(rename = "unexpected")]
     OnFailure,
 }
 
