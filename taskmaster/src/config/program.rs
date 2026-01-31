@@ -23,7 +23,8 @@ pub enum AutoRestart {
 }
 
 #[allow(dead_code)] // TODO: remove this
-#[derive(Debug, Getters, Deserialize, PartialEq)]
+#[derive(Debug, Getters, Deserialize)]
+#[cfg_attr(test, derive(PartialEq))]
 #[serde(deny_unknown_fields)]
 pub struct Program {
     #[serde(skip)]
@@ -162,6 +163,7 @@ fn default_umask() -> u32 {
     0o666
 }
 
+#[cfg(test)]
 impl PartialEq for Command {
     fn eq(&self, other: &Self) -> bool {
         self.string == other.string
