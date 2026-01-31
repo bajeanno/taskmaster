@@ -58,7 +58,7 @@ async fn create_task() {
 
     let yaml_content = r#"programs:
     taskmaster_test_task:
-        cmd: "bash -c 'echo Hello $STARTED_BY!'"
+        cmd: "bash -c \"echo Hello $STARTED_BY!\""
         numprocs: 1
         umask: 022
         workingdir: /tmp
