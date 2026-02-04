@@ -304,10 +304,9 @@ mod tests {
 
     #[cfg(test)]
     fn assert_config_parses_to(yaml_content: &str, expected_program: Program) {
-        let mut expected_config = Config {
-            programs: Vec::new(),
+        let expected_config = Config {
+            programs: vec![expected_program],
         };
-        expected_config.programs.push(expected_program);
 
         let config_reader = Cursor::new(yaml_content);
         let parsed_config = Config::from_reader(config_reader);
