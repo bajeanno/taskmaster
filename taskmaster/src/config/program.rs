@@ -11,7 +11,8 @@ pub struct Command {
     pub(super) string: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Deserialize, Default)]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize, Default)]
 pub enum AutoRestart {
     #[serde(rename = "true")]
     True,
