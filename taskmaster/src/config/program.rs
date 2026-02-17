@@ -314,6 +314,13 @@ mod tests {
         assert_eq!(expected_config, parsed_config.expect("error while parsing"));
     }
 
+    #[cfg(test)]
+    fn assert_config_parsing_error(yaml_content: &str) {
+        let config_reader = Cursor::new(yaml_content);
+        let parsed_config = Config::from_reader(config_reader);
+        assert!(parsed_config.is_err());
+    }
+
     #[test]
     fn create_yaml_test() {
         let left = r#"programs:
@@ -405,6 +412,16 @@ mod tests {
             autostart: true"#,
         );
         assert_config_parses_to(&yaml_content, program);
+    }
+
+    #[test]
+    fn parsing_with_exit_code_greater_than_256() {
+        let yaml_content = yaml_with_fields(
+            "echo test",
+            r#"
+            exitcodes: [257]"#,
+        );
+        assert_config_parsing_error(&yaml_content);
     }
 
     #[test]
