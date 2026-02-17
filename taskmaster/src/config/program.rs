@@ -208,7 +208,6 @@ mod tests {
     use std::io::Cursor;
     use tokio::process::Command as TokioCommand;
 
-    #[cfg(test)]
     fn yaml_from_string_command(command: &str) -> String {
         let start = r#"programs:
         taskmaster_test_program:
@@ -216,7 +215,6 @@ mod tests {
         String::from(start) + command + "\""
     }
 
-    #[cfg(test)]
     fn yaml_with_fields(command: &str, additional_fields: &str) -> String {
         let start = r#"programs:
         taskmaster_test_program:
@@ -224,7 +222,6 @@ mod tests {
         String::from(start) + command + "\"" + additional_fields
     }
 
-    #[cfg(test)]
     pub struct TestProgramBuilder {
         pub command_string: String,
         pub name: String,
@@ -244,7 +241,6 @@ mod tests {
         pub env: HashMap<String, String>,
     }
 
-    #[cfg(test)]
     impl TestProgramBuilder {
         fn new(command_string: &str) -> Self {
             Self {
@@ -303,7 +299,6 @@ mod tests {
         }
     }
 
-    #[cfg(test)]
     fn assert_config_parses_to(yaml_content: &str, expected_program: Program) {
         let expected_config = Config {
             programs: vec![expected_program],
@@ -314,7 +309,6 @@ mod tests {
         assert_eq!(expected_config, parsed_config.expect("error while parsing"));
     }
 
-    #[cfg(test)]
     fn assert_config_parsing_error(yaml_content: &str) {
         let config_reader = Cursor::new(yaml_content);
         let parsed_config = Config::from_reader(config_reader);
