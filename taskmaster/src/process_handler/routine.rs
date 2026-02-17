@@ -208,7 +208,7 @@ impl Routine {
             match *self.config.auto_restart() {
                 AutoRestart::False => false,
                 AutoRestart::OnFailure => !self.is_expected_status(status),
-                _ => true,
+                AutoRestart::True => true,
             }
         } else {
             if self.start_attempts >= *self.config.start_retries() {
