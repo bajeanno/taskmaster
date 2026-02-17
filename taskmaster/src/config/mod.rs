@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use std::fs::File;
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Config {
     pub programs: Vec<Program>,
 }

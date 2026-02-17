@@ -205,17 +205,11 @@ impl Routine {
         if started_properly {
             self.start_attempts = 0;
 
-            if *self.config.auto_restart() == AutoRestart::False {
-                return false;
+            match *self.config.auto_restart() {
+                AutoRestart::False => false,
+                AutoRestart::OnFailure => !self.is_expected_status(status),
+                AutoRestart::True => true,
             }
-
-            if *self.config.auto_restart() == AutoRestart::OnFailure
-                && self.is_expected_status(status)
-            {
-                return false;
-            }
-
-            true
         } else {
             if self.start_attempts >= *self.config.start_retries() {
                 return false;
