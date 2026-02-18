@@ -3,13 +3,6 @@ use libc::sys::types::Pid;
 use serde::{Deserialize, Deserializer, de};
 use signal::Signal;
 use std::{collections::HashMap, fmt::Display, str::FromStr};
-use tokio::process::Command as TokioCommand;
-
-#[derive(Debug)]
-pub struct Command {
-    pub command: TokioCommand,
-    pub(super) string: String,
-}
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize, Default)]
@@ -37,8 +30,7 @@ pub struct Program {
     #[serde(default = "default_umask", deserialize_with = "deserialize_umask")]
     umask: u32,
 
-    #[serde(deserialize_with = "deserialize_command")]
-    pub cmd: Command,
+    pub cmd: String,
 
     #[serde(rename = "numprocs", default = "default_num_procs")]
     num_procs: u32,
@@ -115,31 +107,6 @@ where
     }
 }
 
-fn deserialize_command<'de, D>(deserializer: D) -> Result<Command, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let cmd = String::deserialize(deserializer)
-        .map_err(|err| serde::de::Error::custom(format!("Failed to parse command: {err}")))?;
-    let parts = shell_words::split(&cmd)
-        .map_err(|err| serde::de::Error::custom(format!("Failed to parse command: {err}")))?;
-
-    let mut parts_iter = parts.into_iter();
-    let program = parts_iter
-        .next()
-        .ok_or_else(|| serde::de::Error::custom("Empty command"))?;
-
-    let mut command = Command {
-        command: TokioCommand::new(program),
-        string: cmd,
-    };
-    for arg in parts_iter {
-        command.command.arg(arg);
-    }
-
-    Ok(command)
-}
-
 fn default_output() -> String {
     "/dev/null".to_string()
 }
@@ -164,33 +131,17 @@ fn default_umask() -> u32 {
     0o666
 }
 
-#[cfg(test)]
-impl PartialEq for Command {
-    fn eq(&self, other: &Self) -> bool {
-        self.string == other.string
-    }
-}
-
 impl Display for Program {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{:<15}{:50}{: ^15?}{:>10o}",
-            self.name, self.cmd.string, self.pids, self.umask,
+            self.name, self.cmd, self.pids, self.umask,
         )
     }
 }
 
 impl Program {
-    pub(super) fn add_env(&mut self) {
-        if self.clear_env {
-            self.cmd.command.env_clear();
-        }
-        self.env.iter().for_each(|(key, val)| {
-            self.cmd.command.env(key, val);
-        });
-    }
-
     pub(super) fn name_mut(&mut self) -> &mut String {
         &mut self.name
     }
@@ -199,14 +150,11 @@ impl Program {
 #[cfg(test)]
 mod tests {
     use crate::config::program::AutoRestart;
-    use crate::config::{
-        Config,
-        program::{Command, Program},
-    };
+    use crate::config::{Config, program::Program};
     use signal::Signal;
     use std::collections::HashMap;
     use std::io::Cursor;
-    use tokio::process::Command as TokioCommand;
+    use std::panic;
 
     fn yaml_from_string_command(command: &str) -> String {
         let start = r#"programs:
@@ -264,16 +212,13 @@ mod tests {
         }
 
         fn build(self) -> Program {
-            let parts = shell_words::split(&self.command_string).expect("bad command in tests");
-            let mut parts_iter = parts.iter();
-            let cmd = parts_iter.next().expect("empty command in tests");
+            if self.command_string.is_empty() {
+                panic!("Empty command in program")
+            }
 
-            let mut program = Program {
+            let program = Program {
                 name: self.name,
-                cmd: Command {
-                    command: TokioCommand::new(cmd),
-                    string: self.command_string,
-                },
+                cmd: self.command_string,
                 pids: vec![],
                 umask: self.umask,
                 env: self.env,
@@ -290,10 +235,6 @@ mod tests {
                 stdout: self.stdout,
                 stderr: self.stderr,
             };
-
-            parts_iter.for_each(|arg| {
-                program.cmd.command.arg(arg);
-            });
 
             program
         }

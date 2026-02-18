@@ -1,3 +1,4 @@
+mod command;
 mod handle;
 mod routine;
 mod status;
