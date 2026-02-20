@@ -30,7 +30,6 @@ impl Config {
                 .into_iter()
                 .map(|(name, mut program)| {
                     *program.name_mut() = name;
-                    program.add_env();
                     program
                 })
                 .collect(),
