@@ -12,4 +12,14 @@ pub enum ParseError {
      Consider making a reload request after fixing the issue"
     )]
     InvalidConfig(#[from] serde_yaml::Error),
+    #[error(
+        "Error parsing taskmaster config file: {0}\n\
+     Consider making a reload request after fixing the issue"
+    )]
+    InvalidCommand(#[from] shell_words::ParseError),
+    #[error(
+        "Error parsing taskmaster program {name}: Empty command\n\
+     Consider making a reload request after fixing the issue"
+    )]
+    EmptyCommand { name: String },
 }

@@ -1,25 +1,9 @@
 use crate::Program;
-use thiserror::Error;
 use tokio::process::Command;
 
-#[derive(Error, Debug)]
-pub enum CommandError {
-    #[error("{0}")]
-    ParseError(#[from] shell_words::ParseError),
-    #[error("Empty command for program {0}")]
-    EmptyCommand(String),
-}
-
-pub(super) fn create_command(config: &Program) -> Result<Command, CommandError> {
-    let parts = shell_words::split(&config.cmd)?;
-
-    let mut parts_iter = parts.into_iter();
-    let program = parts_iter
-        .next()
-        .ok_or_else(|| CommandError::EmptyCommand(String::from(config.name())))?;
-
-    let mut command = Command::new(program);
-    for arg in parts_iter {
+pub(super) fn create_command(config: &Program) -> Command {
+    let mut command = Command::new(config.cmd.program.clone());
+    for arg in config.cmd.args.iter() {
         command.arg(arg);
     }
 
@@ -30,5 +14,5 @@ pub(super) fn create_command(config: &Program) -> Result<Command, CommandError> 
         command.env(key, val);
     });
 
-    Ok(command)
+    command
 }

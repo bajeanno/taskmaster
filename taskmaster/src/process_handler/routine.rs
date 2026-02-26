@@ -89,8 +89,6 @@ pub struct Routine {
 pub enum RoutineSpawnError {
     #[error("{0}")]
     Open(#[from] std::io::Error),
-    #[error("{0}")]
-    Command(#[from] command::CommandError),
 }
 
 #[allow(dead_code)] //TODO: Remove that
@@ -105,7 +103,7 @@ impl Routine {
         let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(
             File::create(config.stderr()).await?,
         )));
-        let command = command::create_command(&config)?;
+        let command = command::create_command(&config);
 
         let join_handle = tokio::spawn(async move {
             Self {

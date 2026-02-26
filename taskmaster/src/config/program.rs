@@ -4,6 +4,8 @@ use serde::{Deserialize, Deserializer, de};
 use signal::Signal;
 use std::{collections::HashMap, fmt::Display, str::FromStr};
 
+use crate::config::ParseError;
+
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize, Default)]
 pub enum AutoRestart {
@@ -14,6 +16,12 @@ pub enum AutoRestart {
     False,
     #[serde(rename = "unexpected")]
     OnFailure,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Command {
+    pub program: String,
+    pub args: Vec<String>,
 }
 
 #[allow(dead_code)] // TODO: remove this
@@ -30,7 +38,7 @@ pub struct Program {
     #[serde(default = "default_umask", deserialize_with = "deserialize_umask")]
     umask: u32,
 
-    pub cmd: String,
+    pub cmd: Command,
 
     #[serde(rename = "numprocs", default = "default_num_procs")]
     num_procs: u32,
@@ -141,16 +149,43 @@ impl Display for Program {
     }
 }
 
+impl Display for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {:?}", self.program, self.args)
+    }
+}
+
 impl Program {
     pub(super) fn name_mut(&mut self) -> &mut String {
         &mut self.name
     }
 }
 
+impl<'de> Deserialize<'de> for Command {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let cmd = String::deserialize(deserializer)?;
+        let parts = shell_words::split(cmd.as_str())
+            .map_err(|err| serde::de::Error::custom(err.to_string()))?;
+
+        let mut parts_iter = parts.into_iter();
+        let program = parts_iter
+            .next()
+            .ok_or_else(|| serde::de::Error::custom("empty command"))?;
+        Ok(Command {
+            program,
+            args: parts_iter.collect(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::config::program::AutoRestart;
-    use crate::config::{Config, program::Program};
+    use crate::config::{Config, program::Command, program::Program};
+    use serde::Deserialize;
     use signal::Signal;
     use std::collections::HashMap;
     use std::io::Cursor;
@@ -170,7 +205,7 @@ mod tests {
     }
 
     pub struct TestProgramBuilder {
-        pub command_string: String,
+        pub command: Command,
         pub name: String,
         pub umask: u32,
         pub exit_codes: Vec<u8>,
@@ -191,7 +226,7 @@ mod tests {
     impl TestProgramBuilder {
         fn new(command_string: &str) -> Self {
             Self {
-                command_string: command_string.to_string(),
+                command: Command::deserialize()?,
                 name: "taskmaster_test_program".to_string(),
                 umask: 0o666,
                 exit_codes: vec![0],
@@ -211,13 +246,13 @@ mod tests {
         }
 
         fn build(self) -> Program {
-            if self.command_string.is_empty() {
+            if self.command.program.is_empty() {
                 panic!("Empty command in program")
             }
 
             let program = Program {
                 name: self.name,
-                cmd: self.command_string,
+                cmd: self.command,
                 pids: vec![],
                 umask: self.umask,
                 env: self.env,
