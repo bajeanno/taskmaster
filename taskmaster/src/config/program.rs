@@ -154,7 +154,6 @@ mod tests {
     use signal::Signal;
     use std::collections::HashMap;
     use std::io::Cursor;
-    use std::panic;
 
     fn yaml_from_string_command(command: &str) -> String {
         let start = r#"programs:

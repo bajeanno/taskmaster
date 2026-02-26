@@ -1,6 +1,5 @@
 use super::{Handle, Status, command};
 use crate::config::program::{AutoRestart, Program};
-use std::panic;
 use std::process::Stdio;
 use std::sync::Arc;
 use thiserror::Error;
