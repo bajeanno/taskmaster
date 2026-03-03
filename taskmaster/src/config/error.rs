@@ -17,9 +17,12 @@ pub enum ParseError {
      Consider making a reload request after fixing the issue"
     )]
     InvalidCommand(#[from] shell_words::ParseError),
-    #[error(
-        "Error parsing taskmaster program {name}: Empty command\n\
-     Consider making a reload request after fixing the issue"
-    )]
-    EmptyCommand { name: String },
+}
+
+#[derive(Debug, Error)]
+pub enum CommandError {
+    #[error("Empty command")]
+    EmptyCommand,
+    #[error("{0}")]
+    SplitError(#[from] shell_words::ParseError),
 }
