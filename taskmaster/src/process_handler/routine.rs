@@ -85,10 +85,19 @@ pub struct Routine {
     command: Command,
 }
 
+//TODO: check error context once the task manager is done
 #[derive(Error, Debug)]
 pub enum RoutineSpawnError {
-    #[error("{0}")]
-    Open(#[from] std::io::Error),
+    #[error("Error creating stdout file for program {program_name}: {error}")]
+    OpeningStdoutFile {
+        error: std::io::Error,
+        program_name: String,
+    },
+    #[error("Error creating stderr file for program {program_name}: {error}")]
+    OpeningStderrFile {
+        error: std::io::Error,
+        program_name: String,
+    },
 }
 
 #[allow(dead_code)] //TODO: Remove that
@@ -98,10 +107,20 @@ impl Routine {
         let (status_sender, status_receiver) = mpsc::channel(BUFFER_SIZE);
         let (log_sender, log_receiver) = mpsc::channel(BUFFER_SIZE);
         let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
-            File::create(config.stdout()).await?,
+            File::create(config.stdout()).await.map_err(|error| {
+                RoutineSpawnError::OpeningStdoutFile {
+                    program_name: config.name().to_string(),
+                    error,
+                }
+            })?,
         )));
         let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(
-            File::create(config.stderr()).await?,
+            File::create(config.stderr()).await.map_err(|error| {
+                RoutineSpawnError::OpeningStderrFile {
+                    program_name: config.name().to_string(),
+                    error,
+                }
+            })?,
         )));
         let command = command::create_command(&config);
 
