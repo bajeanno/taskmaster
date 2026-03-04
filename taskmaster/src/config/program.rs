@@ -20,7 +20,7 @@ pub enum AutoRestart {
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug)]
 pub struct Command {
-    pub program: String,
+    pub exec: String,
     pub args: Vec<String>,
 }
 
@@ -151,7 +151,7 @@ impl Display for Program {
 
 impl Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {:?}", self.program, self.args)
+        write!(f, "{} {:?}", self.exec, self.args)
     }
 }
 
@@ -180,7 +180,7 @@ impl FromStr for Command {
         let mut parts_iter = parts.into_iter();
         let program = parts_iter.next().ok_or(CommandError::EmptyCommand)?;
         Ok(Command {
-            program,
+            exec: program,
             args: parts_iter.collect(),
         })
     }
@@ -251,7 +251,7 @@ mod tests {
         }
 
         fn build(self) -> Result<Program, CommandError> {
-            if self.command.program.is_empty() {
+            if self.command.exec.is_empty() {
                 return Err(CommandError::EmptyCommand);
             }
 

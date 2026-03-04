@@ -2,7 +2,7 @@ use crate::Program;
 use tokio::process::Command;
 
 pub(super) fn create_command(config: &Program) -> Command {
-    let mut command = Command::new(config.cmd.program.clone());
+    let mut command = Command::new(config.cmd.exec.clone());
     for arg in config.cmd.args.iter() {
         command.arg(arg);
     }
