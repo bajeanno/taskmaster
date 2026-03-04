@@ -13,3 +13,11 @@ pub enum ParseError {
     )]
     InvalidConfig(#[from] serde_yaml::Error),
 }
+
+#[derive(Debug, Error)]
+pub enum CommandError {
+    #[error("Empty command")]
+    EmptyCommand,
+    #[error("{0}")]
+    SplitError(#[from] shell_words::ParseError),
+}

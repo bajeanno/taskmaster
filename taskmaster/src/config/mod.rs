@@ -24,17 +24,17 @@ struct TmpConfig {
 impl Config {
     pub fn from_reader(file: impl std::io::Read) -> Result<Config, ParseError> {
         let tmp_config: TmpConfig = serde_yaml::from_reader(file)?;
-        Ok(Self {
+        let config = Self {
             programs: tmp_config
                 .programs
                 .into_iter()
                 .map(|(name, mut program)| {
                     *program.name_mut() = name;
-                    program.add_env();
                     program
                 })
                 .collect(),
-        })
+        };
+        Ok(config)
     }
 
     pub fn parse(file: &str) -> Result<Config, ParseError> {

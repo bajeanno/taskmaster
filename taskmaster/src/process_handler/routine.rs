@@ -1,9 +1,10 @@
-use super::{Handle, Status};
+use super::{Handle, Status, command};
 use crate::config::program::{AutoRestart, Program};
-use std::panic;
 use std::process::Stdio;
 use std::sync::Arc;
+use thiserror::Error;
 use tokio::io::AsyncBufRead;
+use tokio::process::Command;
 use tokio::{fs::File, io::AsyncWriteExt};
 use tokio::{
     io::{AsyncBufReadExt, BufReader, Error},
@@ -81,20 +82,47 @@ pub struct Routine {
     log_sender: LogSender,
     config: Program,
     start_attempts: u32,
+    command: Command,
+}
+
+//TODO: check error context once the task manager is done
+#[derive(Error, Debug)]
+pub enum RoutineSpawnError {
+    #[error("Error creating stdout file for program {program_name}: {error}")]
+    OpeningStdoutFile {
+        error: std::io::Error,
+        program_name: String,
+    },
+    #[error("Error creating stderr file for program {program_name}: {error}")]
+    OpeningStderrFile {
+        error: std::io::Error,
+        program_name: String,
+    },
 }
 
 #[allow(dead_code)] //TODO: Remove that
 impl Routine {
-    pub async fn spawn(config: Program) -> Result<Handle, Error> {
+    pub async fn spawn(config: Program) -> Result<Handle, RoutineSpawnError> {
         const BUFFER_SIZE: usize = 100; // 100 is a temporary value
         let (status_sender, status_receiver) = mpsc::channel(BUFFER_SIZE);
         let (log_sender, log_receiver) = mpsc::channel(BUFFER_SIZE);
         let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
-            File::create(config.stdout()).await?,
+            File::create(config.stdout()).await.map_err(|error| {
+                RoutineSpawnError::OpeningStdoutFile {
+                    program_name: config.name().to_string(),
+                    error,
+                }
+            })?,
         )));
         let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(
-            File::create(config.stderr()).await?,
+            File::create(config.stderr()).await.map_err(|error| {
+                RoutineSpawnError::OpeningStderrFile {
+                    program_name: config.name().to_string(),
+                    error,
+                }
+            })?,
         )));
+        let command = command::create_command(&config);
 
         let join_handle = tokio::spawn(async move {
             Self {
@@ -102,6 +130,7 @@ impl Routine {
                 status_sender,
                 log_sender,
                 start_attempts: 0,
+                command,
             }
             .routine(stdout_file, stderr_file)
             .await;
@@ -241,8 +270,6 @@ impl Routine {
     async fn child_spawn(&mut self) -> Result<Child, Error> {
         self.start_attempts += 1;
         let child = self
-            .config
-            .cmd
             .command
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

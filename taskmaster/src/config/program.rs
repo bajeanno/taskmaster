@@ -1,15 +1,9 @@
+use crate::config::error::CommandError;
 use derive_getters::Getters;
 use libc::sys::types::Pid;
 use serde::{Deserialize, Deserializer, de};
 use signal::Signal;
 use std::{collections::HashMap, fmt::Display, str::FromStr};
-use tokio::process::Command as TokioCommand;
-
-#[derive(Debug)]
-pub struct Command {
-    pub command: TokioCommand,
-    pub(super) string: String,
-}
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize, Default)]
@@ -21,6 +15,13 @@ pub enum AutoRestart {
     False,
     #[serde(rename = "unexpected")]
     OnFailure,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
+pub struct Command {
+    pub exec: String,
+    pub args: Vec<String>,
 }
 
 #[allow(dead_code)] // TODO: remove this
@@ -37,7 +38,6 @@ pub struct Program {
     #[serde(default = "default_umask", deserialize_with = "deserialize_umask")]
     umask: u32,
 
-    #[serde(deserialize_with = "deserialize_command")]
     pub cmd: Command,
 
     #[serde(rename = "numprocs", default = "default_num_procs")]
@@ -115,31 +115,6 @@ where
     }
 }
 
-fn deserialize_command<'de, D>(deserializer: D) -> Result<Command, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let cmd = String::deserialize(deserializer)
-        .map_err(|err| serde::de::Error::custom(format!("Failed to parse command: {err}")))?;
-    let parts = shell_words::split(&cmd)
-        .map_err(|err| serde::de::Error::custom(format!("Failed to parse command: {err}")))?;
-
-    let mut parts_iter = parts.into_iter();
-    let program = parts_iter
-        .next()
-        .ok_or_else(|| serde::de::Error::custom("Empty command"))?;
-
-    let mut command = Command {
-        command: TokioCommand::new(program),
-        string: cmd,
-    };
-    for arg in parts_iter {
-        command.command.arg(arg);
-    }
-
-    Ok(command)
-}
-
 fn default_output() -> String {
     "/dev/null".to_string()
 }
@@ -164,49 +139,61 @@ fn default_umask() -> u32 {
     0o666
 }
 
-#[cfg(test)]
-impl PartialEq for Command {
-    fn eq(&self, other: &Self) -> bool {
-        self.string == other.string
-    }
-}
-
 impl Display for Program {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{:<15}{:50}{: ^15?}{:>10o}",
-            self.name, self.cmd.string, self.pids, self.umask,
+            self.name, self.cmd, self.pids, self.umask,
         )
     }
 }
 
-impl Program {
-    pub(super) fn add_env(&mut self) {
-        if self.clear_env {
-            self.cmd.command.env_clear();
-        }
-        self.env.iter().for_each(|(key, val)| {
-            self.cmd.command.env(key, val);
-        });
+impl Display for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {:?}", self.exec, self.args)
     }
+}
 
+impl Program {
     pub(super) fn name_mut(&mut self) -> &mut String {
         &mut self.name
     }
 }
 
+impl<'de> Deserialize<'de> for Command {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let cmd = String::deserialize(deserializer)?;
+        Command::from_str(cmd.as_str())
+            .map_err(|err| serde::de::Error::custom(format!("Command parsing error: {}", err)))
+    }
+}
+
+impl FromStr for Command {
+    type Err = CommandError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts = shell_words::split(s).map_err(CommandError::SplitError)?;
+
+        let mut parts_iter = parts.into_iter();
+        let program = parts_iter.next().ok_or(CommandError::EmptyCommand)?;
+        Ok(Command {
+            exec: program,
+            args: parts_iter.collect(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::config::program::AutoRestart;
-    use crate::config::{
-        Config,
-        program::{Command, Program},
-    };
+    use crate::config::program::{AutoRestart, CommandError};
+    use crate::config::{Config, program::Command, program::Program};
     use signal::Signal;
     use std::collections::HashMap;
     use std::io::Cursor;
-    use tokio::process::Command as TokioCommand;
+    use std::str::FromStr;
 
     fn yaml_from_string_command(command: &str) -> String {
         let start = r#"programs:
@@ -223,7 +210,7 @@ mod tests {
     }
 
     pub struct TestProgramBuilder {
-        pub command_string: String,
+        pub command: Command,
         pub name: String,
         pub umask: u32,
         pub exit_codes: Vec<u8>,
@@ -242,9 +229,9 @@ mod tests {
     }
 
     impl TestProgramBuilder {
-        fn new(command_string: &str) -> Self {
-            Self {
-                command_string: command_string.to_string(),
+        fn new(command_string: &str) -> Result<Self, CommandError> {
+            Ok(Self {
+                command: Command::from_str(command_string)?,
                 name: "taskmaster_test_program".to_string(),
                 umask: 0o666,
                 exit_codes: vec![0],
@@ -260,20 +247,17 @@ mod tests {
                 stdout: "/dev/null".to_string(),
                 stderr: "/dev/null".to_string(),
                 env: HashMap::new(),
-            }
+            })
         }
 
-        fn build(self) -> Program {
-            let parts = shell_words::split(&self.command_string).expect("bad command in tests");
-            let mut parts_iter = parts.iter();
-            let cmd = parts_iter.next().expect("empty command in tests");
+        fn build(self) -> Result<Program, CommandError> {
+            if self.command.exec.is_empty() {
+                return Err(CommandError::EmptyCommand);
+            }
 
-            let mut program = Program {
+            let program = Program {
                 name: self.name,
-                cmd: Command {
-                    command: TokioCommand::new(cmd),
-                    string: self.command_string,
-                },
+                cmd: self.command,
                 pids: vec![],
                 umask: self.umask,
                 env: self.env,
@@ -291,11 +275,7 @@ mod tests {
                 stderr: self.stderr,
             };
 
-            parts_iter.for_each(|arg| {
-                program.cmd.command.arg(arg);
-            });
-
-            program
+            Ok(program)
         }
     }
 
@@ -326,37 +306,49 @@ mod tests {
 
     #[test]
     fn parsing_default() {
-        let program = TestProgramBuilder::new(r#"bash -c 'echo Hello $STARTED_BY!'"#).build();
+        let program = TestProgramBuilder::new(r#"bash -c 'echo Hello $STARTED_BY!'"#)
+            .expect("Failed to create builder")
+            .build()
+            .expect("Failed to build program");
         let yaml_content = yaml_from_string_command(r#"bash -c 'echo Hello $STARTED_BY!'"#);
         assert_config_parses_to(&yaml_content, program);
     }
 
     #[test]
     fn parsing_with_multiple_args() {
-        let program = TestProgramBuilder::new(r#"bash -c 'echo test'"#).build();
+        let program = TestProgramBuilder::new(r#"bash -c 'echo test'"#)
+            .expect("Failed to create builder")
+            .build()
+            .expect("Failed to build program");
         let yaml_content = yaml_from_string_command(r#"bash -c 'echo test'"#);
         assert_config_parses_to(&yaml_content, program);
     }
 
     #[test]
     fn parsing_with_env_vars() {
-        let program = TestProgramBuilder::new(r#"echo $HOME"#).build();
+        let program = TestProgramBuilder::new(r#"echo $HOME"#)
+            .expect("Failed to create builder")
+            .build()
+            .expect("Failed to build program");
         let yaml_content = yaml_from_string_command(r#"echo $HOME"#);
         assert_config_parses_to(&yaml_content, program);
     }
 
     #[test]
     fn parsing_simple_command() {
-        let program = TestProgramBuilder::new(r#"ls -la"#).build();
+        let program = TestProgramBuilder::new(r#"ls -la"#)
+            .expect("Failed to create builder")
+            .build()
+            .expect("Failed to build program");
         let yaml_content = yaml_from_string_command(r#"ls -la"#);
         assert_config_parses_to(&yaml_content, program);
     }
 
     #[test]
     fn parsing_with_umask_octal() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.umask = 0o644;
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
@@ -367,9 +359,9 @@ mod tests {
 
     #[test]
     fn parsing_with_umask_zero() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.umask = 0;
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
@@ -380,9 +372,9 @@ mod tests {
 
     #[test]
     fn parsing_with_umask_max() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.umask = 0o777;
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
@@ -393,11 +385,11 @@ mod tests {
 
     #[test]
     fn parsing_with_multiple_fields() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.umask = 0o644;
         builder.working_dir = "/tmp".to_string();
         builder.auto_start = true;
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
@@ -420,9 +412,9 @@ mod tests {
 
     #[test]
     fn parsing_with_exit_codes() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.exit_codes = vec![0, 1, 2];
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
@@ -433,9 +425,9 @@ mod tests {
 
     #[test]
     fn parsing_with_num_procs() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.num_procs = 3;
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
@@ -446,9 +438,9 @@ mod tests {
 
     #[test]
     fn parsing_with_start_retries() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.start_retries = 5;
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
@@ -459,9 +451,9 @@ mod tests {
 
     #[test]
     fn parsing_with_start_time() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.start_time = 10;
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
@@ -472,9 +464,9 @@ mod tests {
 
     #[test]
     fn parsing_with_stop_time() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.stop_time = 15;
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
@@ -485,9 +477,9 @@ mod tests {
 
     #[test]
     fn parsing_with_stop_signal() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.stop_signal = Signal::SIGTERM;
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
@@ -498,9 +490,9 @@ mod tests {
 
     #[test]
     fn parsing_with_auto_restart() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.auto_restart = AutoRestart::True;
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
@@ -511,9 +503,9 @@ mod tests {
 
     #[test]
     fn parsing_with_clear_env() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.clear_env = true;
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
@@ -524,9 +516,9 @@ mod tests {
 
     #[test]
     fn parsing_with_stdout() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.stdout = "/var/log/stdout.log".to_string();
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
@@ -537,9 +529,9 @@ mod tests {
 
     #[test]
     fn parsing_with_stderr() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.stderr = "/var/log/stderr.log".to_string();
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
@@ -550,10 +542,10 @@ mod tests {
 
     #[test]
     fn parsing_with_env() {
-        let mut builder = TestProgramBuilder::new("echo test");
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.env.insert("VAR1".to_string(), "value1".to_string());
         builder.env.insert("VAR2".to_string(), "value2".to_string());
-        let program = builder.build();
+        let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
