@@ -17,7 +17,8 @@ pub enum AutoRestart {
     OnFailure,
 }
 
-#[derive(Debug, PartialEq)]
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
 pub struct Command {
     pub program: String,
     pub args: Vec<String>,
