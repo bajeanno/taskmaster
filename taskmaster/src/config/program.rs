@@ -3,7 +3,7 @@ use derive_getters::Getters;
 use libc::sys::types::Pid;
 use serde::{Deserialize, Deserializer, de};
 use signal::Signal;
-use std::{collections::HashMap, fmt::Display, str::FromStr};
+use std::{collections::HashMap, fmt::Display, os::unix::raw::mode_t, str::FromStr};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize, Default)]
@@ -36,7 +36,7 @@ pub struct Program {
     pids: Vec<Pid>,
 
     #[serde(default = "default_umask", deserialize_with = "deserialize_umask")]
-    umask: u32,
+    umask: mode_t,
 
     pub cmd: Command,
 
@@ -97,13 +97,13 @@ where
     Ok(signal)
 }
 
-fn deserialize_umask<'de, D>(deserializer: D) -> Result<u32, D::Error>
+fn deserialize_umask<'de, D>(deserializer: D) -> Result<mode_t, D::Error>
 where
     D: Deserializer<'de>,
 {
     let umask_str = String::deserialize(deserializer)
         .map_err(|err| serde::de::Error::custom(format!("Failed to parse umask: {err}")))?;
-    let umask = u32::from_str_radix(umask_str.as_str(), 8).map_err(|err| {
+    let umask = mode_t::from_str_radix(umask_str.as_str(), 8).map_err(|err| {
         serde::de::Error::custom(format!("ParseIntError on umask parsing: {err}"))
     })?;
     if umask > 0o777 {
@@ -135,7 +135,7 @@ fn default_exit_codes() -> Vec<u8> {
     vec![0]
 }
 
-fn default_umask() -> u32 {
+fn default_umask() -> mode_t {
     0o666
 }
 
@@ -193,6 +193,7 @@ mod tests {
     use signal::Signal;
     use std::collections::HashMap;
     use std::io::Cursor;
+    use std::os::unix::raw::mode_t;
     use std::str::FromStr;
 
     fn yaml_from_string_command(command: &str) -> String {
@@ -212,7 +213,7 @@ mod tests {
     pub struct TestProgramBuilder {
         pub command: Command,
         pub name: String,
-        pub umask: u32,
+        pub umask: mode_t,
         pub exit_codes: Vec<u8>,
         pub num_procs: u32,
         pub working_dir: String,
