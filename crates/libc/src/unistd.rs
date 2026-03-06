@@ -1,4 +1,5 @@
 use std::ffi::c_int;
+#[allow(deprecated)]
 use std::os::unix::raw::mode_t;
 
 #[link(name = "c")]

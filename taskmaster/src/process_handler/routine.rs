@@ -1,6 +1,7 @@
 use super::{Handle, Status, command};
 use crate::config::program::{AutoRestart, Program};
 use libc::unistd::umask;
+#[allow(deprecated)]
 use std::os::unix::raw::mode_t;
 use std::panic;
 use std::process::Stdio;

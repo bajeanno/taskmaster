@@ -3,7 +3,9 @@ use derive_getters::Getters;
 use libc::sys::types::Pid;
 use serde::{Deserialize, Deserializer, de};
 use signal::Signal;
-use std::{collections::HashMap, fmt::Display, os::unix::raw::mode_t, str::FromStr};
+#[allow(deprecated)]
+use std::os::unix::raw::mode_t;
+use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize, Default)]
