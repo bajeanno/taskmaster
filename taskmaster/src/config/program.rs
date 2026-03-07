@@ -1,10 +1,9 @@
 use crate::config::error::CommandError;
 use derive_getters::Getters;
 use libc::sys::types::Pid;
+use libc::unistd::mode_t;
 use serde::{Deserialize, Deserializer, de};
 use signal::Signal;
-#[allow(deprecated)]
-use std::os::unix::raw::mode_t;
 use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 #[cfg_attr(test, derive(PartialEq))]
@@ -192,10 +191,10 @@ impl FromStr for Command {
 mod tests {
     use crate::config::program::{AutoRestart, CommandError};
     use crate::config::{Config, program::Command, program::Program};
+    use libc::unistd::mode_t;
     use signal::Signal;
     use std::collections::HashMap;
     use std::io::Cursor;
-    use std::os::unix::raw::mode_t;
     use std::str::FromStr;
 
     fn yaml_from_string_command(command: &str) -> String {

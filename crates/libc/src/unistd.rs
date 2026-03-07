@@ -1,6 +1,8 @@
 use std::ffi::c_int;
 #[allow(deprecated)]
-use std::os::unix::raw::mode_t;
+use std::os::unix::raw::mode_t as unix_mode_t;
+#[allow(non_camel_case_types)]
+pub type mode_t = unix_mode_t;
 
 #[link(name = "c")]
 unsafe extern "C" {
