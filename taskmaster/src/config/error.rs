@@ -6,7 +6,11 @@ pub enum ParseError {
         "Error opening taskmaster config file: {file}: {error}\n\
      Consider making a reload request after fixing the issue"
     )]
-    OpeningFile { file: String, error: std::io::Error },
+    OpeningFile {
+        file: String,
+        #[source]
+        error: std::io::Error,
+    },
     #[error(
         "Error parsing taskmaster config file: {0}\n\
      Consider making a reload request after fixing the issue"
