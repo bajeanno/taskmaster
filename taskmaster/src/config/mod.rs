@@ -37,9 +37,9 @@ impl Config {
         Ok(config)
     }
 
-    pub fn parse(file: &str) -> Result<Config, ParseError> {
-        let file = File::open(file).map_err(|err| ParseError::OpeningFile {
-            file: file.to_string(),
+    pub fn parse(filename: &str) -> Result<Config, ParseError> {
+        let file = File::open(filename).map_err(|err| ParseError::OpeningFile {
+            file: filename.to_string(),
             error: err,
         })?;
         Self::from_reader(file)
