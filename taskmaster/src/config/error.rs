@@ -3,10 +3,10 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum ParseError {
     #[error(
-        "Error opening taskmaster config file: {0}\n\
-     Consider making a reload request after creating one"
+        "Error opening taskmaster config file: {file}: {error}\n\
+     Consider making a reload request after fixing the issue"
     )]
-    OpeningFile(#[from] std::io::Error),
+    OpeningFile { file: String, error: std::io::Error },
     #[error(
         "Error parsing taskmaster config file: {0}\n\
      Consider making a reload request after fixing the issue"
