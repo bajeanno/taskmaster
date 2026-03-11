@@ -45,10 +45,10 @@ impl Log {
     }
 }
 
-pub type StatusReceiver = mpsc::Receiver<Status>;
-pub type LogReceiver = mpsc::Receiver<Log>;
-pub type StatusSender = mpsc::Sender<Status>;
-pub type LogSender = mpsc::Sender<Log>;
+pub type StatusReceiver = mpsc::UnboundedReceiver<Status>;
+pub type LogReceiver = mpsc::UnboundedReceiver<Log>;
+pub type StatusSender = mpsc::UnboundedSender<Status>;
+pub type LogSender = mpsc::UnboundedSender<Log>;
 
 pub struct Outputs {
     stdout: BufReader<ChildStdout>,
@@ -105,9 +105,8 @@ pub enum RoutineSpawnError {
 #[allow(dead_code)] //TODO: Remove that
 impl Routine {
     pub async fn spawn(config: Program) -> Result<Handle, RoutineSpawnError> {
-        const BUFFER_SIZE: usize = 100; // 100 is a temporary value
-        let (status_sender, status_receiver) = mpsc::channel(BUFFER_SIZE);
-        let (log_sender, log_receiver) = mpsc::channel(BUFFER_SIZE);
+        let (status_sender, status_receiver) = mpsc::unbounded_channel();
+        let (log_sender, log_receiver) = mpsc::unbounded_channel();
         let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
             File::create(config.stdout()).await.map_err(|error| {
                 RoutineSpawnError::OpeningStdoutFile {
@@ -292,7 +291,6 @@ impl Routine {
     async fn send_new_status_to_task_manager(&self, status: Status) {
         self.status_sender
             .send(status)
-            .await
             .expect("Receiver was dropped");
     }
 
@@ -390,7 +388,6 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputF
     }
     log_sender
         .send(log.clone())
-        .await
         .inspect_err(|_| {
             eprintln!(
                 "Taskmaster error: {}: Log receiver was dropped",
