@@ -22,7 +22,7 @@ struct TmpConfig {
 }
 
 impl Config {
-    pub fn from_reader(file: impl std::io::Read) -> Result<Config, ParseError> {
+    pub fn from_reader(file: impl std::io::Read) -> Result<Config, serde_yaml::Error> {
         let tmp_config: TmpConfig = serde_yaml::from_reader(file)?;
         let config = Self {
             programs: tmp_config
@@ -37,11 +37,15 @@ impl Config {
         Ok(config)
     }
 
-    pub fn parse(filename: &str) -> Result<Config, ParseError> {
-        let file = File::open(filename).map_err(|err| ParseError::OpeningFile {
-            file: filename.to_string(),
+    pub fn parse(file_name: &str) -> Result<Config, ParseError> {
+        let file = File::open(file_name).map_err(|err| ParseError::OpeningFile {
+            file: file_name.to_string(),
             error: err,
         })?;
-        Self::from_reader(file)
+
+        Self::from_reader(file).map_err(|err| ParseError::InvalidConfig {
+            file: file_name.to_string(),
+            error: err,
+        })
     }
 }
