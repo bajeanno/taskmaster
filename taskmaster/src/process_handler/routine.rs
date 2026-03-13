@@ -147,14 +147,14 @@ impl Routine {
         loop {
             let start_time = Instant::now();
 
-            self.send_new_status_to_task_manager(Status::Starting).await;
+            self.send_new_status_to_task_manager(Status::Starting);
             let status = self
                 .run_program(Arc::clone(&stdout_file), Arc::clone(&stderr_file))
                 .await;
 
             let should_try_restart = self.should_try_restart(start_time, &status);
 
-            self.send_new_status_to_task_manager(status).await;
+            self.send_new_status_to_task_manager(status);
 
             if !should_try_restart {
                 break;
@@ -197,7 +197,7 @@ impl Routine {
 
         match child {
             Ok(child) => {
-                self.send_new_status_to_task_manager(Status::Running).await;
+                self.send_new_status_to_task_manager(Status::Running);
                 self.handle_running_child(child, stdout_file, stderr_file)
                     .await
             }
@@ -239,7 +239,7 @@ impl Routine {
             }
         }
 
-        self.send_new_status_to_task_manager(Status::Running).await;
+        self.send_new_status_to_task_manager(Status::Running);
         listen_task.await.expect("Listen task panicked");
         Status::Exited(child.wait().await.expect("error waiting for child"))
     }
@@ -288,7 +288,7 @@ impl Routine {
         }
     }
 
-    async fn send_new_status_to_task_manager(&self, status: Status) {
+    fn send_new_status_to_task_manager(&self, status: Status) {
         self.status_sender
             .send(status)
             .expect("Receiver was dropped");
