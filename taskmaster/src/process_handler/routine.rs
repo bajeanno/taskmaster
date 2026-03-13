@@ -386,12 +386,13 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputF
             "log function was called with different values for output and log_type, expected same values"
         ),
     }
+    let program_name = log.program_name.clone();
     log_sender
-        .send(log.clone())
+        .send(log)
         .inspect_err(|_| {
             eprintln!(
                 "Taskmaster error: {}: Log receiver was dropped",
-                log.program_name
+                program_name
             )
         })
         .unwrap()
