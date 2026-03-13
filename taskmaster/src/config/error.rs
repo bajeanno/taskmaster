@@ -12,10 +12,14 @@ pub enum ParseError {
         error: std::io::Error,
     },
     #[error(
-        "Error parsing taskmaster config file: {0}\n\
+        "Error parsing taskmaster config file: {file}: {error}\n\
       Consider making a reload request after fixing the issue"
     )]
-    InvalidConfig(#[from] serde_yaml::Error),
+    InvalidConfig {
+        file: String,
+        #[source]
+        error: serde_yaml::Error,
+    },
 }
 
 #[derive(Debug, Error)]
