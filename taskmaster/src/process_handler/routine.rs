@@ -45,10 +45,10 @@ impl Log {
     }
 }
 
-pub type StatusReceiver = mpsc::Receiver<Status>;
-pub type LogReceiver = mpsc::Receiver<Log>;
-pub type StatusSender = mpsc::Sender<Status>;
-pub type LogSender = mpsc::Sender<Log>;
+pub type StatusReceiver = mpsc::UnboundedReceiver<Status>;
+pub type LogReceiver = mpsc::UnboundedReceiver<Log>;
+pub type StatusSender = mpsc::UnboundedSender<Status>;
+pub type LogSender = mpsc::UnboundedSender<Log>;
 
 pub struct Outputs {
     stdout: BufReader<ChildStdout>,
@@ -105,9 +105,8 @@ pub enum RoutineSpawnError {
 #[allow(dead_code)] //TODO: Remove that
 impl Routine {
     pub async fn spawn(config: Program) -> Result<Handle, RoutineSpawnError> {
-        const BUFFER_SIZE: usize = 100; // 100 is a temporary value
-        let (status_sender, status_receiver) = mpsc::channel(BUFFER_SIZE);
-        let (log_sender, log_receiver) = mpsc::channel(BUFFER_SIZE);
+        let (status_sender, status_receiver) = mpsc::unbounded_channel();
+        let (log_sender, log_receiver) = mpsc::unbounded_channel();
         let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
             File::create(config.stdout()).await.map_err(|error| {
                 RoutineSpawnError::OpeningStdoutFile {
@@ -148,14 +147,14 @@ impl Routine {
         loop {
             let start_time = Instant::now();
 
-            self.send_new_status_to_task_manager(Status::Starting).await;
+            self.send_new_status_to_task_manager(Status::Starting);
             let status = self
                 .run_program(Arc::clone(&stdout_file), Arc::clone(&stderr_file))
                 .await;
 
             let should_try_restart = self.should_try_restart(start_time, &status);
 
-            self.send_new_status_to_task_manager(status).await;
+            self.send_new_status_to_task_manager(status);
 
             if !should_try_restart {
                 break;
@@ -198,7 +197,7 @@ impl Routine {
 
         match child {
             Ok(child) => {
-                self.send_new_status_to_task_manager(Status::Running).await;
+                self.send_new_status_to_task_manager(Status::Running);
                 self.handle_running_child(child, stdout_file, stderr_file)
                     .await
             }
@@ -240,7 +239,7 @@ impl Routine {
             }
         }
 
-        self.send_new_status_to_task_manager(Status::Running).await;
+        self.send_new_status_to_task_manager(Status::Running);
         listen_task.await.expect("Listen task panicked");
         Status::Exited(child.wait().await.expect("error waiting for child"))
     }
@@ -289,10 +288,9 @@ impl Routine {
         }
     }
 
-    async fn send_new_status_to_task_manager(&self, status: Status) {
+    fn send_new_status_to_task_manager(&self, status: Status) {
         self.status_sender
             .send(status)
-            .await
             .expect("Receiver was dropped");
     }
 
@@ -388,13 +386,13 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputF
             "log function was called with different values for output and log_type, expected same values"
         ),
     }
+    let program_name = log.program_name.clone();
     log_sender
-        .send(log.clone())
-        .await
+        .send(log)
         .inspect_err(|_| {
             eprintln!(
                 "Taskmaster error: {}: Log receiver was dropped",
-                log.program_name
+                program_name
             )
         })
         .unwrap()

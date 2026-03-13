@@ -4,8 +4,8 @@ use tokio::sync::mpsc;
 
 #[cfg(test)]
 async fn check_realtime_output_and_status(
-    mut status_receiver: mpsc::Receiver<Status>,
-    mut log_receiver: mpsc::Receiver<Log>,
+    mut status_receiver: mpsc::UnboundedReceiver<Status>,
+    mut log_receiver: mpsc::UnboundedReceiver<Log>,
 ) {
     loop {
         select! {
