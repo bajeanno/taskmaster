@@ -1,4 +1,4 @@
-use std::fmt::Display;
+ruse std::fmt::Display;
 
 use crate::server;
 
