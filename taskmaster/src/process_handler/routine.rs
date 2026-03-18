@@ -8,7 +8,7 @@ use std::sync::{Arc, LazyLock};
 use thiserror::Error;
 use tokio::io::AsyncBufRead;
 use tokio::process::Command;
-use tokio::sync::oneshot::{self};
+use tokio::sync::oneshot;
 use tokio::{fs::File, io::AsyncWriteExt};
 use tokio::{
     io::{AsyncBufReadExt, BufReader, Error},
@@ -247,22 +247,7 @@ impl Routine {
                         return status;
                     }
                     sender = self.kill_command_receiver.recv() => {
-                        if let Some(pid) = child.id() {
-                            unsafe {
-                                kill(pid as i32, signal::SIGINT);
-                            }
-                            if let Some(sender) = sender {
-                                sender.send(ProcessState::Running).expect("cannot send message back"); //TODO: remove that
-                            } else {
-                                panic!("didn't receive sender") //TODO: remove that
-                            }
-                        } else {
-                            if let Some(sender) = sender {
-                                sender.send(ProcessState::Stopped).expect("cannot send message back"); //TODO: remove that
-                            } else {
-                                panic!("didn't receive sender") //TODO: remove that
-                            }
-                        }
+                        Self::kill_subprocess(sender, &mut child);
                     }
                 }
             }
@@ -273,6 +258,29 @@ impl Routine {
             .expect("error while listening task's output");
         // Wait for process to terminate after stop signal
         Status::Exited(child.wait().await.expect("error waiting for child"))
+    }
+
+    fn kill_subprocess(sender: Option<oneshot::Sender<ProcessState>>, child: &mut Child) {
+        if let Some(pid) = child.id() {
+            unsafe {
+                kill(pid as i32, signal::SIGINT); //TODO: change signal to configured signal
+            }
+            if let Some(sender) = sender {
+                sender
+                    .send(ProcessState::Running)
+                    .expect("cannot send message back"); //TODO: remove that
+            } else {
+                panic!("didn't receive sender") //TODO: remove that
+            }
+        } else {
+            if let Some(sender) = sender {
+                sender
+                    .send(ProcessState::Stopped)
+                    .expect("cannot send message back"); //TODO: remove that
+            } else {
+                panic!("didn't receive sender") //TODO: remove that
+            }
+        }
     }
 
     async fn wait_for_child(
