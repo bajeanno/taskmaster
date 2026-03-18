@@ -11,7 +11,6 @@ async fn check_realtime_output_and_status(
         select! {
             Some(status) = status_receiver.recv() => {
                 match status {
-                    Status::NotSpawned => println!("Status: NotSpawned"),
                     Status::Starting => println!("Status: Starting"),
                     Status::Running => println!("Status: Running"),
                     Status::ErrorDuringStartup { exit_code } => {
