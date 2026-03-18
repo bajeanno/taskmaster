@@ -238,8 +238,6 @@ impl Routine {
             self.config.name().clone(),
         ));
 
-        let listen_events = tokio::spawn(Self::listen_events(self.command_receiver.clone()));
-
         match *self.config.start_time() {
             0 => {}
             start_time => {
