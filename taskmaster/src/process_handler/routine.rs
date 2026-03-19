@@ -238,18 +238,18 @@ impl Routine {
             self.config.name().clone(),
         ));
 
-        match *self.config.start_time() {
-            0 => {}
-            start_time => {
-                tokio::select! {
-                    status = Self::wait_for_child(&mut child, start_time, &mut self.status_sender) => {
-                        listen_task.await.expect("Listen task panicked");
-                        return status;
-                    }
-                    sender = self.kill_command_receiver.recv() => {
-                        Self::kill_subprocess(sender, &mut child);
-                    }
-                }
+        tokio::select! {
+            status = Self::wait_for_child(
+                &mut child,
+                *self.config.start_time(),
+                &mut self.status_sender
+            ) => {
+                listen_task.await.expect("Listen task panicked");
+                return status;
+            }
+
+            sender = self.kill_command_receiver.recv() => {
+                Self::kill_subprocess(sender, &mut child);
             }
         }
 
@@ -288,17 +288,19 @@ impl Routine {
         start_time: u32,
         status_sender: &mut StatusSender,
     ) -> Status {
-        tokio::select! {
-            _ = tokio::time::sleep(Duration::from_secs(start_time as u64)) => { }
+        if start_time != 0 {
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_secs(start_time as u64)) => {}
 
-            // Wait for process to terminate or crash before start_time
-            exit_status = child.wait() => {
-                return Status::ErrorDuringStartup {
-                    exit_code: exit_status
-                        .expect("Failed to get exit status")
-                        .code()
-                        .expect("Failed to get exit code") as u8
-                };
+                // Wait for process to terminate or crash before start_time
+                exit_status = child.wait() => {
+                    return Status::ErrorDuringStartup {
+                        exit_code: exit_status
+                            .expect("Failed to get exit status")
+                            .code()
+                            .expect("Failed to get exit code") as u8
+                    };
+                }
             }
         }
 
