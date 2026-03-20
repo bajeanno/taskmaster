@@ -89,10 +89,13 @@ fn deserialize_signal<'de, D>(deserializer: D) -> Result<Signal, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let signal: Signal = Signal::from_str(
-            .map_err(|err| serde::de::Error::custom(format!("Failed to parse signal: {err}")))?
-    )
-    .map_err(|err| de::Error::custom(format!("Failed to convert signal from string: {err}")))?;
+    let mut signal_str = String::deserialize(deserializer)
+        .map_err(|err| serde::de::Error::custom(format!("Failed to parse signal: {err}")))?;
+    if !signal_str.starts_with("SIG") {
+        signal_str = format!("SIG{signal_str}");
+    }
+    let signal: Signal = Signal::from_str(signal_str.as_str())
+        .map_err(|err| de::Error::custom(format!("Failed to convert signal from string: {err}")))?;
     Ok(signal)
 }
 
@@ -476,7 +479,20 @@ mod tests {
     }
 
     #[test]
-    fn parsing_with_stop_signal() {
+    fn parsing_with_stop_signal_no_sig() {
+        let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
+        builder.stop_signal = Signal::SIGTERM;
+        let program = builder.build().expect("Failed to build program");
+        let yaml_content = yaml_with_fields(
+            "echo test",
+            r#"
+            stopsignal: "TERM""#,
+        );
+        assert_config_parses_to(&yaml_content, program);
+    }
+
+    #[test]
+    fn parsing_with_stop_signal_with_sig() {
         let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.stop_signal = Signal::SIGTERM;
         let program = builder.build().expect("Failed to build program");
