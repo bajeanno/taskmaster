@@ -1,7 +1,8 @@
 use super::{Handle, Status, command};
 use crate::config::program::{AutoRestart, Program};
-use libc::signal::{self, kill};
+use libc::signal::kill;
 use libc::unistd::{mode_t, umask};
+use signal::Signal;
 use std::panic;
 use std::process::Stdio;
 use std::sync::{Arc, LazyLock};
@@ -165,7 +166,6 @@ impl Routine {
         loop {
             let start_time = Instant::now();
 
-            Self::send_new_status_to_task_manager(&mut self.status_sender, Status::Starting);
             let status = self
                 .run_program(Arc::clone(&stdout_file), Arc::clone(&stderr_file))
                 .await;
@@ -249,7 +249,7 @@ impl Routine {
             }
 
             sender = self.kill_command_receiver.recv() => {
-                Self::kill_subprocess(sender, &mut child);
+                Self::kill_subprocess(sender, &mut child, self.config.stop_signal());
             }
         }
 
@@ -260,10 +260,14 @@ impl Routine {
         Status::Exited(child.wait().await.expect("error waiting for child"))
     }
 
-    fn kill_subprocess(sender: Option<oneshot::Sender<ProcessState>>, child: &mut Child) {
+    fn kill_subprocess(
+        sender: Option<oneshot::Sender<ProcessState>>,
+        child: &mut Child,
+        stop_signal: &Signal,
+    ) {
         if let Some(pid) = child.id() {
             unsafe {
-                kill(pid as i32, signal::SIGINT); //TODO: change signal to configured signal
+                kill(pid as i32, *stop_signal as i32);
             }
             if let Some(sender) = sender {
                 sender

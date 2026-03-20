@@ -90,9 +90,7 @@ where
     D: Deserializer<'de>,
 {
     let signal: Signal = Signal::from_str(
-        String::deserialize(deserializer)
             .map_err(|err| serde::de::Error::custom(format!("Failed to parse signal: {err}")))?
-            .as_str(),
     )
     .map_err(|err| de::Error::custom(format!("Failed to convert signal from string: {err}")))?;
     Ok(signal)
