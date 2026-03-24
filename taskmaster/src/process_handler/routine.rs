@@ -248,7 +248,11 @@ impl Routine {
             }
 
             sender = self.kill_command_receiver.recv() => {
-                Self::kill_subprocess(sender, &mut child, self.config.stop_signal());
+                Self::kill_subprocess(
+                    sender.expect("receiver was dropped"),
+                    &mut child,
+                    self.config.stop_signal()
+                );
                 Status::Exited(child.wait().await.expect("error waiting for child"))
             }
         };
@@ -260,30 +264,21 @@ impl Routine {
     }
 
     fn kill_subprocess(
-        sender: Option<oneshot::Sender<ProcessState>>,
+        sender: oneshot::Sender<ProcessState>,
         child: &mut Child,
         stop_signal: &Signal,
     ) {
-        if let Some(pid) = child.id() {
-            unsafe {
-                kill(pid as i32, *stop_signal as i32);
-            }
-            if let Some(sender) = sender {
-                sender
-                    .send(ProcessState::Running)
-                    .expect("cannot send message back"); //TODO: remove that
-            } else {
-                panic!("didn't receive sender") //TODO: remove that
-            }
-        } else {
-            if let Some(sender) = sender {
-                sender
-                    .send(ProcessState::Stopped)
-                    .expect("cannot send message back"); //TODO: remove that
-            } else {
-                panic!("didn't receive sender") //TODO: remove that
-            }
-        }
+        let Some(pid) = child.id() else {
+            sender
+                .send(ProcessState::Stopped)
+                .expect("receiver was dropped");
+            return;
+        };
+
+        unsafe { kill(pid as i32, *stop_signal as i32) };
+        sender
+            .send(ProcessState::Running)
+            .expect("receiver was dropped");
     }
 
     async fn wait_for_child(
