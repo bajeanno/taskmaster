@@ -67,8 +67,13 @@ where
 
     async fn event_loop(mut self) -> Result<()> {
         while let Some(command) = self.read_frame().await? {
+            #[allow(clippy::single_match)]
+            //TODO: remove once other commands than ListTasks are available
             match command {
                 ServerCommand::ListTasks => self.handle_list_tasks(command).await?,
+                _ => {
+                    todo!()
+                }
             }
         }
         Ok(())
