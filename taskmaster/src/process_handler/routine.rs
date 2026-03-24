@@ -238,26 +238,25 @@ impl Routine {
             self.config.name().clone(),
         ));
 
-        tokio::select! {
+        let status = tokio::select! {
             status = Self::wait_for_child(
                 &mut child,
                 *self.config.start_time(),
                 &mut self.status_sender
             ) => {
-                listen_task.await.expect("Listen task panicked");
-                return status;
+                status
             }
 
             sender = self.kill_command_receiver.recv() => {
                 Self::kill_subprocess(sender, &mut child, self.config.stop_signal());
+                Status::Exited(child.wait().await.expect("error waiting for child"))
             }
-        }
+        };
 
         listen_task
             .await
             .expect("error while listening task's output");
-        // Wait for process to terminate after stop signal
-        Status::Exited(child.wait().await.expect("error waiting for child"))
+        status
     }
 
     fn kill_subprocess(
