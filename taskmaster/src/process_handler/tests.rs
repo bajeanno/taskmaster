@@ -1,19 +1,26 @@
 use crate::process_handler::{Log, LogType, Routine, Status};
+use std::sync::Arc;
 use tokio::sync::mpsc;
+#[cfg(test)]
+use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
 #[cfg(test)]
-async fn check_status(mut status_receiver: mpsc::UnboundedReceiver<Status>) {
-    match status_receiver.recv().await.unwrap() {
+async fn check_status(status_receiver: Arc<Mutex<UnboundedReceiver<Status>>>) {
+    match status_receiver.lock().await.recv().await.unwrap() {
         Status::Starting => {}
         other => panic!("Expected Status::Starting, got {}", other),
     }
-    match status_receiver.recv().await.unwrap() {
+    match status_receiver.lock().await.recv().await.unwrap() {
         Status::Running => {}
-        _ => panic!(),
+        status => panic!("not expected {status}"),
     }
-    match status_receiver.recv().await.unwrap() {
+}
+
+#[cfg(test)]
+async fn check_status_exited(status_receiver: Arc<Mutex<UnboundedReceiver<Status>>>) {
+    match status_receiver.lock().await.recv().await.unwrap() {
         Status::Exited(_) => {}
-        _ => panic!(),
+        status => panic!("not expected {status}"),
     }
 }
 
@@ -44,7 +51,10 @@ async fn create_task() {
         io::{Cursor, Read},
     };
 
-    use tokio::fs::remove_file;
+    use tokio::{
+        fs::remove_file,
+        sync::{Mutex, mpsc::UnboundedReceiver},
+    };
 
     use crate::config::Config;
 
@@ -79,7 +89,9 @@ async fn create_task() {
         .await
         .expect("failed to spawn tokio::task");
     let log_checker_handle = tokio::spawn(check_realtime_output(routine_handle.log_receiver));
-    let status_checker_handle = tokio::spawn(check_status(routine_handle.status_receiver));
+    let status_receiver: Arc<Mutex<UnboundedReceiver<Status>>> =
+        Arc::new(Mutex::new(routine_handle.status_receiver));
+    let status_checker_handle = tokio::spawn(check_status(Arc::clone(&status_receiver)));
 
     routine_handle.join_handle.await.unwrap();
     log_checker_handle
@@ -88,6 +100,7 @@ async fn create_task() {
     status_checker_handle
         .await
         .expect("failed to join status handle");
+    check_status_exited(Arc::clone(&status_receiver)).await;
 
     let stdout_file = "/tmp/taskmaster_tests.stdout";
     let stderr_file = "/tmp/taskmaster_tests.stderr";
@@ -127,9 +140,8 @@ async fn create_task_then_interrupt() {
     use std::{
         fs::File,
         io::{Cursor, Read},
-        time::Duration,
     };
-    use tokio::{fs::remove_file, sync::oneshot, time::sleep};
+    use tokio::{fs::remove_file, sync::oneshot};
 
     let yaml_content = r#"programs:
     taskmaster_test_task:
@@ -161,10 +173,11 @@ async fn create_task_then_interrupt() {
     let routine_handle = Routine::spawn(config)
         .await
         .expect("failed to spawn tokio::task");
-    let handle2 = tokio::spawn(check_status(routine_handle.status_receiver));
+    let status_receiver: Arc<Mutex<UnboundedReceiver<Status>>> =
+        Arc::new(Mutex::new(routine_handle.status_receiver));
+    let handle2 = tokio::spawn(check_status(Arc::clone(&status_receiver)));
 
-    sleep(Duration::from_secs(1)).await;
-
+    handle2.await.expect("failed to join status handle"); // wait for running status to send stop signal
     let (s, r) = oneshot::channel();
     if let Err(e) = routine_handle.kill_command_sender.send(s).await {
         panic!("Failed to send stop signal: {:?}", e);
@@ -172,7 +185,7 @@ async fn create_task_then_interrupt() {
     r.await.expect("error receiving process state");
 
     routine_handle.join_handle.await.unwrap();
-    handle2.await.expect("failed to join status handle");
+    check_status_exited(Arc::clone(&status_receiver)).await; // check exited status after stop signal
 
     let stdout_file = "/tmp/taskmaster_tests_interrupt.stdout";
     let stderr_file = "/tmp/taskmaster_tests_interrupt.stderr";
