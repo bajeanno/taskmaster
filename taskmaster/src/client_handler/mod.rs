@@ -71,7 +71,9 @@ where
             //TODO: remove once other commands than ListTasks are available
             match command {
                 ServerCommand::ListTasks => self.handle_list_tasks(command).await?,
-                _ => {}
+                _ => {
+                    todo!()
+                }
             }
         }
         Ok(())
