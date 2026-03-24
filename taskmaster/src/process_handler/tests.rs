@@ -1,30 +1,26 @@
 use crate::process_handler::{Log, LogType, Routine, Status};
 use std::sync::Arc;
 use tokio::sync::mpsc;
-#[cfg(test)]
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
-#[cfg(test)]
 async fn check_status(status_receiver: Arc<Mutex<UnboundedReceiver<Status>>>) {
     match status_receiver.lock().await.recv().await.unwrap() {
         Status::Starting => {}
-        other => panic!("Expected Status::Starting, got {}", other),
+        other => panic!("Expected Status::Starting, got {other:?}"),
     }
     match status_receiver.lock().await.recv().await.unwrap() {
         Status::Running => {}
-        status => panic!("not expected {status}"),
+        status => panic!("not expected {status:?}"),
     }
 }
 
-#[cfg(test)]
 async fn check_status_exited(status_receiver: Arc<Mutex<UnboundedReceiver<Status>>>) {
     match status_receiver.lock().await.recv().await.unwrap() {
         Status::Exited(_) => {}
-        status => panic!("not expected {status}"),
+        status => panic!("not expected {status:?}"),
     }
 }
 
-#[cfg(test)]
 async fn check_realtime_output(mut log_receiver: mpsc::UnboundedReceiver<Log>) {
     loop {
         match log_receiver.recv().await {
@@ -44,7 +40,6 @@ async fn check_realtime_output(mut log_receiver: mpsc::UnboundedReceiver<Log>) {
 }
 
 #[tokio::test]
-#[cfg(test)]
 async fn create_task() {
     use std::{
         fs::File,
@@ -134,7 +129,6 @@ async fn create_task() {
 }
 
 #[tokio::test]
-#[cfg(test)]
 async fn create_task_then_interrupt() {
     use crate::config::Config;
     use std::{

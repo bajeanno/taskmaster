@@ -1,4 +1,4 @@
-use std::{fmt::Display, process::ExitStatus};
+use std::{fmt::Debug, process::ExitStatus};
 
 #[allow(dead_code)]
 pub enum Status {
@@ -9,7 +9,7 @@ pub enum Status {
     Exited(ExitStatus),
 }
 
-impl Display for Status {
+impl Debug for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Status::Starting => write!(f, "Status::Starting"),
@@ -17,7 +17,7 @@ impl Display for Status {
             Status::Exited(_) => write!(f, "Status::Exited"),
             Status::FailedToSpawn(_) => write!(f, "Status::FailedToSpawn"),
             Status::ErrorDuringStartup { exit_code } => {
-                write!(f, "Status::ErrorDuringStartup, exit_code = {}", exit_code)
+                write!(f, "Status::ErrorDuringStartup{{ exit_code = {exit_code} }}")
             }
         }
     }
