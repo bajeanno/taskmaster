@@ -166,11 +166,9 @@ async fn create_task_then_interrupt() {
     sleep(Duration::from_secs(1)).await;
 
     let (s, r) = oneshot::channel();
-    routine_handle
-        .kill_command_sender
-        .send(s)
-        .await
-        .expect("error sending stop signal");
+    if let Err(e) = routine_handle.kill_command_sender.send(s).await {
+        panic!("Failed to send stop signal: {:?}", e);
+    }
     r.await.expect("error receiving process state");
 
     routine_handle.join_handle.await.unwrap();
