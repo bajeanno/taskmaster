@@ -802,8 +802,6 @@ dependencies = [
 name = "taskmaster"
 version = "0.1.0"
 dependencies = [
- "commands",
- "connection",
  "daemonize",
  "derive-getters",
  "libc 0.1.0",

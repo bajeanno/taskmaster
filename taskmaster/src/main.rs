@@ -1,13 +1,10 @@
-mod client_handler;
 mod config;
 mod error;
 mod process_handler;
-mod server;
 mod tasks_manager;
 
 use config::{Config, Program};
 use error::{Error, Result};
-use server::Server;
 
 const DEFAULT_PORT: i32 = 4444;
 
@@ -88,14 +85,8 @@ fn daemonize() -> Result<()> {
     Ok(())
 }
 
-fn start_server(port: i32, tasks: Vec<Program>) -> Result<()> {
+fn start_server(_port: i32, _tasks: Vec<Program>) -> Result<()> {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
-        .block_on(async {
-            Server::new(tasks, format!("localhost:{port}"))
-                .await?
-                .run()
-                .await;
-            Result::<()>::Ok(())
-        })
+        .block_on(async { Result::<()>::Ok(()) })
 }

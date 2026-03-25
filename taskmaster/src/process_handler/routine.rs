@@ -7,12 +7,11 @@ use std::panic;
 use std::process::Stdio;
 use std::sync::{Arc, LazyLock};
 use thiserror::Error;
-use tokio::io::AsyncBufRead;
 use tokio::process::Command;
 use tokio::sync::oneshot;
 use tokio::{fs::File, io::AsyncWriteExt};
 use tokio::{
-    io::{AsyncBufReadExt, BufReader, Error},
+    io::{AsyncBufRead, AsyncBufReadExt, BufReader, Error},
     process::{Child, ChildStderr, ChildStdout},
     sync::{Mutex, mpsc},
     time::{Duration, Instant},
@@ -116,9 +115,11 @@ pub enum ProcessState {
 
 #[allow(dead_code)] //TODO: Remove that
 impl Routine {
-    pub async fn spawn(config: Program) -> Result<Handle, RoutineSpawnError> {
-        let (status_sender, status_receiver) = mpsc::unbounded_channel();
-        let (log_sender, log_receiver) = mpsc::unbounded_channel();
+    pub async fn spawn(
+        config: Program,
+        status_sender: StatusSender,
+        log_sender: LogSender,
+    ) -> Result<Handle, RoutineSpawnError> {
         let (kill_command_sender, kill_command_receiver) = mpsc::channel(1);
         let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
             File::create(config.stdout()).await.map_err(|error| {
@@ -150,12 +151,7 @@ impl Routine {
             .routine(stdout_file, stderr_file)
             .await;
         });
-        Ok(Handle::new(
-            join_handle,
-            status_receiver,
-            log_receiver,
-            kill_command_sender,
-        ))
+        Ok(Handle::new(join_handle, kill_command_sender))
     }
 
     async fn routine(

@@ -80,12 +80,14 @@ async fn create_task() {
         .next()
         .expect("Config vector is empty");
 
-    let routine_handle = Routine::spawn(config)
+    let (status_sender, status_receiver) = mpsc::unbounded_channel();
+    let (log_sender, log_receiver) = mpsc::unbounded_channel();
+    let routine_handle = Routine::spawn(config, status_sender, log_sender)
         .await
         .expect("failed to spawn tokio::task");
-    let log_checker_handle = tokio::spawn(check_realtime_output(routine_handle.log_receiver));
+    let log_checker_handle = tokio::spawn(check_realtime_output(log_receiver));
     let status_receiver: Arc<Mutex<UnboundedReceiver<Status>>> =
-        Arc::new(Mutex::new(routine_handle.status_receiver));
+        Arc::new(Mutex::new(status_receiver));
     let status_checker_handle = tokio::spawn(check_status(Arc::clone(&status_receiver)));
 
     routine_handle.join_handle.await.unwrap();
@@ -164,11 +166,13 @@ async fn create_task_then_interrupt() {
         .next()
         .expect("Config vector is empty");
 
-    let routine_handle = Routine::spawn(config)
+    let (status_sender, status_receiver) = mpsc::unbounded_channel();
+    let (log_sender, _) = mpsc::unbounded_channel();
+    let routine_handle = Routine::spawn(config, status_sender, log_sender)
         .await
         .expect("failed to spawn tokio::task");
     let status_receiver: Arc<Mutex<UnboundedReceiver<Status>>> =
-        Arc::new(Mutex::new(routine_handle.status_receiver));
+        Arc::new(Mutex::new(status_receiver));
     let handle2 = tokio::spawn(check_status(Arc::clone(&status_receiver)));
 
     handle2.await.expect("failed to join status handle"); // wait for running status to send stop signal
