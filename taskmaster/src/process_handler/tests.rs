@@ -1,21 +1,22 @@
+use crate::process_handler::status::StatusStruct;
 use crate::process_handler::{Log, LogType, Routine, Status};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
-async fn check_status(status_receiver: Arc<Mutex<UnboundedReceiver<Status>>>) {
-    match status_receiver.lock().await.recv().await.unwrap() {
+async fn check_status(status_receiver: Arc<Mutex<UnboundedReceiver<StatusStruct>>>) {
+    match status_receiver.lock().await.recv().await.unwrap().status {
         Status::Starting => {}
         other => panic!("Expected Status::Starting, got {other:?}"),
     }
-    match status_receiver.lock().await.recv().await.unwrap() {
+    match status_receiver.lock().await.recv().await.unwrap().status {
         Status::Running => {}
         status => panic!("not expected {status:?}"),
     }
 }
 
-async fn check_status_exited(status_receiver: Arc<Mutex<UnboundedReceiver<Status>>>) {
-    match status_receiver.lock().await.recv().await.unwrap() {
+async fn check_status_exited(status_receiver: Arc<Mutex<UnboundedReceiver<StatusStruct>>>) {
+    match status_receiver.lock().await.recv().await.unwrap().status {
         Status::Exited(_) => {}
         status => panic!("not expected {status:?}"),
     }
@@ -27,11 +28,11 @@ async fn check_realtime_output(mut log_receiver: mpsc::UnboundedReceiver<Log>) {
             Some(log) => match log.log_type {
                 LogType::Stdout => {
                     assert_eq!(log.message, "Hello taskmaster!\n");
-                    assert_eq!(log.program_name, "taskmaster_test_task");
+                    assert_eq!(log.process_name, "taskmaster_test_task_0");
                 }
                 LogType::Stderr => {
                     assert_eq!(log.message, "");
-                    assert_eq!(log.program_name, "taskmaster_test_task");
+                    assert_eq!(log.process_name, "taskmaster_test_task_0");
                 }
             },
             None => break,
@@ -82,11 +83,12 @@ async fn create_task() {
 
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, log_receiver) = mpsc::unbounded_channel();
-    let routine_handle = Routine::spawn(config, status_sender, log_sender)
+    let name = config.name().to_owned() + "_0";
+    let routine_handle = Routine::spawn(Arc::new(config), status_sender, log_sender, name)
         .await
         .expect("failed to spawn tokio::task");
     let log_checker_handle = tokio::spawn(check_realtime_output(log_receiver));
-    let status_receiver: Arc<Mutex<UnboundedReceiver<Status>>> =
+    let status_receiver: Arc<Mutex<UnboundedReceiver<StatusStruct>>> =
         Arc::new(Mutex::new(status_receiver));
     let status_checker_handle = tokio::spawn(check_status(Arc::clone(&status_receiver)));
 
@@ -168,10 +170,11 @@ async fn create_task_then_interrupt() {
 
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, _) = mpsc::unbounded_channel();
-    let routine_handle = Routine::spawn(config, status_sender, log_sender)
+    let name = config.name().to_owned() + "_0";
+    let routine_handle = Routine::spawn(Arc::new(config), status_sender, log_sender, name)
         .await
         .expect("failed to spawn tokio::task");
-    let status_receiver: Arc<Mutex<UnboundedReceiver<Status>>> =
+    let status_receiver: Arc<Mutex<UnboundedReceiver<StatusStruct>>> =
         Arc::new(Mutex::new(status_receiver));
     let handle2 = tokio::spawn(check_status(Arc::clone(&status_receiver)));
 

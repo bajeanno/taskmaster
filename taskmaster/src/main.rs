@@ -3,6 +3,8 @@ mod error;
 mod process_handler;
 mod tasks_manager;
 
+use std::sync::Arc;
+
 use config::{Config, Program};
 use error::{Error, Result};
 
@@ -21,12 +23,17 @@ fn entrypoint() -> Result<()> {
     let Args { port } = parse_args(std::env::args().nth(1))?;
 
     let tasks = get_tasks_from_config("taskmaster.yaml");
+    let tasks = convert_tasks_to_arc(tasks);
 
     if !cfg!(debug_assertions) {
         daemonize()?
     }
 
     start_server(port, tasks)
+}
+
+fn convert_tasks_to_arc(_programs: Vec<Program>) -> Vec<Arc<Program>> {
+    todo!()
 }
 
 fn parse_args(port: Option<String>) -> Result<Args> {
@@ -85,7 +92,7 @@ fn daemonize() -> Result<()> {
     Ok(())
 }
 
-fn start_server(_port: i32, _tasks: Vec<Program>) -> Result<()> {
+fn start_server(_port: i32, _tasks: Vec<Arc<Program>>) -> Result<()> {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
         .block_on(async { Result::<()>::Ok(()) })

@@ -1,6 +1,6 @@
 use crate::{
     config::Program,
-    process_handler::{LogReceiver, LogSender, Status, StatusReceiver, StatusSender},
+    process_handler::{self, LogReceiver, LogSender, Status, StatusReceiver, StatusSender},
 };
 use std::{collections::HashMap, sync::Arc};
 mod handle;
@@ -41,10 +41,28 @@ impl Routine {
     }
 
     async fn routine(&self) {
-        // for each process, clone sender and Arc<Program>
-        // spawn routines
+        for task in self.tasks.iter() {
+            let num_procs = task.num_procs().clone();
+
+            for i in 0..num_procs {
+                _ = process_handler::Routine::spawn(
+                    Arc::clone(task),
+                    self.status_sender.clone(),
+                    self.log_sender.clone(),
+                    task.name().to_owned() + format!("_{}", i).as_str(),
+                )
+                .await
+            }
+        }
         // listen for status and logs
         //
         // may need an id per process to sign each log / status
     }
+
+    /// logs are already written to log files, we only need to write them to the client if he asks for it
+    async fn listen_for_logs(&self) {
+        todo!()
+    }
+
+    async fn listen_for_status(&self) {}
 }

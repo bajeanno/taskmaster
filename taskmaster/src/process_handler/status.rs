@@ -1,6 +1,12 @@
 use std::{fmt::Debug, process::ExitStatus};
 
 #[allow(dead_code)]
+pub struct StatusStruct {
+    pub process_name: String,
+    pub status: Status,
+}
+
+#[allow(dead_code)]
 pub enum Status {
     Starting,
     Running,
