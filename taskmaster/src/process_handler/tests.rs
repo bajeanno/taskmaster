@@ -1,10 +1,10 @@
-use crate::process_handler::status::StatusStruct;
+use crate::process_handler::status::NominativeStatus;
 use crate::process_handler::{Log, LogType, Routine, Status};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
-async fn check_status(status_receiver: Arc<Mutex<UnboundedReceiver<StatusStruct>>>) {
+async fn check_status(status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>) {
     match status_receiver.lock().await.recv().await.unwrap().status {
         Status::Starting => {}
         other => panic!("Expected Status::Starting, got {other:?}"),
@@ -15,7 +15,7 @@ async fn check_status(status_receiver: Arc<Mutex<UnboundedReceiver<StatusStruct>
     }
 }
 
-async fn check_status_exited(status_receiver: Arc<Mutex<UnboundedReceiver<StatusStruct>>>) {
+async fn check_status_exited(status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>) {
     match status_receiver.lock().await.recv().await.unwrap().status {
         Status::Exited(_) => {}
         status => panic!("not expected {status:?}"),
@@ -88,7 +88,7 @@ async fn create_task() {
         .await
         .expect("failed to spawn tokio::task");
     let log_checker_handle = tokio::spawn(check_realtime_output(log_receiver));
-    let status_receiver: Arc<Mutex<UnboundedReceiver<StatusStruct>>> =
+    let status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>> =
         Arc::new(Mutex::new(status_receiver));
     let status_checker_handle = tokio::spawn(check_status(Arc::clone(&status_receiver)));
 
@@ -174,7 +174,7 @@ async fn create_task_then_interrupt() {
     let routine_handle = Routine::spawn(Arc::new(config), status_sender, log_sender, name)
         .await
         .expect("failed to spawn tokio::task");
-    let status_receiver: Arc<Mutex<UnboundedReceiver<StatusStruct>>> =
+    let status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>> =
         Arc::new(Mutex::new(status_receiver));
     let handle2 = tokio::spawn(check_status(Arc::clone(&status_receiver)));
 

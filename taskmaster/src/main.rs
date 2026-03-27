@@ -10,6 +10,12 @@ use error::{Error, Result};
 
 const DEFAULT_PORT: i32 = 4444;
 
+use commands::ServerCommand;
+use tokio::sync::mpsc;
+
+pub type CommandReceiver = mpsc::UnboundedReceiver<ServerCommand>;
+pub type CommandSender = mpsc::UnboundedSender<ServerCommand>;
+
 #[derive(Debug)]
 struct Args {
     port: i32,

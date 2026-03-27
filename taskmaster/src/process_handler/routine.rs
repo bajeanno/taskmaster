@@ -1,6 +1,6 @@
 use super::{Handle, Status, command};
 use crate::config::program::{AutoRestart, Program};
-use crate::process_handler::status::StatusStruct;
+use crate::process_handler::status::NominativeStatus;
 use libc::signal::kill;
 use libc::unistd::{mode_t, umask};
 use signal::Signal;
@@ -48,9 +48,9 @@ impl Log {
     }
 }
 
-pub type StatusReceiver = mpsc::UnboundedReceiver<StatusStruct>;
+pub type StatusReceiver = mpsc::UnboundedReceiver<NominativeStatus>;
 pub type LogReceiver = mpsc::UnboundedReceiver<Log>;
-pub type StatusSender = mpsc::UnboundedSender<StatusStruct>;
+pub type StatusSender = mpsc::UnboundedSender<NominativeStatus>;
 pub type LogSender = mpsc::UnboundedSender<Log>;
 pub type KillCommandReceiver = mpsc::Receiver<oneshot::Sender<ProcessState>>;
 pub type KillCommandSender = mpsc::Sender<oneshot::Sender<ProcessState>>;
@@ -367,7 +367,7 @@ impl Routine {
         process_name: String,
     ) {
         status_sender
-            .send(StatusStruct {
+            .send(NominativeStatus {
                 process_name,
                 status,
             })

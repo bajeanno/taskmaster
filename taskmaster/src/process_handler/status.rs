@@ -1,7 +1,7 @@
 use std::{fmt::Debug, process::ExitStatus};
 
 #[allow(dead_code)]
-pub struct StatusStruct {
+pub struct NominativeStatus {
     pub process_name: String,
     pub status: Status,
 }
