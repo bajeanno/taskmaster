@@ -7,7 +7,10 @@ mod tests;
 
 pub use handle::Handle;
 #[allow(unused)]
-pub use routine::{Log, LogReceiver, LogSender, LogType, Routine, StatusReceiver, StatusSender};
+pub use routine::{
+    KillCommandSender, Log, LogReceiver, LogSender, LogType, ProcessState, Routine, StatusReceiver,
+    StatusSender,
+};
 pub use status::Status;
 #[allow(unused)]
 use std::process::Command;

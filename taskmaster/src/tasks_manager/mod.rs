@@ -1,6 +1,8 @@
 use crate::{
     config::Program,
-    process_handler::{self, LogReceiver, LogSender, Status, StatusReceiver, StatusSender},
+    process_handler::{
+        self, KillCommandSender, LogReceiver, LogSender, Status, StatusReceiver, StatusSender,
+    },
 };
 use std::{collections::HashMap, sync::Arc};
 mod handle;
@@ -11,10 +13,9 @@ use tokio::sync::mpsc;
 #[allow(dead_code)]
 pub struct Routine {
     tasks: Vec<Arc<Program>>,
-    statuses: HashMap<String, Vec<Status>>,
-    log_sender: LogSender,
+    statuses: HashMap<String, Status>,
+    stop_senders: HashMap<String, Vec<KillCommandSender>>,
     log_receiver: LogReceiver,
-    status_sender: StatusSender,
     status_receiver: StatusReceiver,
 }
 
@@ -28,30 +29,36 @@ impl Routine {
             Self {
                 tasks,
                 statuses: HashMap::new(),
-                log_sender,
+                stop_senders: HashMap::new(),
                 log_receiver,
-                status_sender,
                 status_receiver,
             }
-            .routine()
+            .routine(log_sender, status_sender)
             .await;
         });
 
         Handle::new()
     }
 
-    async fn routine(&self) {
+    async fn routine(mut self, log_sender: LogSender, status_sender: StatusSender) {
         for task in self.tasks.iter() {
             let num_procs = task.num_procs().clone();
 
             for i in 0..num_procs {
-                _ = process_handler::Routine::spawn(
+                let handle = process_handler::Routine::spawn(
                     Arc::clone(task),
-                    self.status_sender.clone(),
-                    self.log_sender.clone(),
+                    status_sender.clone(),
+                    log_sender.clone(),
                     task.name().to_owned() + format!("_{}", i).as_str(),
                 )
                 .await
+                .unwrap(); //TODO: remove that and do proper error handling
+                self.stop_senders
+                    .entry(task.name().clone())
+                    .and_modify(|vec| {
+                        vec.push(handle.kill_command_sender.clone());
+                    })
+                    .or_insert(vec![handle.kill_command_sender]);
             }
         }
         // listen for status and logs
@@ -64,5 +71,10 @@ impl Routine {
         todo!()
     }
 
-    async fn listen_for_status(&self) {}
+    async fn listen_for_status(&mut self) {
+        while let Some(status_struct) = self.status_receiver.recv().await {
+            self.statuses
+                .insert(status_struct.process_name, status_struct.status);
+        }
+    }
 }
