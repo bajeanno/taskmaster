@@ -77,7 +77,7 @@ impl Routine {
         log_sender: LogSender,
     ) -> Result<(), StartTaskError> {
         for task in self.tasks.clone().iter() {
-            let num_procs = task.num_procs().clone();
+            let num_procs = *task.num_procs();
 
             for id in 0..num_procs {
                 self.start_task(
@@ -103,7 +103,7 @@ impl Routine {
         let task_id = task_name.to_owned() + format!("_{}", id).as_str();
         let handle =
             process_handler::Routine::spawn(task, status_sender, log_sender, task_id).await?;
-        self.handles.entry(task_name.clone()).or_insert(Vec::new());
+        self.handles.entry(task_name.clone()).or_default();
         self.handles.get_mut(&task_name).unwrap().push(handle);
         Ok(())
     }
