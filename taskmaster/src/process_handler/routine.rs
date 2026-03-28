@@ -52,6 +52,9 @@ pub type StatusReceiver = mpsc::UnboundedReceiver<NominativeStatus>;
 pub type LogReceiver = mpsc::UnboundedReceiver<Log>;
 pub type StatusSender = mpsc::UnboundedSender<NominativeStatus>;
 pub type LogSender = mpsc::UnboundedSender<Log>;
+pub type ProcessStateSender = oneshot::Sender<ProcessState>;
+pub type ProcessStateReceiver = oneshot::Receiver<ProcessState>;
+pub type ProcessStateChannel = (ProcessStateSender, ProcessStateReceiver);
 pub type KillCommandReceiver = mpsc::Receiver<oneshot::Sender<ProcessState>>;
 pub type KillCommandSender = mpsc::Sender<oneshot::Sender<ProcessState>>;
 
