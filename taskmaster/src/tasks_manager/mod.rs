@@ -1,23 +1,30 @@
 use crate::{
     config::Program,
     process_handler::{
-        self, KillCommandSender, LogReceiver, LogSender, Status, StatusReceiver, StatusSender,
+        self, LogReceiver, LogSender, ProcessStateChannel, RoutineSpawnError, Status,
+        StatusReceiver, StatusSender,
     },
 };
-
 use std::{collections::HashMap, sync::Arc};
-use tokio::sync::Mutex;
+use thiserror::Error;
+use tokio::sync::{Mutex, oneshot};
 mod handle;
 mod state_machine;
 use crate::CommandReceiver;
 pub use handle::Handle;
 use tokio::sync::mpsc;
 
+#[derive(Debug, Error)]
+enum StartTaskError {
+    #[error("")]
+    RoutineSpawnError(#[from] RoutineSpawnError),
+}
+
 #[allow(dead_code)]
 pub struct Routine {
     tasks: Vec<Arc<Program>>,
     hashmap_status: Arc<Mutex<HashMap<String, Status>>>,
-    stop_senders: HashMap<String, Vec<KillCommandSender>>,
+    handles: HashMap<String, Vec<process_handler::Handle>>,
     command_receiver: CommandReceiver,
 }
 
@@ -32,7 +39,7 @@ impl Routine {
             Self {
                 tasks,
                 hashmap_status: Arc::new(Mutex::new(HashMap::new())),
-                stop_senders: HashMap::new(),
+                handles: HashMap::new(),
                 command_receiver,
             }
             .routine(log_sender, log_receiver, status_sender, status_receiver)
@@ -49,27 +56,9 @@ impl Routine {
         status_sender: StatusSender,
         status_receiver: StatusReceiver,
     ) {
-        for task in self.tasks.iter() {
-            let num_procs = task.num_procs().clone();
-
-            for i in 0..num_procs {
-                let handle = process_handler::Routine::spawn(
-                    Arc::clone(task),
-                    status_sender.clone(),
-                    log_sender.clone(),
-                    task.name().to_owned() + format!("_{}", i).as_str(),
-                )
-                .await
-                .unwrap();
-                self.stop_senders
-                    .entry(task.name().clone())
-                    .and_modify(|vec| {
-                        vec.push(handle.kill_command_sender.clone());
-                    })
-                    .or_insert(vec![handle.kill_command_sender]);
-            }
-        }
-
+        if let Err(_result) = self.start_tasks(status_sender, log_sender).await {
+            self.stop_routines().await
+        };
         let handle1 = tokio::spawn(Self::listen_for_logs(log_receiver));
         let handle2 = tokio::spawn(Self::listen_for_status(
             status_receiver,
@@ -80,6 +69,43 @@ impl Routine {
 
         handle1.await.expect("listen_for_logs failed");
         handle2.await.expect("listen_for_status failed");
+    }
+
+    async fn start_tasks(
+        &mut self,
+        status_sender: StatusSender,
+        log_sender: LogSender,
+    ) -> Result<(), StartTaskError> {
+        for task in self.tasks.clone().iter() {
+            let num_procs = task.num_procs().clone();
+
+            for id in 0..num_procs {
+                self.start_task(
+                    Arc::clone(task),
+                    status_sender.clone(),
+                    log_sender.clone(),
+                    id,
+                )
+                .await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn start_task(
+        &mut self,
+        task: Arc<Program>,
+        status_sender: StatusSender,
+        log_sender: LogSender,
+        id: u32,
+    ) -> Result<(), StartTaskError> {
+        let task_name = task.name().clone();
+        let task_id = task_name.to_owned() + format!("_{}", id).as_str();
+        let handle =
+            process_handler::Routine::spawn(task, status_sender, log_sender, task_id).await?;
+        self.handles.entry(task_name.clone()).or_insert(Vec::new());
+        self.handles.get_mut(&task_name).unwrap().push(handle);
+        Ok(())
     }
 
     async fn listen_for_status(
@@ -106,7 +132,8 @@ impl Routine {
             match command {
                 commands::ServerCommand::ListTasks => todo!("ListTasks (status command)"),
                 commands::ServerCommand::Stop { process_name } => {
-                    self.stop_senders.get(&process_name);
+                    self.handles.get(&process_name);
+                    todo!()
                 }
                 commands::ServerCommand::Restart { process_name } => {
                     todo!("Restart {}", process_name)
@@ -114,5 +141,19 @@ impl Routine {
                 commands::ServerCommand::Start { process_name } => todo!("Start {}", process_name),
             }
         }
+    }
+
+    async fn stop_routines(&mut self) {
+        for (_, handles) in self.handles.iter_mut() {
+            for handle in handles.iter_mut() {
+                Self::stop_routine(handle).await;
+            }
+        }
+    }
+
+    async fn stop_routine(handle: &mut process_handler::Handle) {
+        let (s, r): ProcessStateChannel = oneshot::channel();
+        handle.kill_command_sender.send(s).await;
+        r.await; //TODO: handle response
     }
 }
