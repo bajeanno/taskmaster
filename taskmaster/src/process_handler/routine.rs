@@ -398,7 +398,7 @@ impl Routine {
         stdout_file: Arc<Mutex<OutputFile>>,
         stderr_file: Arc<Mutex<OutputFile>>,
         log_sender: LogSender,
-        program_name: String,
+        process_name: String,
     ) {
         let stdout = outputs.stdout;
         let stderr = outputs.stderr;
@@ -411,13 +411,13 @@ impl Routine {
                 stdout,
                 log_sender.clone(),
                 &mut stdout_file_mutex_guard,
-                &program_name
+                &process_name
             ),
             listen_and_log(
                 stderr,
                 log_sender,
                 &mut stderr_file_mutex_guard,
-                &program_name
+                &process_name
             ),
         );
     }
@@ -455,13 +455,13 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputF
             "log function was called with different values for output and log_type, expected same values"
         ),
     }
-    let program_name = log.process_name.clone();
+    let process_name = log.process_name.clone();
     log_sender
         .send(log)
         .inspect_err(|_| {
             eprintln!(
                 "Taskmaster error: {}: Log receiver was dropped",
-                program_name
+                process_name
             )
         })
         .unwrap()
