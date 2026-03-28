@@ -94,19 +94,12 @@ pub struct Routine {
     process_name: String,
 }
 
-//TODO: check error context once the task manager is done
 #[derive(Error, Debug)]
 pub enum RoutineSpawnError {
-    #[error("Error creating stdout file for program {program_name}: {error}")]
-    OpeningStdoutFile {
-        error: std::io::Error,
-        program_name: String,
-    },
-    #[error("Error creating stderr file for program {program_name}: {error}")]
-    OpeningStderrFile {
-        error: std::io::Error,
-        program_name: String,
-    },
+    #[error("{0}")]
+    OpeningStdoutFile(std::io::Error),
+    #[error("{0}")]
+    OpeningStderrFile(std::io::Error),
 }
 
 #[derive(Debug)]
@@ -115,7 +108,6 @@ pub enum ProcessState {
     Stopped,
 }
 
-#[allow(dead_code)] //TODO: Remove that
 impl Routine {
     pub async fn spawn(
         config: Arc<Program>,
@@ -125,20 +117,14 @@ impl Routine {
     ) -> Result<Handle, RoutineSpawnError> {
         let (kill_command_sender, kill_command_receiver) = mpsc::channel(1);
         let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
-            File::create(config.stdout()).await.map_err(|error| {
-                RoutineSpawnError::OpeningStdoutFile {
-                    program_name: config.name().to_string(),
-                    error,
-                }
-            })?,
+            File::create(config.stdout())
+                .await
+                .map_err(|error| RoutineSpawnError::OpeningStdoutFile(error))?,
         )));
         let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(
-            File::create(config.stderr()).await.map_err(|error| {
-                RoutineSpawnError::OpeningStderrFile {
-                    program_name: config.name().to_string(),
-                    error,
-                }
-            })?,
+            File::create(config.stderr())
+                .await
+                .map_err(|error| RoutineSpawnError::OpeningStderrFile(error))?,
         )));
         let command = command::create_command(&config);
 
