@@ -122,12 +122,12 @@ impl Routine {
         let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
             File::create(config.stdout())
                 .await
-                .map_err(|error| RoutineSpawnError::OpeningStdoutFile(error))?,
+                .map_err(RoutineSpawnError::OpeningStdoutFile)?,
         )));
         let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(
             File::create(config.stderr())
                 .await
-                .map_err(|error| RoutineSpawnError::OpeningStderrFile(error))?,
+                .map_err(RoutineSpawnError::OpeningStderrFile)?,
         )));
         let command = command::create_command(&config);
 
