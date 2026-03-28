@@ -21,8 +21,8 @@ enum StartTaskError {
 #[allow(dead_code)]
 pub struct Routine {
     tasks: Vec<Arc<Program>>,
-    hashmap_status: Arc<Mutex<HashMap<String, Status>>>,
-    handles: HashMap<String, Vec<process_handler::Handle>>,
+    hashmap_status: Arc<Mutex<HashMap<String, Status>>>, // stores a status per process_name
+    handles: HashMap<String, process_handler::Handle>,   // stores a vec of handler per program_name
     command_receiver: CommandReceiver,
 }
 
@@ -78,13 +78,17 @@ impl Routine {
             let num_procs = *task.num_procs();
 
             for id in 0..num_procs {
-                self.start_task(
-                    Arc::clone(task),
-                    status_sender.clone(),
-                    log_sender.clone(),
-                    id,
-                )
-                .await?;
+                let task_name = task.name().clone();
+                let task_id = task_name.to_owned() + format!("_{}", id).as_str();
+                let handle = self
+                    .start_task(
+                        Arc::clone(task),
+                        status_sender.clone(),
+                        log_sender.clone(),
+                        task_id.clone(),
+                    )
+                    .await?;
+                self.handles.insert(task_id, handle);
             }
         }
         Ok(())
@@ -95,15 +99,11 @@ impl Routine {
         task: Arc<Program>,
         status_sender: StatusSender,
         log_sender: LogSender,
-        id: u32,
-    ) -> Result<(), StartTaskError> {
-        let task_name = task.name().clone();
-        let task_id = task_name.to_owned() + format!("_{}", id).as_str();
+        task_id: String,
+    ) -> Result<process_handler::Handle, StartTaskError> {
         let handle =
             process_handler::Routine::spawn(task, status_sender, log_sender, task_id).await?;
-        self.handles.entry(task_name.clone()).or_default();
-        self.handles.get_mut(&task_name).unwrap().push(handle);
-        Ok(())
+        Ok(handle)
     }
 
     async fn listen_for_status(
@@ -142,19 +142,12 @@ impl Routine {
     }
 
     async fn stop_routines(&mut self) {
-        for (process_name, handles) in self.handles.iter_mut() {
-            for handle in handles.iter_mut() {
-                if let Some(status) = self.hashmap_status.lock().await.get(process_name) {
-                    match status {
-                        Status::Starting | Status::Running => {
-                            todo!()
-                        }
-                        _ => {
-                            todo!()
-                        }
-                    }
+        for (process_name, handle) in self.handles.iter_mut() {
+            if let Some(status) = self.hashmap_status.lock().await.get(process_name) {
+                match status {
+                    Status::Starting | Status::Running => Self::stop_routine(handle).await,
+                    _ => {} //routine already stopped (crashed or exited)
                 }
-                Self::stop_routine(handle).await;
             }
         }
     }
