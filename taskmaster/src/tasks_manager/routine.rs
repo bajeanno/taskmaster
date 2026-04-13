@@ -18,11 +18,15 @@ enum StartTaskError {
     RoutineSpawnError(#[from] RoutineSpawnError),
 }
 
+pub struct Process {
+    handle: Arc<process_handler::Handle>,
+    status: Status,
+}
+
 #[allow(dead_code)]
 pub struct Routine {
     tasks: Vec<Arc<Program>>,
-    hashmap_status: Arc<Mutex<HashMap<String, Status>>>, // stores a status per process_name
-    handles: HashMap<String, process_handler::Handle>,   // stores a vec of handler per program_name
+    processes: Arc<Mutex<HashMap<String, Process>>>,
     command_receiver: CommandReceiver,
 }
 
@@ -36,8 +40,7 @@ impl Routine {
         tokio::spawn(async move {
             Self {
                 tasks,
-                hashmap_status: Arc::new(Mutex::new(HashMap::new())),
-                handles: HashMap::new(),
+                processes: Arc::new(Mutex::new(HashMap::new())),
                 command_receiver,
             }
             .routine(log_sender, log_receiver, status_sender, status_receiver)
@@ -60,7 +63,7 @@ impl Routine {
         let handle1 = tokio::spawn(Self::listen_for_logs(log_receiver));
         let handle2 = tokio::spawn(Self::listen_for_status(
             status_receiver,
-            Arc::clone(&self.hashmap_status),
+            Arc::clone(&self.processes),
         ));
 
         self.event_listener().await;
@@ -88,7 +91,13 @@ impl Routine {
                         task_id.clone(),
                     )
                     .await?;
-                self.handles.insert(task_id, handle);
+                self.processes.lock().await.insert(
+                    task_id,
+                    Process {
+                        handle: Arc::new(handle),
+                        status: Status::Starting,
+                    },
+                );
             }
         }
         Ok(())
@@ -108,13 +117,24 @@ impl Routine {
 
     async fn listen_for_status(
         mut status_receiver: StatusReceiver,
-        hashmap_status: Arc<Mutex<HashMap<String, Status>>>,
+        process_hashmap: Arc<Mutex<HashMap<String, Process>>>,
     ) {
-        while let Some(status_struct) = status_receiver.recv().await {
-            hashmap_status
-                .lock()
-                .await
-                .insert(status_struct.process_name, status_struct.status);
+        while let Some(status) = status_receiver.recv().await {
+            let handle = Arc::clone(
+                &process_hashmap
+                    .lock()
+                    .await
+                    .get(&status.process_name)
+                    .unwrap()
+                    .handle,
+            );
+            process_hashmap.lock().await.insert(
+                status.process_name,
+                Process {
+                    handle,
+                    status: status.status,
+                },
+            );
         }
     }
 
@@ -130,8 +150,9 @@ impl Routine {
             match command {
                 commands::ServerCommand::ListTasks => todo!("ListTasks (status command)"),
                 commands::ServerCommand::Stop { process_name } => {
-                    self.handles.get(&process_name);
-                    todo!()
+                    let mut map = self.processes.lock().await;
+                    let mut process = map.get_mut(&process_name).unwrap_or_else(|| todo!());
+                    Self::stop_routine(&mut process).await;
                 }
                 commands::ServerCommand::Restart { process_name } => {
                     todo!("Restart {}", process_name)
@@ -142,12 +163,10 @@ impl Routine {
     }
 
     async fn stop_routines(&mut self) {
-        for (process_name, handle) in self.handles.iter_mut() {
-            if let Some(status) = self.hashmap_status.lock().await.get(process_name) {
-                match status {
-                    Status::Starting | Status::Running => Self::stop_routine(handle).await,
-                    _ => {} //routine already stopped (crashed or exited)
-                }
+        for (_, process) in self.processes.lock().await.iter_mut() {
+            match process.status {
+                Status::Starting | Status::Running => Self::stop_routine(process).await,
+                _ => {} //routine already stopped (crashed or exited)
             }
         }
     }
@@ -157,12 +176,14 @@ impl Routine {
     /// # Warning
     /// This function should NOT be called before checking that the process has not exited.
     /// Ensure the process is still running before invoking this function.
-    async fn stop_routine(handle: &mut process_handler::Handle) {
+    async fn stop_routine(entry: &mut Process) {
         let (s, r): ProcessStateChannel = oneshot::channel();
-        handle
+        entry
+            .handle
             .kill_command_sender
             .send(s)
             .await
+            // TODO don't expect
             .expect("Receiver was dropped");
         match r.await {
             Ok(response) => match response {
