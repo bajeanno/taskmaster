@@ -148,32 +148,42 @@ impl Routine {
         while let Some(command) = self.command_receiver.recv().await {
             match command {
                 commands::ServerCommand::ListTasks => todo!("ListTasks (status command)"),
-                commands::ServerCommand::Stop { process_name } => {
-                    let mut map = self.processes.lock().await;
-                    let mut process = map.get_mut(&process_name).unwrap_or_else(|| todo!());
-                    Self::stop_routine(&mut process).await;
+
+                commands::ServerCommand::Stop { task_name } => {
+                    self.stop_task(task_name.as_str()).await;
                 }
-                commands::ServerCommand::Restart { process_name } => {
-                    todo!("Restart {}", process_name)
+                commands::ServerCommand::Restart { task_name } => {
+                    todo!("Restart {}", task_name)
                 }
-                commands::ServerCommand::Start { process_name } => todo!("Start {}", process_name),
+                commands::ServerCommand::Start { task_name } => todo!("Start {}", task_name),
             }
         }
     }
 
-    async fn stop_routines(&mut self) {
+    /// Can be useful for exit routine
+    async fn stop_all_routines(&mut self) {
         for (_, process) in self.processes.lock().await.iter_mut() {
             match process.status {
-                Status::Starting | Status::Running => Self::stop_routine(process).await,
+                Status::Starting | Status::Running => process.stop_process().await,
                 _ => {} //routine already stopped (crashed or exited)
             }
         }
     }
 
+    async fn stop_task(&mut self, task_name: &str) {
+        for (process_name, process) in self.processes.lock().await.iter_mut() {
+            if process_name.starts_with(task_name) {
+                process.stop_process().await;
+            }
+        }
+    }
+}
+
+impl Process {
     /// Stops a routine by sending a kill command.
-    async fn stop_routine(entry: &mut Process) {
+    async fn stop_process(&mut self) {
         let (s, r): ProcessStateChannel = oneshot::channel();
-        let _ = entry.handle.kill_command_sender.send(s).await; // thows an error on dropped receiver, the error is silenced
+        let _ = self.handle.kill_command_sender.send(s).await; // thows an error on dropped receiver, the error is silenced
         match r.await {
             Ok(response) => match response {
                 process_handler::ProcessState::Running => {}
