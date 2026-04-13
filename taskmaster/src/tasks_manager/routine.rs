@@ -9,8 +9,7 @@ use crate::{
 };
 use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;
-use tokio::sync::mpsc;
-use tokio::sync::{Mutex, oneshot};
+use tokio::sync::{Mutex, mpsc, oneshot};
 
 #[derive(Debug, Error)]
 enum StartTaskError {
@@ -172,19 +171,9 @@ impl Routine {
     }
 
     /// Stops a routine by sending a kill command.
-    ///
-    /// # Warning
-    /// This function should NOT be called before checking that the process has not exited.
-    /// Ensure the process is still running before invoking this function.
     async fn stop_routine(entry: &mut Process) {
         let (s, r): ProcessStateChannel = oneshot::channel();
-        entry
-            .handle
-            .kill_command_sender
-            .send(s)
-            .await
-            // TODO don't expect
-            .expect("Receiver was dropped");
+        let _ = entry.handle.kill_command_sender.send(s).await; // thows an error on dropped receiver, the error is silenced
         match r.await {
             Ok(response) => match response {
                 process_handler::ProcessState::Running => {}
