@@ -18,7 +18,7 @@ enum StartTaskError {
 }
 
 pub struct Process {
-    handle: Arc<process_handler::Handle>,
+    handle: process_handler::Handle,
     status: Status,
 }
 
@@ -27,6 +27,8 @@ pub struct Routine {
     tasks: Vec<Arc<Program>>,
     processes: Arc<Mutex<HashMap<String, Process>>>,
     command_receiver: CommandReceiver,
+    log_sender: LogSender,
+    status_sender: StatusSender,
 }
 
 #[allow(dead_code)] //TODO: remove that
@@ -41,68 +43,62 @@ impl Routine {
                 tasks,
                 processes: Arc::new(Mutex::new(HashMap::new())),
                 command_receiver,
+                log_sender,
+                status_sender,
             }
-            .routine(log_sender, log_receiver, status_sender, status_receiver)
+            .routine(status_receiver, log_receiver)
             .await;
         });
 
         Handle::new(command_sender)
     }
 
-    async fn routine(
-        mut self,
-        log_sender: LogSender,
-        log_receiver: LogReceiver,
-        status_sender: StatusSender,
-        status_receiver: StatusReceiver,
-    ) {
-        if let Err(_result) = self.start_tasks(status_sender, log_sender).await {
-            self.stop_routines().await
+    async fn routine(mut self, status_receiver: StatusReceiver, log_receiver: LogReceiver) {
+        if let Err(_result) = self.start_tasks().await {
+            self.stop_all_routines().await
         };
         let handle1 = tokio::spawn(Self::listen_for_logs(log_receiver));
         let handle2 = tokio::spawn(Self::listen_for_status(
             status_receiver,
             Arc::clone(&self.processes),
         ));
-
         self.event_listener().await;
-
         handle1.await.expect("listen_for_logs failed");
         handle2.await.expect("listen_for_status failed");
     }
 
-    async fn start_tasks(
-        &mut self,
-        status_sender: StatusSender,
-        log_sender: LogSender,
-    ) -> Result<(), StartTaskError> {
+    async fn start_tasks(&mut self) -> Result<(), StartTaskError> {
         for task in self.tasks.clone().iter() {
-            let num_procs = *task.num_procs();
-
-            for id in 0..num_procs {
-                let task_name = task.name().clone();
-                let task_id = task_name.to_owned() + format!("_{}", id).as_str();
-                let handle = self
-                    .start_task(
-                        Arc::clone(task),
-                        status_sender.clone(),
-                        log_sender.clone(),
-                        task_id.clone(),
-                    )
-                    .await?;
-                self.processes.lock().await.insert(
-                    task_id,
-                    Process {
-                        handle: Arc::new(handle),
-                        status: Status::Starting,
-                    },
-                );
-            }
+            self.start_task(task.clone()).await?;
         }
         Ok(())
     }
 
-    async fn start_task(
+    async fn start_task(&mut self, task: Arc<Program>) -> Result<(), StartTaskError> {
+        let num_procs = *task.num_procs();
+        for id in 0..num_procs {
+            let task_name = task.name().clone();
+            let task_id = task_name.to_owned() + format!("_{}", id).as_str();
+            let handle = self
+                .start_process(
+                    Arc::clone(&task),
+                    self.status_sender.clone(),
+                    self.log_sender.clone(),
+                    task_id.clone(),
+                )
+                .await?;
+            self.processes.lock().await.insert(
+                task_id,
+                Process {
+                    handle: handle,
+                    status: Status::Starting,
+                },
+            );
+        }
+        Ok(())
+    }
+
+    async fn start_process(
         &mut self,
         task: Arc<Program>,
         status_sender: StatusSender,
@@ -119,21 +115,11 @@ impl Routine {
         process_hashmap: Arc<Mutex<HashMap<String, Process>>>,
     ) {
         while let Some(status) = status_receiver.recv().await {
-            let handle = Arc::clone(
-                &process_hashmap
-                    .lock()
-                    .await
-                    .get(&status.process_name)
-                    .unwrap()
-                    .handle,
-            );
-            process_hashmap.lock().await.insert(
-                status.process_name,
-                Process {
-                    handle,
-                    status: status.status,
-                },
-            );
+            let mut map = process_hashmap.lock().await;
+            match map.get_mut(&status.process_name) {
+                Some(process) => process.status = status.status,
+                None => {}
+            }
         }
     }
 
@@ -145,16 +131,25 @@ impl Routine {
     }
 
     async fn event_listener(&mut self) {
-        while let Some(command) = self.command_receiver.recv().await {
+        while let Some((command, sender)) = self.command_receiver.recv().await {
             match command {
                 commands::ServerCommand::ListTasks => todo!("ListTasks (status command)"),
 
                 commands::ServerCommand::Stop { task_name } => {
                     self.stop_task(task_name.as_str()).await;
                 }
+
                 commands::ServerCommand::Restart { task_name } => {
-                    todo!("Restart {}", task_name)
+                    if let Some(task) = self.get_task(task_name.as_str()) {
+                        self.stop_task(task_name.as_str()).await;
+                        self.start_task(task).await.unwrap();
+                    } else {
+                        sender
+                            .send(commands::ServerCommandError::NoSuchTask(task_name))
+                            .unwrap();
+                    };
                 }
+
                 commands::ServerCommand::Start { task_name } => todo!("Start {}", task_name),
             }
         }
@@ -176,6 +171,15 @@ impl Routine {
                 process.stop_process().await;
             }
         }
+    }
+
+    fn get_task(&self, task_name: &str) -> Option<Arc<Program>> {
+        for program in self.tasks.iter() {
+            if program.name() == task_name {
+                return Some(program.clone());
+            }
+        }
+        None
     }
 }
 

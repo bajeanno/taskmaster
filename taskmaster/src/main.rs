@@ -11,10 +11,12 @@ use error::{Error, Result};
 const DEFAULT_PORT: i32 = 4444;
 
 use commands::ServerCommand;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
-pub type CommandReceiver = mpsc::UnboundedReceiver<ServerCommand>;
-pub type CommandSender = mpsc::UnboundedSender<ServerCommand>;
+pub type CommandReceiver =
+    mpsc::UnboundedReceiver<(ServerCommand, oneshot::Sender<commands::ServerCommandError>)>;
+pub type CommandSender =
+    mpsc::UnboundedSender<(ServerCommand, oneshot::Sender<commands::ServerCommandError>)>;
 
 #[derive(Debug)]
 struct Args {
