@@ -90,7 +90,7 @@ impl Routine {
             self.processes.lock().await.insert(
                 task_id,
                 Process {
-                    handle: handle,
+                    handle,
                     status: Status::Starting,
                 },
             );
@@ -116,9 +116,8 @@ impl Routine {
     ) {
         while let Some(status) = status_receiver.recv().await {
             let mut map = process_hashmap.lock().await;
-            match map.get_mut(&status.process_name) {
-                Some(process) => process.status = status.status,
-                None => {}
+            if let Some(process) = map.get_mut(&status.process_name) {
+                process.status = status.status;
             }
         }
     }
