@@ -1,10 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum ServerCommandError {
-    NoSuchTask(String),
-}
-
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ServerCommand {
     ListTasks,

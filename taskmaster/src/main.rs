@@ -10,13 +10,20 @@ use error::{Error, Result};
 
 const DEFAULT_PORT: i32 = 4444;
 
-use commands::ServerCommand;
+use tasks_manager::{ServerCommandError, TaskManagerCommand};
 use tokio::sync::{mpsc, oneshot};
 
 pub type CommandReceiver =
-    mpsc::UnboundedReceiver<(ServerCommand, oneshot::Sender<commands::ServerCommandError>)>;
+    mpsc::UnboundedReceiver<(TaskManagerCommand, oneshot::Sender<ServerCommandError>)>;
 pub type CommandSender =
-    mpsc::UnboundedSender<(ServerCommand, oneshot::Sender<commands::ServerCommandError>)>;
+    mpsc::UnboundedSender<(TaskManagerCommand, oneshot::Sender<ServerCommandError>)>;
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct NominativeStatus {
+    pub process_name: String,
+    pub status: crate::process_handler::Status,
+}
 
 #[derive(Debug)]
 struct Args {

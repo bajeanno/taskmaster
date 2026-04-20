@@ -1,6 +1,6 @@
 use super::{Handle, Status, command};
+use crate::NominativeStatus;
 use crate::config::program::{AutoRestart, Program};
-use crate::process_handler::status::NominativeStatus;
 use libc::signal::kill;
 use libc::unistd::{mode_t, umask};
 use signal::Signal;
@@ -216,7 +216,7 @@ impl Routine {
                 self.handle_running_child(child, stdout_file, stderr_file)
                     .await
             }
-            Err(err) => Status::FailedToSpawn(err),
+            Err(err) => Status::FailedToSpawn(err.to_string()),
         }
     }
 

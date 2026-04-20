@@ -1,25 +1,21 @@
+use super::Process;
+use super::TaskManagerCommand;
 use super::handle::Handle;
-use crate::CommandReceiver;
+use crate::{CommandReceiver, NominativeStatus};
 use crate::{
     config::Program,
     process_handler::{
-        self, LogReceiver, LogSender, ProcessStateChannel, RoutineSpawnError, Status,
-        StatusReceiver, StatusSender,
+        self, LogReceiver, LogSender, RoutineSpawnError, Status, StatusReceiver, StatusSender,
     },
 };
 use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;
-use tokio::sync::{Mutex, mpsc, oneshot};
+use tokio::sync::{Mutex, mpsc};
 
 #[derive(Debug, Error)]
 enum StartTaskError {
     #[error("")]
     RoutineSpawnError(#[from] RoutineSpawnError),
-}
-
-pub struct Process {
-    handle: process_handler::Handle,
-    status: Status,
 }
 
 #[allow(dead_code)]
@@ -132,24 +128,44 @@ impl Routine {
     async fn event_listener(&mut self) {
         while let Some((command, sender)) = self.command_receiver.recv().await {
             match command {
-                commands::ServerCommand::ListTasks => todo!("ListTasks (status command)"),
+                TaskManagerCommand::ListTasks(sender) => {
+                    let vec: Vec<NominativeStatus> = self
+                        .processes
+                        .lock()
+                        .await
+                        .iter()
+                        .map(|(name, process)| NominativeStatus {
+                            process_name: name.clone(),
+                            status: process.status.clone(),
+                        })
+                        .collect();
+                    sender.send(vec).expect("Receiver should never be dropped");
+                }
 
-                commands::ServerCommand::Stop { task_name } => {
+                TaskManagerCommand::Stop { task_name } => {
                     self.stop_task(task_name.as_str()).await;
                 }
 
-                commands::ServerCommand::Restart { task_name } => {
+                TaskManagerCommand::Restart { task_name } => {
                     if let Some(task) = self.get_task(task_name.as_str()) {
                         self.stop_task(task_name.as_str()).await;
                         self.start_task(task).await.unwrap();
                     } else {
                         sender
-                            .send(commands::ServerCommandError::NoSuchTask(task_name))
+                            .send(super::ServerCommandError::NoSuchTask(task_name))
                             .unwrap();
                     };
                 }
 
-                commands::ServerCommand::Start { task_name } => todo!("Start {}", task_name),
+                TaskManagerCommand::Start { task_name } => {
+                    if let Some(task) = self.get_task(task_name.as_str()) {
+                        self.start_task(task).await.unwrap();
+                    } else {
+                        sender
+                            .send(super::ServerCommandError::NoSuchTask(task_name))
+                            .unwrap();
+                    };
+                }
             }
         }
     }
@@ -179,22 +195,5 @@ impl Routine {
             }
         }
         None
-    }
-}
-
-impl Process {
-    /// Stops a routine by sending a kill command.
-    async fn stop_process(&mut self) {
-        let (s, r): ProcessStateChannel = oneshot::channel();
-        let _ = self.handle.kill_command_sender.send(s).await; // thows an error on dropped receiver, the error is silenced
-        match r.await {
-            Ok(response) => match response {
-                process_handler::ProcessState::Running => {}
-                process_handler::ProcessState::Stopped => todo!(),
-            },
-            Err(_) => {
-                todo!()
-            }
-        }
     }
 }

@@ -1,4 +1,4 @@
-use crate::process_handler::status::NominativeStatus;
+use crate::NominativeStatus;
 use crate::process_handler::{Log, LogType, Routine, Status};
 use std::sync::Arc;
 use tokio::sync::mpsc;

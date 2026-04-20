@@ -8,7 +8,7 @@ version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "819e7219dbd41043ac279b19830f2efc897156490d7fd6ea916720117ee66311"
 dependencies = [
- "libc 0.2.182",
+ "libc 0.2.185",
 ]
 
 [[package]]
@@ -92,6 +92,7 @@ name = "commands"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "tokio",
 ]
 
 [[package]]
@@ -188,7 +189,7 @@ version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b1d1d91c932ef41c0f2663aa8b0ca0342d444d842c06914aa0a7e352d0bada6"
 dependencies = [
- "libc 0.2.182",
+ "libc 0.2.185",
  "redox_users",
  "winapi",
 ]
@@ -217,7 +218,7 @@ version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
- "libc 0.2.182",
+ "libc 0.2.185",
  "windows-sys",
 ]
 
@@ -246,7 +247,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff2abc00be7fca6ebc474524697ae276ad847ad0a6b3faa4bcb027e9a4614ad0"
 dependencies = [
  "cfg-if 1.0.4",
- "libc 0.2.182",
+ "libc 0.2.185",
  "wasi",
 ]
 
@@ -343,9 +344,9 @@ version = "0.1.0"
 
 [[package]]
 name = "libc"
-version = "0.2.182"
+version = "0.2.185"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6800badb6cb2082ffd7b6a67e6125bb39f18782f793520caee8cb8846be06112"
+checksum = "52ff2c0fe9bc6cb6b14a0592c2ff4fa9ceb83eea9db979b0487cd054946a2b8f"
 
 [[package]]
 name = "libredox"
@@ -353,7 +354,7 @@ version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1744e39d1d6a9948f4f388969627434e31128196de472883b39f148769bfe30a"
 dependencies = [
- "libc 0.2.182",
+ "libc 0.2.185",
 ]
 
 [[package]]
@@ -379,11 +380,11 @@ checksum = "f8ca58f447f06ed17d5fc4043ce1b10dd205e060fb3ce5b979b8ed8e59ff3f79"
 
 [[package]]
 name = "mio"
-version = "1.1.1"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a69bcab0ad47271a0234d9422b131806bf3968021e5dc9328caf2d4cd58557fc"
+checksum = "50b7e5b27aa02a74bac8c3f23f448f8d87ff11f92d3aac1a6ed369ee08cc56c1"
 dependencies = [
- "libc 0.2.182",
+ "libc 0.2.185",
  "wasi",
  "windows-sys",
 ]
@@ -423,7 +424,7 @@ dependencies = [
  "bitflags 1.3.2",
  "cc",
  "cfg-if 0.1.10",
- "libc 0.2.182",
+ "libc 0.2.185",
  "void",
 ]
 
@@ -465,7 +466,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2621685985a2ebf1c516881c026032ac7deafcda1a2c9b7850dc81e3dfcb64c1"
 dependencies = [
  "cfg-if 1.0.4",
- "libc 0.2.182",
+ "libc 0.2.185",
  "redox_syscall",
  "smallvec",
  "windows-link",
@@ -600,7 +601,7 @@ checksum = "a23cb19702a8d6afb6edb3c842386e680d4883760e0df74e6848e23c2a87a635"
 dependencies = [
  "cfg-if 0.1.10",
  "dirs",
- "libc 0.2.182",
+ "libc 0.2.185",
  "log",
  "memchr",
  "nix",
@@ -751,7 +752,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f6ce83b159ab6984d2419f495134972b48754d13ff2e3f8c998339942b56ed9"
 dependencies = [
- "libc 0.2.182",
+ "libc 0.2.185",
  "nix",
 ]
 
@@ -762,7 +763,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4db69cba1110affc0e9f7bcd48bbf87b3f4fc7c61fc9155afd4c469eb3d6c1b"
 dependencies = [
  "errno",
- "libc 0.2.182",
+ "libc 0.2.185",
 ]
 
 [[package]]
@@ -777,7 +778,7 @@ version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
 dependencies = [
- "libc 0.2.182",
+ "libc 0.2.185",
  "windows-sys",
 ]
 
@@ -906,12 +907,12 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.50.0"
+version = "1.51.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27ad5e34374e03cfffefc301becb44e9dc3c17584f414349ebe29ed26661822d"
+checksum = "f66bf9585cda4b724d3e78ab34b73fb2bbaba9011b9bfdf69dc836382ea13b8c"
 dependencies = [
  "bytes",
- "libc 0.2.182",
+ "libc 0.2.185",
  "mio",
  "parking_lot",
  "pin-project-lite",
@@ -923,9 +924,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-macros"
-version = "2.6.1"
+version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c55a2eff8b69ce66c84f85e1da1c233edc36ceb85a2058d11b0d6a3c7e7569c"
+checksum = "385a6cb71ab9ab790c5fe8d67f1645e6c450a7ce006a33de03daa956cf70a496"
 dependencies = [
  "proc-macro2",
  "quote",
