@@ -5,10 +5,9 @@ edition = "2024"
 
 [dependencies]
 # Internal crates
+commands = { path = "../crates/commands" }
 daemonize = { path = "../crates/daemonize" }
 libc = { path = "../crates/libc" }
-connection = { path = "../crates/connection" }
-commands = { path = "../crates/commands" }
 
 # External crates
 tokio = { version = "1.43.1", features = ["full"] }

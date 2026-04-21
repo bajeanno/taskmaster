@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-use crate::server;
-
 pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
@@ -15,7 +13,7 @@ pub enum Error {
     FailedToDaemonize(daemonize::Error),
 
     #[allow(dead_code)]
-    TaskServerFailure(server::Error),
+    TaskServerFailure,
 }
 
 impl Display for Error {
@@ -37,11 +35,5 @@ impl core::error::Error for Error {}
 impl From<daemonize::Error> for Error {
     fn from(error: daemonize::Error) -> Self {
         Self::FailedToDaemonize(error)
-    }
-}
-
-impl From<server::Error> for Error {
-    fn from(error: server::Error) -> Self {
-        Self::TaskServerFailure(error)
     }
 }

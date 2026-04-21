@@ -1,15 +1,29 @@
-mod client_handler;
 mod config;
 mod error;
 mod process_handler;
-mod server;
 mod tasks_manager;
+
+use std::sync::Arc;
 
 use config::{Config, Program};
 use error::{Error, Result};
-use server::Server;
 
 const DEFAULT_PORT: i32 = 4444;
+
+use tasks_manager::{ServerCommandError, TaskManagerCommand};
+use tokio::sync::{mpsc, oneshot};
+
+pub type CommandReceiver =
+    mpsc::UnboundedReceiver<(TaskManagerCommand, oneshot::Sender<ServerCommandError>)>;
+pub type CommandSender =
+    mpsc::UnboundedSender<(TaskManagerCommand, oneshot::Sender<ServerCommandError>)>;
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct NominativeStatus {
+    pub process_name: String,
+    pub status: crate::process_handler::Status,
+}
 
 #[derive(Debug)]
 struct Args {
@@ -24,12 +38,17 @@ fn entrypoint() -> Result<()> {
     let Args { port } = parse_args(std::env::args().nth(1))?;
 
     let tasks = get_tasks_from_config("taskmaster.yaml");
+    let tasks = convert_tasks_to_arc(tasks);
 
     if !cfg!(debug_assertions) {
         daemonize()?
     }
 
     start_server(port, tasks)
+}
+
+fn convert_tasks_to_arc(programs: Vec<Program>) -> Vec<Arc<Program>> {
+    programs.into_iter().map(Arc::new).collect()
 }
 
 fn parse_args(port: Option<String>) -> Result<Args> {
@@ -88,14 +107,8 @@ fn daemonize() -> Result<()> {
     Ok(())
 }
 
-fn start_server(port: i32, tasks: Vec<Program>) -> Result<()> {
+fn start_server(_port: i32, _tasks: Vec<Arc<Program>>) -> Result<()> {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
-        .block_on(async {
-            Server::new(tasks, format!("localhost:{port}"))
-                .await?
-                .run()
-                .await;
-            Result::<()>::Ok(())
-        })
+        .block_on(async { Result::<()>::Ok(()) })
 }

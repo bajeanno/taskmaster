@@ -1,23 +1,18 @@
 mod handle;
-pub use handle::Handle;
-
-mod message;
-use message::Message;
-
+mod process;
 mod routine;
-use routine::Routine;
 
-mod error;
-pub use error::Error;
-use error::Result;
+use crate::NominativeStatus;
+use process::Process;
+use tokio::sync::oneshot;
 
-mod api;
-pub use api::Api;
-#[cfg(test)]
-pub use api::MockApi;
-
-use crate::config::Program;
-
-pub async fn spawn(tasks: Vec<Program>) -> Handle {
-    Routine::spawn(tasks).await
+#[derive(Debug)]
+pub enum ServerCommandError {
+    NoSuchTask(String),
+}
+pub enum TaskManagerCommand {
+    ListTasks(oneshot::Sender<Vec<NominativeStatus>>),
+    Start { task_name: String },
+    Restart { task_name: String },
+    Stop { task_name: String },
 }

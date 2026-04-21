@@ -1,48 +1,12 @@
-use super::Api;
-use super::Message;
-use super::error::{CallError, CastError, Result};
-use super::routine;
-use tokio::sync::oneshot;
+use crate::CommandSender;
 
-#[derive(Clone)]
+#[allow(dead_code)]
 pub struct Handle {
-    sender: routine::Sender,
-}
-
-impl Api for Handle {
-    async fn list_tasks(&self) -> Result<Vec<String>> {
-        self.call(Message::ListTasks).await
-    }
+    command_sender: CommandSender,
 }
 
 impl Handle {
-    pub(super) fn new(sender: routine::Sender) -> Self {
-        Self { sender }
-    }
-
-    /// Sends a message to the tasks manager process and waits for a response.
-    async fn call<Response>(
-        &self,
-        message_creator: impl FnOnce(oneshot::Sender<Response>) -> Message,
-    ) -> Result<Response> {
-        let (sender, receiver) = oneshot::channel();
-
-        let message = message_creator(sender);
-
-        self.sender
-            .send(message)
-            .await
-            .map_err(CallError::SendMessage)?;
-
-        Ok(receiver.await.map_err(CallError::ReceiveResponse)?)
-    }
-
-    /// Sends a message to the tasks manager process without waiting for a response.
-    async fn _cast(&self, message: Message) -> Result<()> {
-        Ok(self
-            .sender
-            .send(message)
-            .await
-            .map_err(CastError::SendMessage)?)
+    pub(super) fn new(command_sender: CommandSender) -> Handle {
+        Handle { command_sender }
     }
 }
