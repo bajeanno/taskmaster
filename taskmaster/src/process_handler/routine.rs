@@ -164,7 +164,7 @@ impl Routine {
             Self::send_new_status_to_task_manager(
                 &mut self.status_sender,
                 status,
-                self.config.name().clone(), //TODO: check that clone
+                self.config.name().clone(),
             );
 
             if !should_try_restart {
@@ -301,7 +301,7 @@ impl Routine {
             }
         }
 
-        Self::send_new_status_to_task_manager(status_sender, Status::Running, process_name); //TODO: bring process_name
+        Self::send_new_status_to_task_manager(status_sender, Status::Running, process_name);
         // Wait for process to terminate or crash
         Status::Exited(child.wait().await.expect("error waiting for child"))
     }
