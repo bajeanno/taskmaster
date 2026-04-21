@@ -121,7 +121,7 @@ impl Routine {
     /// logs are already written to log files, we only need to write them to the client if he asks for it
     async fn listen_for_logs(mut log_receiver: LogReceiver) {
         while let Some(_log) = log_receiver.recv().await {
-            todo!() //TODO: do something with logs
+            todo!() //TODO: do something with logs, wait for a demand from the daemon, and transmitt the demand to the task, log should be nominative so every process has its lines crossed into the logs
         }
     }
 
@@ -153,7 +153,7 @@ impl Routine {
                     } else {
                         sender
                             .send(super::ServerCommandError::NoSuchTask(task_name))
-                            .unwrap();
+                            .expect("Receiver should never be dropped");
                     };
                 }
 
@@ -163,7 +163,7 @@ impl Routine {
                     } else {
                         sender
                             .send(super::ServerCommandError::NoSuchTask(task_name))
-                            .unwrap();
+                            .expect("Receiver should never be dropped")
                     };
                 }
             }
@@ -175,7 +175,7 @@ impl Routine {
         for (_, process) in self.processes.lock().await.iter_mut() {
             match process.status {
                 Status::Starting | Status::Running => process.stop_process().await,
-                _ => {} //routine already stopped (crashed or exited)
+                _ => {} //routine already stopped (crashed or exited) (do nothing)
             }
         }
     }
