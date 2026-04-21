@@ -1,3 +1,5 @@
+use std::panic;
+
 use crate::process_handler::{self, ProcessStateChannel, Status};
 use tokio::sync::oneshot;
 pub struct Process {
@@ -13,10 +15,10 @@ impl Process {
         match r.await {
             Ok(response) => match response {
                 process_handler::ProcessState::Running => {}
-                process_handler::ProcessState::Stopped => todo!(),
+                process_handler::ProcessState::Stopped => {}
             },
             Err(_) => {
-                todo!()
+                panic!("Error sending stop signal to subprocess, kill failed");
             }
         }
     }
