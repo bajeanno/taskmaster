@@ -121,7 +121,7 @@ impl Routine {
     /// logs are already written to log files, we only need to write them to the client if he asks for it
     async fn listen_for_logs(mut log_receiver: LogReceiver) {
         while let Some(_log) = log_receiver.recv().await {
-            todo!() //TODO: do something with logs, wait for a demand from the daemon, and transmitt the demand to the task, log should be nominative so every process has its lines crossed into the logs
+            todo!("Logs have to be sent to the CLI but networking is not implemented yet") // networking will be implemented later, and we're aware of this, ignore the <TODO> for now
         }
     }
 
