@@ -47,8 +47,8 @@ fn entrypoint() -> Result<()> {
     start_server(port, tasks)
 }
 
-fn convert_tasks_to_arc(_programs: Vec<Program>) -> Vec<Arc<Program>> {
-    todo!()
+fn convert_tasks_to_arc(programs: Vec<Program>) -> Vec<Arc<Program>> {
+    programs.into_iter().map(Arc::new).collect()
 }
 
 fn parse_args(port: Option<String>) -> Result<Args> {
