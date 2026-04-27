@@ -1,7 +1,6 @@
 use super::Process;
 use super::TaskManagerCommand;
 use super::handle::Handle;
-use crate::config::program;
 use crate::{CommandReceiver, NominativeStatus};
 use crate::{
     config::Program,
@@ -19,6 +18,7 @@ enum StartTaskError {
     RoutineSpawnError(#[from] RoutineSpawnError),
 }
 
+// Mocking Client struct brought by the rpc-genie crate
 struct Client {}
 
 impl Client {
@@ -137,7 +137,7 @@ impl Routine {
             let index = log
                 .process_name
                 .rfind('_')
-                .or_else(|| Some(log.process_name.len()))
+                .or(Some(log.process_name.len()))
                 .expect("split_off on process_name failed");
             //TODO: test that
             if let Some(clients) = clients.lock().await.get(&log.process_name[0..index]) {
