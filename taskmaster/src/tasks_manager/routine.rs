@@ -1,6 +1,7 @@
 use super::Process;
 use super::TaskManagerCommand;
 use super::handle::Handle;
+use crate::config::program;
 use crate::{CommandReceiver, NominativeStatus};
 use crate::{
     config::Program,
@@ -18,9 +19,20 @@ enum StartTaskError {
     RoutineSpawnError(#[from] RoutineSpawnError),
 }
 
+struct Client {}
+
+impl Client {
+    fn send(&self) {
+        todo!();
+    }
+}
+
+type ClientMap = Arc<Mutex<HashMap<String, Vec<Client>>>>;
+
 #[allow(dead_code)]
 pub struct Routine {
     tasks: Vec<Arc<Program>>,
+    clients: ClientMap,
     processes: Arc<Mutex<HashMap<String, Process>>>,
     command_receiver: CommandReceiver,
     log_sender: LogSender,
@@ -38,6 +50,7 @@ impl Routine {
             Self {
                 tasks,
                 processes: Arc::new(Mutex::new(HashMap::new())),
+                clients: Arc::new(Mutex::new(HashMap::new())),
                 command_receiver,
                 log_sender,
                 status_sender,
@@ -53,7 +66,7 @@ impl Routine {
         if let Err(_result) = self.start_tasks().await {
             self.stop_all_routines().await
         };
-        let handle1 = tokio::spawn(Self::listen_for_logs(log_receiver));
+        let handle1 = tokio::spawn(Self::listen_for_logs(log_receiver, self.clients.clone()));
         let handle2 = tokio::spawn(Self::listen_for_status(
             status_receiver,
             Arc::clone(&self.processes),
@@ -119,9 +132,21 @@ impl Routine {
     }
 
     /// logs are already written to log files, we only need to write them to the client if he asks for it
-    async fn listen_for_logs(mut log_receiver: LogReceiver) {
-        while let Some(_log) = log_receiver.recv().await {
-            todo!("Logs have to be sent to the CLI but networking is not implemented yet") // networking will be implemented later, and we're aware of this, ignore the <TODO> for now
+    async fn listen_for_logs(mut log_receiver: LogReceiver, clients: ClientMap) {
+        while let Some(log) = log_receiver.recv().await {
+            let index = log
+                .process_name
+                .rfind('_')
+                .or_else(|| Some(log.process_name.len()))
+                .expect("split_off on process_name failed");
+            //TODO: test that
+            if let Some(clients) = clients.lock().await.get(&log.process_name[0..index]) {
+                for client in clients {
+                    client.send();
+                }
+            } else {
+                todo!()
+            }
         }
     }
 

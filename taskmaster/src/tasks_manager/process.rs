@@ -16,7 +16,7 @@ impl Process {
                 process_handler::ProcessState::Stopped => {}
             },
             Err(_) => {
-                todo!("need to log the error and propagate it to any connected CLI");
+                todo!("need to log the error and propagate it to any connected CLI"); // this part is to do after the networking module is finished and plugged into the project
             }
         }
     }
