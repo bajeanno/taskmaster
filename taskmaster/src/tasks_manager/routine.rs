@@ -22,9 +22,7 @@ enum StartTaskError {
 pub struct Client {}
 
 impl Client {
-    fn send(&self) {
-        ()
-    }
+    fn send(&self) {}
 }
 
 type ClientMap = Arc<Mutex<HashMap<String, SubscribedClients>>>;
@@ -32,13 +30,10 @@ type ClientMap = Arc<Mutex<HashMap<String, SubscribedClients>>>;
 struct SubscribedClients;
 
 impl SubscribedClients {
-    fn add(&self, _client: Client) {
-        ()
-    }
+    fn add(&self, _client: Client) {}
+    fn remove(&self, _client: Client) {}
 
-    fn for_each(&self, _callback: impl FnMut(&Client)) {
-        ()
-    }
+    fn for_each(&self, _callback: impl FnMut(&Client)) {}
 }
 
 #[allow(dead_code)]
@@ -178,27 +173,33 @@ impl Routine {
                         .expect("Receiver should never be dropped");
                 }
 
-                TaskManagerCommand::Stop { task_name } => {
+                TaskManagerCommand::StopTask { task_name } => {
                     self.stop_task(task_name.as_str()).await;
                     sender
                         .send(Ok(()))
                         .expect("Receiver should never be dropped");
                 }
 
-                TaskManagerCommand::Restart { task_name } => {
+                TaskManagerCommand::RestartTask { task_name } => {
                     if let Some(task) = self.get_task(task_name.as_str()) {
                         self.stop_task(task_name.as_str()).await;
                         self.start_task(task).await.unwrap();
+                        sender
+                            .send(Ok(()))
+                            .expect("Receiver should never be dropped")
                     } else {
                         sender
                             .send(Err(super::ServerCommandError::NoSuchTask(task_name)))
-                            .expect("Receiver should never be dropped");
+                            .expect("Receiver should never be dropped")
                     };
                 }
 
-                TaskManagerCommand::Start { task_name } => {
+                TaskManagerCommand::StartTask { task_name } => {
                     if let Some(task) = self.get_task(task_name.as_str()) {
                         self.start_task(task).await.unwrap();
+                        sender
+                            .send(Ok(()))
+                            .expect("Receiver should never be dropped")
                     } else {
                         sender
                             .send(Err(super::ServerCommandError::NoSuchTask(task_name)))
@@ -207,31 +208,41 @@ impl Routine {
                 }
 
                 TaskManagerCommand::AddClient { task_name, client } => {
-                    self.clients
-                        .lock()
-                        .await
-                        .get_mut(&task_name)
-                        .and_then(|vec| Some(vec.add(client)));
+                    if let Some(vec) = self.clients.lock().await.get(&task_name) {
+                        vec.add(client);
+                    }
                     sender
                         .send(Ok(()))
                         .expect("Receiver should never be dropped");
                 }
 
                 TaskManagerCommand::DeleteClient { task_name, client } => {
-                    self.clients
-                        .lock()
-                        .await
-                        .get_mut(&task_name)
-                        .and_then(|vec| Some(vec.add(client)));
+                    if let Some(vec) = self.clients.lock().await.get(&task_name) {
+                        vec.remove(client);
+                    }
                     sender
                         .send(Ok(()))
                         .expect("Receiver should never be dropped");
+                }
+
+                TaskManagerCommand::StopAll => {
+                    self.stop_all_routines().await;
+                    sender
+                        .send(Ok(()))
+                        .expect("Receiver should never be dropped");
+                }
+
+                TaskManagerCommand::Exit => {
+                    self.stop_all_routines().await;
+                    sender
+                        .send(Ok(()))
+                        .expect("Receiver should never be dropped");
+                    break;
                 }
             }
         }
     }
 
-    /// Can be useful for exit routine
     async fn stop_all_routines(&mut self) {
         for (_, process) in self.processes.lock().await.iter_mut() {
             match process.status {

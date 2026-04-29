@@ -97,7 +97,7 @@ fn get_tasks_from_config(config_file: &str) -> Vec<Program> {
     match Config::parse(config_file) {
         Ok(config) => config.programs,
         Err(err) => {
-            eprintln!("Warning {err}");
+            eprintln!("Warning {err}"); //TODO: log error and/or broadcast to clients
             Vec::new()
         }
     }
