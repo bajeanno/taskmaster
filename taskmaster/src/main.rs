@@ -10,13 +10,19 @@ use error::Error;
 
 const DEFAULT_PORT: i32 = 4444;
 
-use tasks_manager::{ServerCommandError, TaskManagerCommand};
+use tasks_manager::TaskManagerCommand;
 use tokio::sync::{mpsc, oneshot};
 
-pub type CommandReceiver =
-    mpsc::UnboundedReceiver<(TaskManagerCommand, oneshot::Sender<ServerCommandError>)>;
-pub type CommandSender =
-    mpsc::UnboundedSender<(TaskManagerCommand, oneshot::Sender<ServerCommandError>)>;
+use crate::tasks_manager::ServerCommandError;
+
+pub type CommandReceiver = mpsc::UnboundedReceiver<(
+    TaskManagerCommand,
+    oneshot::Sender<Result<(), ServerCommandError>>,
+)>;
+pub type CommandSender = mpsc::UnboundedSender<(
+    TaskManagerCommand,
+    oneshot::Sender<Result<(), ServerCommandError>>,
+)>;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -47,7 +53,7 @@ fn entrypoint() -> Result<(), Error> {
     start_server(port, tasks)
 }
 
-fn convert_tasks_to_arc(programs: Vec<Program>) -> Vec<Arc<Program>> {
+pub fn convert_tasks_to_arc(programs: Vec<Program>) -> Vec<Arc<Program>> {
     programs.into_iter().map(Arc::new).collect()
 }
 

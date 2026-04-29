@@ -19,15 +19,27 @@ enum StartTaskError {
 }
 
 // Mocking Client struct brought by the rpc-genie crate
-struct Client {}
+pub struct Client {}
 
 impl Client {
     fn send(&self) {
-        todo!();
+        ()
     }
 }
 
-type ClientMap = Arc<Mutex<HashMap<String, Vec<Client>>>>;
+type ClientMap = Arc<Mutex<HashMap<String, SubscribedClients>>>;
+
+struct SubscribedClients;
+
+impl SubscribedClients {
+    fn add(&self, _client: Client) {
+        ()
+    }
+
+    fn for_each(&self, _callback: impl FnMut(&Client)) {
+        ()
+    }
+}
 
 #[allow(dead_code)]
 pub struct Routine {
@@ -41,7 +53,7 @@ pub struct Routine {
 
 #[allow(dead_code)] //TODO: remove that
 impl Routine {
-    pub async fn spawn(tasks: Vec<Arc<Program>>) -> Handle {
+    pub fn spawn(tasks: Vec<Arc<Program>>) -> Handle {
         let (log_sender, log_receiver) = mpsc::unbounded_channel();
         let (status_sender, status_receiver) = mpsc::unbounded_channel();
         let (command_sender, command_receiver) = mpsc::unbounded_channel();
@@ -87,7 +99,7 @@ impl Routine {
         let num_procs = *task.num_procs();
         for id in 0..num_procs {
             let task_name = task.name().clone();
-            let task_id = task_name.to_owned() + format!("_{}", id).as_str();
+            let task_id = task_name.to_owned() + format!("-{}", id).as_str();
             let handle = self
                 .start_process(
                     Arc::clone(&task),
@@ -136,16 +148,10 @@ impl Routine {
         while let Some(log) = log_receiver.recv().await {
             let index = log
                 .process_name
-                .rfind('_')
-                .or(Some(log.process_name.len()))
-                .expect("split_off on process_name failed");
-            //TODO: test that
+                .rfind('-')
+                .unwrap_or(log.process_name.len());
             if let Some(clients) = clients.lock().await.get(&log.process_name[0..index]) {
-                for client in clients {
-                    client.send();
-                }
-            } else {
-                todo!()
+                clients.for_each(Client::send);
             }
         }
     }
@@ -153,7 +159,7 @@ impl Routine {
     async fn event_listener(&mut self) {
         while let Some((command, sender)) = self.command_receiver.recv().await {
             match command {
-                TaskManagerCommand::ListTasks(sender) => {
+                TaskManagerCommand::ListTasks(list_sender) => {
                     let vec: Vec<NominativeStatus> = self
                         .processes
                         .lock()
@@ -164,11 +170,19 @@ impl Routine {
                             status: process.status.clone(),
                         })
                         .collect();
-                    sender.send(vec).expect("Receiver should never be dropped");
+                    list_sender
+                        .send(vec)
+                        .expect("Receiver should never be dropped");
+                    sender
+                        .send(Ok(()))
+                        .expect("Receiver should never be dropped");
                 }
 
                 TaskManagerCommand::Stop { task_name } => {
                     self.stop_task(task_name.as_str()).await;
+                    sender
+                        .send(Ok(()))
+                        .expect("Receiver should never be dropped");
                 }
 
                 TaskManagerCommand::Restart { task_name } => {
@@ -177,7 +191,7 @@ impl Routine {
                         self.start_task(task).await.unwrap();
                     } else {
                         sender
-                            .send(super::ServerCommandError::NoSuchTask(task_name))
+                            .send(Err(super::ServerCommandError::NoSuchTask(task_name)))
                             .expect("Receiver should never be dropped");
                     };
                 }
@@ -187,9 +201,31 @@ impl Routine {
                         self.start_task(task).await.unwrap();
                     } else {
                         sender
-                            .send(super::ServerCommandError::NoSuchTask(task_name))
+                            .send(Err(super::ServerCommandError::NoSuchTask(task_name)))
                             .expect("Receiver should never be dropped")
                     };
+                }
+
+                TaskManagerCommand::AddClient { task_name, client } => {
+                    self.clients
+                        .lock()
+                        .await
+                        .get_mut(&task_name)
+                        .and_then(|vec| Some(vec.add(client)));
+                    sender
+                        .send(Ok(()))
+                        .expect("Receiver should never be dropped");
+                }
+
+                TaskManagerCommand::DeleteClient { task_name, client } => {
+                    self.clients
+                        .lock()
+                        .await
+                        .get_mut(&task_name)
+                        .and_then(|vec| Some(vec.add(client)));
+                    sender
+                        .send(Ok(()))
+                        .expect("Receiver should never be dropped");
                 }
             }
         }
