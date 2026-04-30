@@ -3,7 +3,7 @@ fn create_tasks() -> String {
     r#"programs:
     taskmaster_test_task:
         cmd: "bash -c cat"
-        numprocs: 1
+        numprocs: 2
         umask: 022
         workingdir: /tmp
         autostart: true
@@ -43,13 +43,10 @@ async fn task_manager() {
     let tasks = convert_tasks_to_arc(tasks);
     let handle = Routine::spawn(tasks);
     let (sender, receiver) = oneshot::channel();
-    println!(
-        "{:?}",
-        handle
-            .send(TaskManagerCommand::ListTasks(sender))
-            .await
-            .unwrap()
-    );
+    handle
+        .send(TaskManagerCommand::ListTasks(sender))
+        .await
+        .unwrap();
     receiver.await.expect("Receiver failed");
 }
 
