@@ -445,13 +445,17 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputF
             let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
                 eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.process_name);
             });
-            let _ = file.flush().await;
+            let _ = file.flush().await.inspect_err(|err| {
+                eprintln!("Taskmaster error: {}: Failed to write process stderr output to log file: {err}", log.process_name);
+            });
         }
         (OutputFile::Stderr(file), LogType::Stderr) => {
             let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
                 eprintln!("Taskmaster error: {}: Failed to write process stderr output to log file: {err}", log.process_name);
             });
-            let _ = file.flush().await;
+            let _ = file.flush().await.inspect_err(|err| {
+                eprintln!("Taskmaster error: {}: Failed to write process stderr output to log file: {err}", log.process_name);
+            });
         }
         _ => panic!(
             "log function was called with different values for output and log_type, expected same values"
