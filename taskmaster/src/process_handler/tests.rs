@@ -103,7 +103,7 @@ async fn create_task() {
         .expect("failed to join status handle");
     check_status_exited(Arc::clone(&status_receiver)).await;
 
-    sleep(Duration::from_millis(200)).await; // wait before reading the file as flushing can be a little too long on CI
+    sleep(Duration::from_millis(500)).await; // wait before reading the file as flushing can be a little too long on CI
     let stdout_file = "/tmp/taskmaster_tests.stdout";
     let stderr_file = "/tmp/taskmaster_tests.stderr";
 
@@ -191,7 +191,7 @@ async fn create_task_then_interrupt() {
     routine_handle.join_handle.await.unwrap();
     check_status_exited(Arc::clone(&status_receiver)).await; // check exited status after stop signal
 
-    sleep(Duration::from_millis(200)).await; // wait before reading the file as flushing can be a little too long on CI
+    sleep(Duration::from_millis(500)).await; // wait before reading the file as flushing can be a little too long on CI
     let stdout_file = "/tmp/taskmaster_tests_interrupt.stdout";
     let stderr_file = "/tmp/taskmaster_tests_interrupt.stderr";
 
