@@ -1,8 +1,10 @@
 use crate::NominativeStatus;
 use crate::process_handler::{Log, LogType, Routine, Status};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
+use tokio::time::sleep;
 
 async fn check_status(status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>) {
     match status_receiver.lock().await.recv().await.unwrap().status {
@@ -28,11 +30,11 @@ async fn check_realtime_output(mut log_receiver: mpsc::UnboundedReceiver<Log>) {
             Some(log) => match log.log_type {
                 LogType::Stdout => {
                     assert_eq!(log.message, "Hello taskmaster!\n");
-                    assert_eq!(log.process_name, "taskmaster_test_task_0");
+                    assert_eq!(log.process_name, "taskmaster_test_task-0");
                 }
                 LogType::Stderr => {
                     assert_eq!(log.message, "");
-                    assert_eq!(log.process_name, "taskmaster_test_task_0");
+                    assert_eq!(log.process_name, "taskmaster_test_task-0");
                 }
             },
             None => break,
@@ -83,7 +85,7 @@ async fn create_task() {
 
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, log_receiver) = mpsc::unbounded_channel();
-    let name = config.name().to_owned() + "_0";
+    let name = config.name().to_owned() + "-0";
     let routine_handle = Routine::spawn(Arc::new(config), status_sender, log_sender, name)
         .await
         .expect("failed to spawn tokio::task");
@@ -101,6 +103,7 @@ async fn create_task() {
         .expect("failed to join status handle");
     check_status_exited(Arc::clone(&status_receiver)).await;
 
+    sleep(Duration::from_secs(1)).await; // wait before reading the file as flushing can be a little too long on CI
     let stdout_file = "/tmp/taskmaster_tests.stdout";
     let stderr_file = "/tmp/taskmaster_tests.stderr";
 
@@ -188,6 +191,7 @@ async fn create_task_then_interrupt() {
     routine_handle.join_handle.await.unwrap();
     check_status_exited(Arc::clone(&status_receiver)).await; // check exited status after stop signal
 
+    sleep(Duration::from_secs(1)).await; // wait before reading the file as flushing can be a little too long on CI
     let stdout_file = "/tmp/taskmaster_tests_interrupt.stdout";
     let stderr_file = "/tmp/taskmaster_tests_interrupt.stderr";
 
