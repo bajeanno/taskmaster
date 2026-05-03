@@ -1,48 +1,34 @@
-use super::Api;
-use super::Message;
-use super::error::{CallError, CastError, Result};
-use super::routine;
-use tokio::sync::oneshot;
+use tokio::{sync::oneshot, task::JoinHandle as TokioJoinHandle};
 
-#[derive(Clone)]
+use crate::{CommandSender, TaskManagerCommand, tasks_manager::ServerCommandError};
+
+type JoinHandle = TokioJoinHandle<()>;
+
+#[allow(dead_code)]
 pub struct Handle {
-    sender: routine::Sender,
+    command_sender: CommandSender,
+    pub join_handle: JoinHandle,
 }
 
-impl Api for Handle {
-    async fn list_tasks(&self) -> Result<Vec<String>> {
-        self.call(Message::ListTasks).await
-    }
-}
-
+#[allow(dead_code)]
 impl Handle {
-    pub(super) fn new(sender: routine::Sender) -> Self {
-        Self { sender }
+    pub(super) fn new(command_sender: CommandSender, join_handle: JoinHandle) -> Handle {
+        Handle {
+            command_sender,
+            join_handle,
+        }
     }
 
-    /// Sends a message to the tasks manager process and waits for a response.
-    async fn call<Response>(
-        &self,
-        message_creator: impl FnOnce(oneshot::Sender<Response>) -> Message,
-    ) -> Result<Response> {
+    pub(super) async fn send(&self, command: TaskManagerCommand) -> Result<(), ServerCommandError> {
         let (sender, receiver) = oneshot::channel();
-
-        let message = message_creator(sender);
-
-        self.sender
-            .send(message)
-            .await
-            .map_err(CallError::SendMessage)?;
-
-        Ok(receiver.await.map_err(CallError::ReceiveResponse)?)
+        self.command_sender
+            .send((command, sender))
+            .expect("Receiver should never be dropped");
+        receiver.await.expect("Je sais pas pq mais ça marche pas")
     }
 
-    /// Sends a message to the tasks manager process without waiting for a response.
-    async fn _cast(&self, message: Message) -> Result<()> {
-        Ok(self
-            .sender
-            .send(message)
-            .await
-            .map_err(CastError::SendMessage)?)
+    pub(super) async fn stop(self) {
+        self.send(TaskManagerCommand::Exit).await.unwrap();
+        self.join_handle.await.expect("error awaiting task_manager");
     }
 }

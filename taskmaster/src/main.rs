@@ -1,15 +1,35 @@
-mod client_handler;
 mod config;
 mod error;
 mod process_handler;
-mod server;
 mod tasks_manager;
 
+use std::sync::Arc;
+
 use config::{Config, Program};
-use error::{Error, Result};
-use server::Server;
+use error::Error;
 
 const DEFAULT_PORT: i32 = 4444;
+
+use tasks_manager::TaskManagerCommand;
+use tokio::sync::{mpsc, oneshot};
+
+use crate::tasks_manager::ServerCommandError;
+
+pub type CommandReceiver = mpsc::UnboundedReceiver<(
+    TaskManagerCommand,
+    oneshot::Sender<Result<(), ServerCommandError>>,
+)>;
+pub type CommandSender = mpsc::UnboundedSender<(
+    TaskManagerCommand,
+    oneshot::Sender<Result<(), ServerCommandError>>,
+)>;
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct NominativeStatus {
+    pub process_name: String,
+    pub status: crate::process_handler::Status,
+}
 
 #[derive(Debug)]
 struct Args {
@@ -20,10 +40,11 @@ fn main() {
     let _ = entrypoint().inspect_err(|err| eprintln!("{err}"));
 }
 
-fn entrypoint() -> Result<()> {
+fn entrypoint() -> Result<(), Error> {
     let Args { port } = parse_args(std::env::args().nth(1))?;
 
     let tasks = get_tasks_from_config("taskmaster.yaml");
+    let tasks = convert_tasks_to_arc(tasks);
 
     if !cfg!(debug_assertions) {
         daemonize()?
@@ -32,7 +53,11 @@ fn entrypoint() -> Result<()> {
     start_server(port, tasks)
 }
 
-fn parse_args(port: Option<String>) -> Result<Args> {
+pub fn convert_tasks_to_arc(programs: Vec<Program>) -> Vec<Arc<Program>> {
+    programs.into_iter().map(Arc::new).collect()
+}
+
+fn parse_args(port: Option<String>) -> Result<Args, Error> {
     let port = port
         .map(|port| {
             port.parse()
@@ -72,13 +97,13 @@ fn get_tasks_from_config(config_file: &str) -> Vec<Program> {
     match Config::parse(config_file) {
         Ok(config) => config.programs,
         Err(err) => {
-            eprintln!("Warning {err}");
+            eprintln!("Warning {err}"); //TODO: log error and/or broadcast to clients
             Vec::new()
         }
     }
 }
 
-fn daemonize() -> Result<()> {
+fn daemonize() -> Result<(), Error> {
     unsafe {
         daemonize::Daemonize::new()
             .stdout("./server_output")
@@ -88,14 +113,8 @@ fn daemonize() -> Result<()> {
     Ok(())
 }
 
-fn start_server(port: i32, tasks: Vec<Program>) -> Result<()> {
+fn start_server(_port: i32, _tasks: Vec<Arc<Program>>) -> Result<(), Error> {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
-        .block_on(async {
-            Server::new(tasks, format!("localhost:{port}"))
-                .await?
-                .run()
-                .await;
-            Result::<()>::Ok(())
-        })
+        .block_on(async { Result::<(), Error>::Ok(()) })
 }
