@@ -53,7 +53,7 @@ impl Routine {
         let (status_sender, status_receiver) = mpsc::unbounded_channel();
         let (command_sender, command_receiver) = mpsc::unbounded_channel();
 
-        tokio::spawn(async move {
+        let handle = tokio::spawn(async move {
             Self {
                 tasks,
                 processes: Arc::new(Mutex::new(HashMap::new())),
@@ -66,21 +66,22 @@ impl Routine {
             .await;
         });
 
-        Handle::new(command_sender)
+        Handle::new(command_sender, handle)
     }
 
     async fn routine(mut self, status_receiver: StatusReceiver, log_receiver: LogReceiver) {
         if let Err(_result) = self.start_tasks().await {
             self.stop_all_routines().await
         };
-        let handle1 = tokio::spawn(Self::listen_for_logs(log_receiver, self.clients.clone()));
-        let handle2 = tokio::spawn(Self::listen_for_status(
+        let logs_handle = tokio::spawn(Self::listen_for_logs(log_receiver, self.clients.clone()));
+        let status_handle = tokio::spawn(Self::listen_for_status(
             status_receiver,
             Arc::clone(&self.processes),
         ));
         self.event_listener().await;
-        handle1.await.expect("listen_for_logs failed");
-        handle2.await.expect("listen_for_status failed");
+
+        logs_handle.abort();
+        status_handle.abort();
     }
 
     async fn start_tasks(&mut self) -> Result<(), StartTaskError> {
@@ -92,6 +93,9 @@ impl Routine {
 
     async fn start_task(&mut self, task: Arc<Program>) -> Result<(), StartTaskError> {
         let num_procs = *task.num_procs();
+        if self.is_task_running(task.name().clone(), num_procs).await {
+            return Ok(());
+        }
         for id in 0..num_procs {
             let task_name = task.name().clone();
             let task_id = task_name.to_owned() + format!("-{}", id).as_str();
@@ -106,7 +110,7 @@ impl Routine {
             self.processes.lock().await.insert(
                 task_id,
                 Process {
-                    handle,
+                    handle: Some(handle),
                     status: Status::Starting,
                 },
             );
@@ -267,5 +271,23 @@ impl Routine {
             }
         }
         None
+    }
+
+    async fn is_task_running(&self, task_name: String, num_procs: u32) -> bool {
+        for i in 0..num_procs {
+            let lock = self.processes.lock().await;
+            let status = lock.get(&format!("{task_name}-{i}"));
+            if let Some(status) = status {
+                match status.status {
+                    Status::Exited(_)
+                    | Status::FailedToSpawn(_)
+                    | Status::ErrorDuringStartup { exit_code: _ } => {}
+                    _ => return false,
+                }
+            } else {
+                return false;
+            }
+        }
+        true
     }
 }

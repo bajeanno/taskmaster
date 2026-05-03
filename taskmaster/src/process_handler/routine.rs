@@ -95,6 +95,7 @@ pub struct Routine {
     start_attempts: u32,
     command: Command,
     process_name: String,
+    is_stopped: bool,
 }
 
 #[derive(Error, Debug)]
@@ -139,6 +140,7 @@ impl Routine {
                 kill_command_receiver,
                 start_attempts: 0,
                 command,
+                is_stopped: false,
                 process_name,
             }
             .routine(stdout_file, stderr_file)
@@ -154,7 +156,6 @@ impl Routine {
     ) {
         loop {
             let start_time = Instant::now();
-
             let status = self
                 .run_program(Arc::clone(&stdout_file), Arc::clone(&stderr_file))
                 .await;
@@ -167,7 +168,7 @@ impl Routine {
                 self.config.name().clone(),
             );
 
-            if !should_try_restart {
+            if self.is_stopped || !should_try_restart {
                 break;
             }
         }
@@ -246,12 +247,14 @@ impl Routine {
             }
 
             sender = self.kill_command_receiver.recv() => {
+                self.is_stopped = true;
                 Self::kill_subprocess(
-                    sender.expect("receiver was dropped"),
+                    sender,
                     &mut child,
                     self.config.stop_signal()
                 );
-                Status::Exited(child.wait().await.expect("error waiting for child"))
+                let status = Status::Exited(child.wait().await.expect("error waiting for child"));
+                status
             }
         };
 
@@ -262,21 +265,24 @@ impl Routine {
     }
 
     fn kill_subprocess(
-        sender: oneshot::Sender<ProcessState>,
+        sender: Option<oneshot::Sender<ProcessState>>,
         child: &mut Child,
         stop_signal: &Signal,
     ) {
         let Some(pid) = child.id() else {
-            sender
-                .send(ProcessState::Stopped)
-                .expect("receiver was dropped");
+            if let Some(sender) = sender {
+                sender
+                    .send(ProcessState::Stopped)
+                    .expect("receiver was dropped");
+            }
             return;
         };
-
         unsafe { kill(pid as i32, *stop_signal as i32) };
-        sender
-            .send(ProcessState::Running)
-            .expect("receiver was dropped");
+        if let Some(sender) = sender {
+            sender
+                .send(ProcessState::Running)
+                .expect("receiver was dropped");
+        }
     }
 
     async fn wait_for_child(
@@ -303,7 +309,8 @@ impl Routine {
 
         Self::send_new_status_to_task_manager(status_sender, Status::Running, process_name);
         // Wait for process to terminate or crash
-        Status::Exited(child.wait().await.expect("error waiting for child"))
+        let status = Status::Exited(child.wait().await.expect("error waiting for child"));
+        status
     }
 
     /// Condition for restart:

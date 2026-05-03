@@ -1,8 +1,14 @@
+use std::time::Duration;
+
+use tokio::{task::futures::TaskLocalFuture, time::sleep};
+
+use crate::NominativeStatus;
+
 #[cfg(test)]
 fn create_tasks() -> String {
     r#"programs:
     taskmaster_test_task:
-        cmd: "bash -c cat"
+        cmd: "cat"
         numprocs: 2
         umask: 022
         workingdir: /tmp
@@ -24,7 +30,7 @@ fn create_tasks() -> String {
 }
 
 #[tokio::test]
-async fn task_manager() {
+async fn task_manager_list_tasks() {
     use super::routine::Routine;
     use crate::config::Config;
     use crate::convert_tasks_to_arc;
@@ -33,13 +39,13 @@ async fn task_manager() {
     use tokio::sync::oneshot;
 
     let yaml_content = create_tasks();
-    let config = Config::from_reader(Cursor::new(yaml_content))
+    let program = Config::from_reader(Cursor::new(yaml_content))
         .expect("Parse error")
         .programs
         .into_iter()
         .next()
         .expect("Config vector is empty");
-    let tasks = vec![config];
+    let tasks = vec![program];
     let tasks = convert_tasks_to_arc(tasks);
     let handle = Routine::spawn(tasks);
     let (sender, receiver) = oneshot::channel();
@@ -48,6 +54,7 @@ async fn task_manager() {
         .await
         .unwrap();
     receiver.await.expect("Receiver failed");
+    handle.stop().await;
 }
 
 #[tokio::test]
@@ -75,6 +82,7 @@ async fn task_manager_stop() {
         })
         .await
         .unwrap();
+    handle.stop().await;
 }
 
 #[tokio::test]
@@ -102,6 +110,7 @@ async fn task_manager_start_already_started() {
         })
         .await
         .unwrap();
+    handle.stop().await;
 }
 
 #[tokio::test]
@@ -129,4 +138,5 @@ async fn task_manager_restart() {
         })
         .await
         .unwrap();
+    handle.stop().await;
 }

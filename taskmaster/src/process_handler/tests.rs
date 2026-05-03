@@ -1,8 +1,10 @@
 use crate::NominativeStatus;
 use crate::process_handler::{Log, LogType, Routine, Status};
 use std::sync::Arc;
+// use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
+// use tokio::time::sleep;
 
 async fn check_status(status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>) {
     match status_receiver.lock().await.recv().await.unwrap().status {
@@ -47,10 +49,7 @@ async fn create_task() {
         io::{Cursor, Read},
     };
 
-    use tokio::{
-        fs::remove_file,
-        sync::{Mutex, mpsc::UnboundedReceiver},
-    };
+    use tokio::{fs::remove_file, sync::Mutex};
 
     use crate::config::Config;
 
@@ -74,7 +73,7 @@ async fn create_task() {
         env:
             STARTED_BY: taskmaster
             ANSWER: 42"#;
-    let config = Config::from_reader(Cursor::new(yaml_content))
+    let program = Config::from_reader(Cursor::new(yaml_content))
         .expect("Parse error")
         .programs
         .into_iter()
@@ -83,13 +82,12 @@ async fn create_task() {
 
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, log_receiver) = mpsc::unbounded_channel();
-    let name = config.name().to_owned() + "-0";
-    let routine_handle = Routine::spawn(Arc::new(config), status_sender, log_sender, name)
+    let name = program.name().to_owned() + "-0";
+    let routine_handle = Routine::spawn(Arc::new(program), status_sender, log_sender, name)
         .await
         .expect("failed to spawn tokio::task");
     let log_checker_handle = tokio::spawn(check_realtime_output(log_receiver));
-    let status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>> =
-        Arc::new(Mutex::new(status_receiver));
+    let status_receiver = Arc::new(Mutex::new(status_receiver));
     let status_checker_handle = tokio::spawn(check_status(Arc::clone(&status_receiver)));
 
     routine_handle.join_handle.await.unwrap();
