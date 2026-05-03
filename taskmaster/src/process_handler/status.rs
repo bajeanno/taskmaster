@@ -1,7 +1,7 @@
 use std::{fmt::Debug, process::ExitStatus};
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
     Starting,
     Running,

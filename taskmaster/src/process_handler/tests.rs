@@ -1,10 +1,8 @@
 use crate::NominativeStatus;
 use crate::process_handler::{Log, LogType, Routine, Status};
 use std::sync::Arc;
-// use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
-// use tokio::time::sleep;
 
 async fn check_status(status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>) {
     match status_receiver.lock().await.recv().await.unwrap().status {

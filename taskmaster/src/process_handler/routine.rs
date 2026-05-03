@@ -253,8 +253,7 @@ impl Routine {
                     &mut child,
                     self.config.stop_signal()
                 );
-                let status = Status::Exited(child.wait().await.expect("error waiting for child"));
-                status
+                Status::Exited(child.wait().await.expect("error waiting for child"))
             }
         };
 
@@ -309,8 +308,7 @@ impl Routine {
 
         Self::send_new_status_to_task_manager(status_sender, Status::Running, process_name);
         // Wait for process to terminate or crash
-        let status = Status::Exited(child.wait().await.expect("error waiting for child"));
-        status
+        Status::Exited(child.wait().await.expect("error waiting for child"))
     }
 
     /// Condition for restart:
