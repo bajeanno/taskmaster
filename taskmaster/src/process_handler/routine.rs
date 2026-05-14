@@ -8,6 +8,7 @@ use std::panic;
 use std::process::Stdio;
 use std::sync::{Arc, LazyLock};
 use thiserror::Error;
+use tokio::fs::OpenOptions;
 use tokio::process::Command;
 use tokio::sync::oneshot;
 use tokio::{fs::File, io::AsyncWriteExt};
@@ -121,12 +122,18 @@ impl Routine {
     ) -> Result<Handle, RoutineSpawnError> {
         let (kill_command_sender, kill_command_receiver) = mpsc::channel(1);
         let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
-            File::create(config.stdout())
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(config.stdout())
                 .await
                 .map_err(RoutineSpawnError::OpeningStdoutFile)?,
         )));
         let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(
-            File::create(config.stderr())
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(config.stderr())
                 .await
                 .map_err(RoutineSpawnError::OpeningStderrFile)?,
         )));
@@ -228,7 +235,7 @@ impl Routine {
         stderr_file: Arc<Mutex<OutputFile>>,
     ) -> Status {
         let outputs = Outputs::new(&mut child);
-        let listen_task = tokio::spawn(Self::listen(
+        let listen_task_output = tokio::spawn(Self::listen(
             outputs,
             stdout_file,
             stderr_file,
@@ -257,7 +264,7 @@ impl Routine {
             }
         };
 
-        listen_task
+        listen_task_output
             .await
             .expect("error while listening task's output");
         status

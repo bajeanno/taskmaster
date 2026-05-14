@@ -14,8 +14,8 @@ fn create_tasks() -> String {
         starttime: 0
         stopsignal: SIGTERM
         stoptime: 10
-        stdout: /tmp/taskmaster_tests.stdout
-        stderr: /tmp/taskmaster_tests.stderr
+        stdout: /tmp/taskmaster_taskmanager_tests.stdout
+        stderr: /tmp/taskmaster_taskmanager_tests.stderr
         clearenv: true
         env:
             STARTED_BY: taskmaster
