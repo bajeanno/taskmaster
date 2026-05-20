@@ -26,7 +26,7 @@ impl TmpConfig {
         for (name, _) in self.programs.iter() {
             if name.contains(|c: char| c.is_ascii_digit()) {
                 return Err(serde::de::Error::custom(format!(
-                    "error: {} contains numerical characters",
+                    "program name '{}' contains illegal characters (numerical value)",
                     name.clone()
                 )));
             }
