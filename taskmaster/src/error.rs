@@ -7,10 +7,10 @@ pub enum Error {
         error: std::num::ParseIntError,
     },
 
-    #[allow(dead_code)]
+    #[allow(dead_code)] //TODO: remove that
     FailedToDaemonize(daemonize::Error),
 
-    #[allow(dead_code)]
+    #[allow(dead_code)] //TODO: remove that
     TaskServerFailure,
 }
 

@@ -4,13 +4,13 @@ use crate::{CommandSender, TaskManagerCommand, tasks_manager::ServerCommandError
 
 type JoinHandle = TokioJoinHandle<()>;
 
-#[allow(dead_code)]
+#[allow(dead_code)] //TODO: Remove that
 pub struct Handle {
     command_sender: CommandSender,
     pub join_handle: JoinHandle,
 }
 
-#[allow(dead_code)]
+#[allow(dead_code)] //TODO: Remove that
 impl Handle {
     pub(super) fn new(command_sender: CommandSender, join_handle: JoinHandle) -> Handle {
         Handle {

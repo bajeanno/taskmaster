@@ -36,7 +36,7 @@ impl SubscribedClients {
     fn for_each(&self, _callback: impl FnMut(&Client)) {}
 }
 
-#[allow(dead_code)]
+#[allow(dead_code)] //TODO: Remove that
 pub struct Routine {
     tasks: Vec<Arc<Program>>,
     clients: ClientMap,

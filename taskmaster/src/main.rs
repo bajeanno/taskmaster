@@ -21,7 +21,7 @@ pub type CommandSender = mpsc::UnboundedSender<(
     oneshot::Sender<Result<(), ServerCommandError>>,
 )>;
 
-#[allow(dead_code)]
+#[allow(dead_code)] //TODO: remove that
 #[derive(Debug)]
 pub struct NominativeStatus {
     pub process_name: String,

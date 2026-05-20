@@ -1,6 +1,6 @@
 use std::{fmt::Debug, process::ExitStatus};
 
-#[allow(dead_code)]
+#[allow(dead_code)] //TODO: Remove that
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
     Starting,
