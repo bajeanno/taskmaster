@@ -24,7 +24,7 @@ struct TmpConfig {
 impl TmpConfig {
     fn check_numerical_chars_in_names(self) -> Result<Self, serde_yaml::Error> {
         for (name, _) in self.programs.iter() {
-            if name.contains("0123456789") {
+            if name.contains(|c: char| c.is_ascii_digit()) {
                 return Err(serde::de::Error::custom(format!(
                     "error: {} contains numerical characters",
                     name.clone()
