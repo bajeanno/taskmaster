@@ -250,7 +250,7 @@ impl Routine {
     async fn stop_all_routines(&mut self) {
         for (_, process) in self.processes.lock().await.iter_mut() {
             match process.status {
-                Status::Starting | Status::Running => process.stop_process().await,
+                Status::Starting | Status::Running => process.stop().await,
                 _ => {} //routine already stopped (crashed or exited) (do nothing)
             }
         }
@@ -259,7 +259,7 @@ impl Routine {
     async fn stop_task(&mut self, task_name: &str) {
         for (process_name, process) in self.processes.lock().await.iter_mut() {
             if process_name.starts_with(task_name) {
-                process.stop_process().await;
+                process.stop().await;
             }
         }
     }

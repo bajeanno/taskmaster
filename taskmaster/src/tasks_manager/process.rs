@@ -7,7 +7,7 @@ pub struct Process {
 
 impl Process {
     /// Stops a routine by sending a kill command.
-    pub(super) async fn stop_process(&mut self) {
+    pub(super) async fn stop(&mut self) {
         if let Some(handle) = self.handle.take() {
             handle.stop().await;
         }
