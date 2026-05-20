@@ -4,16 +4,13 @@ mod process_handler;
 mod tasks_manager;
 
 use std::sync::Arc;
-
 use config::{Config, Program};
 use error::Error;
-
-const DEFAULT_PORT: i32 = 4444;
-
 use tasks_manager::TaskManagerCommand;
 use tokio::sync::{mpsc, oneshot};
-
 use crate::tasks_manager::ServerCommandError;
+
+const DEFAULT_PORT: i32 = 4444;
 
 pub type CommandReceiver = mpsc::UnboundedReceiver<(
     TaskManagerCommand,
