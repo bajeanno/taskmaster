@@ -21,9 +21,24 @@ struct TmpConfig {
     pub programs: HashMap<String, Program>,
 }
 
+impl TmpConfig {
+    fn check_numerical_chars_in_names(self) -> Result<Self, serde_yaml::Error> {
+        for (name, _) in self.programs.iter() {
+            if name.contains("0123456789") {
+                return Err(serde::de::Error::custom(format!(
+                    "error: {} contains numerical characters",
+                    name.clone()
+                )));
+            }
+        }
+        Ok(self)
+    }
+}
+
 impl Config {
     pub fn from_reader(file: impl std::io::Read) -> Result<Config, serde_yaml::Error> {
         let tmp_config: TmpConfig = serde_yaml::from_reader(file)?;
+        let tmp_config = tmp_config.check_numerical_chars_in_names()?;
         let config = Self {
             programs: tmp_config
                 .programs
