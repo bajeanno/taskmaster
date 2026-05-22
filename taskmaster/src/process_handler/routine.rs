@@ -1,5 +1,5 @@
 use super::{Handle, NominativeStatus, Status, command};
-use crate::config::program::{AutoRestart, Program};
+use crate::config::program::{AutoRestart, ProgramConfig};
 use libc::signal::kill;
 use libc::unistd::{mode_t, umask};
 use signal::Signal;
@@ -89,24 +89,25 @@ pub struct Routine {
     status_sender: StatusSender,
     log_sender: LogSender,
     kill_command_receiver: KillCommandReceiver,
-    config: Arc<Program>,
+    config: Arc<ProgramConfig>,
     start_attempts: u32,
     command: Command,
     process_name: String,
     kill_command_received: bool,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum RoutineSpawnError {
-    #[error("{0}")]
-    OpeningStdoutFile(std::io::Error),
-    #[error("{0}")]
-    OpeningStderrFile(std::io::Error),
+    #[error("Failed to open stdout file: {0}")]
+    OpeningStdoutFile(String),
+    #[error("Failed to open stderr file: {0}")]
+    OpeningStderrFile(String),
 }
 
 impl Routine {
     pub async fn spawn(
-        config: Arc<Program>,
+        config: Arc<ProgramConfig>,
         status_sender: StatusSender,
         log_sender: LogSender,
         process_name: String,
@@ -118,7 +119,7 @@ impl Routine {
                 .append(true)
                 .open(config.stdout())
                 .await
-                .map_err(RoutineSpawnError::OpeningStdoutFile)?,
+                .map_err(|err| RoutineSpawnError::OpeningStdoutFile(err.to_string()))?,
         )));
         let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(
             OpenOptions::new()
@@ -126,7 +127,7 @@ impl Routine {
                 .append(true)
                 .open(config.stderr())
                 .await
-                .map_err(RoutineSpawnError::OpeningStderrFile)?,
+                .map_err(|err| RoutineSpawnError::OpeningStderrFile(err.to_string()))?,
         )));
         let command = command::create_command(&config);
 
@@ -215,7 +216,7 @@ impl Routine {
                 self.handle_running_child(child, stdout_file, stderr_file)
                     .await
             }
-            Err(err) => Status::FailedToSpawn(err.to_string()),
+            Err(err) => Status::FailedToStartProcess(err.to_string()),
         }
     }
 

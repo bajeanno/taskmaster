@@ -14,12 +14,12 @@ pub enum ServerCommandError {
 }
 
 pub enum TaskManagerCommand {
-    ListTasks(oneshot::Sender<Vec<NominativeStatus>>),
-    StartTask { task_name: String },
-    RestartTask { task_name: String },
-    StopTask { task_name: String },
-    AddClient { task_name: String, client: Client },
-    DeleteClient { task_name: String, client: Client },
-    StopAll,
+    ListProcesses(oneshot::Sender<Vec<NominativeStatus>>),
+    StartProgram { program_name: String },
+    RestartProgram { program_name: String },
+    StopProgram { program_name: String },
+    SubscribeToProgramEvents { program_name: String, client: Client },
+    UnsubscribeToProgramEvents { program_name: String, client: Client },
+    StopAllProcesses,
     Exit,
 }

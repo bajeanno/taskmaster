@@ -4,20 +4,12 @@ use super::handle::Handle;
 use crate::CommandReceiver;
 use crate::process_handler::NominativeStatus;
 use crate::{
-    config::Program,
-    process_handler::{
-        self, LogReceiver, LogSender, RoutineSpawnError, Status, StatusReceiver, StatusSender,
-    },
+    config::ProgramConfig,
+    process_handler::{self, LogReceiver, LogSender, Status, StatusReceiver, StatusSender},
 };
+use std::collections::hash_map;
 use std::{collections::HashMap, sync::Arc};
-use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
-
-#[derive(Debug, Error)]
-enum StartTaskError {
-    #[error("")]
-    RoutineSpawnError(#[from] RoutineSpawnError),
-}
 
 // Mocking Client struct brought by the rpc-genie crate
 pub struct Client {}
@@ -39,7 +31,7 @@ impl SubscribedClients {
 
 #[allow(dead_code)] //TODO: Remove that
 pub struct Routine {
-    tasks: Vec<Arc<Program>>,
+    program_configs: Vec<Arc<ProgramConfig>>,
     clients: ClientMap,
     processes: Arc<Mutex<HashMap<String, Process>>>,
     command_receiver: CommandReceiver,
@@ -49,14 +41,14 @@ pub struct Routine {
 
 #[allow(dead_code)] //TODO: remove that
 impl Routine {
-    pub fn spawn(tasks: Vec<Arc<Program>>) -> Handle {
+    pub fn spawn(program_configs: Vec<Arc<ProgramConfig>>) -> Handle {
         let (log_sender, log_receiver) = mpsc::unbounded_channel();
         let (status_sender, status_receiver) = mpsc::unbounded_channel();
         let (command_sender, command_receiver) = mpsc::unbounded_channel();
 
         let handle = tokio::spawn(async move {
             Self {
-                tasks,
+                program_configs,
                 processes: Arc::new(Mutex::new(HashMap::new())),
                 clients: Arc::new(Mutex::new(HashMap::new())),
                 command_receiver,
@@ -71,9 +63,8 @@ impl Routine {
     }
 
     async fn routine(mut self, status_receiver: StatusReceiver, log_receiver: LogReceiver) {
-        if let Err(_result) = self.start_tasks().await {
-            self.stop_all_routines().await
-        };
+        self.start_programs().await;
+
         let logs_handle = tokio::spawn(Self::listen_for_logs(log_receiver, self.clients.clone()));
         let status_handle = tokio::spawn(Self::listen_for_status(
             status_receiver,
@@ -85,50 +76,64 @@ impl Routine {
         status_handle.abort();
     }
 
-    async fn start_tasks(&mut self) -> Result<(), StartTaskError> {
-        for task in self.tasks.clone().iter() {
-            self.start_task(task.clone()).await?;
+    async fn start_programs(&mut self) {
+        for program_config in self.program_configs.clone().iter() {
+            self.start_program(program_config.clone()).await;
         }
-        Ok(())
     }
 
-    async fn start_task(&mut self, task: Arc<Program>) -> Result<(), StartTaskError> {
-        let num_procs = *task.num_procs();
-        if self.is_task_running(task.name().clone(), num_procs).await {
-            return Ok(());
-        }
+    async fn start_program(&mut self, program_config: Arc<ProgramConfig>) {
+        let num_procs = *program_config.num_procs();
+
         for id in 0..num_procs {
-            let task_name = task.name().clone();
-            let task_id = task_name.to_owned() + format!("-{}", id).as_str();
-            let handle = self
-                .start_process(
-                    Arc::clone(&task),
-                    self.status_sender.clone(),
-                    self.log_sender.clone(),
-                    task_id.clone(),
-                )
-                .await?;
-            self.processes.lock().await.insert(
-                task_id,
-                Process {
-                    handle: Some(handle),
-                    status: Status::Starting,
-                },
-            );
+            let program_name = program_config.name();
+            let process_id = format!("{program_name}-{id}");
+            self.start_process(process_id, Arc::clone(&program_config))
+                .await;
         }
-        Ok(())
     }
 
-    async fn start_process(
-        &mut self,
-        task: Arc<Program>,
-        status_sender: StatusSender,
-        log_sender: LogSender,
-        task_id: String,
-    ) -> Result<process_handler::Handle, StartTaskError> {
-        let handle =
-            process_handler::Routine::spawn(task, status_sender, log_sender, task_id).await?;
-        Ok(handle)
+    async fn start_process(&mut self, process_id: String, program_config: Arc<ProgramConfig>) {
+        match self.processes.lock().await.entry(process_id.clone()) {
+            hash_map::Entry::Occupied(mut entry) => match entry.get().handle {
+                Some(_) => {}
+                None => {
+                    *entry.get_mut() = self
+                        .start_process_handler_routine(program_config, process_id)
+                        .await
+                }
+            },
+            hash_map::Entry::Vacant(entry) => {
+                entry.insert(
+                    self.start_process_handler_routine(program_config, process_id)
+                        .await,
+                );
+            }
+        };
+    }
+
+    async fn start_process_handler_routine(
+        &self,
+        program_config: Arc<ProgramConfig>,
+        process_id: String,
+    ) -> Process {
+        match process_handler::Routine::spawn(
+            program_config,
+            self.status_sender.clone(),
+            self.log_sender.clone(),
+            process_id,
+        )
+        .await
+        {
+            Ok(handle) => Process {
+                handle: Some(handle),
+                status: Status::Starting,
+            },
+            Err(err) => Process {
+                handle: None,
+                status: Status::FailedToSpawnRoutine(err),
+            },
+        }
     }
 
     async fn listen_for_status(
@@ -159,7 +164,7 @@ impl Routine {
     async fn event_listener(&mut self) {
         while let Some((command, sender)) = self.command_receiver.recv().await {
             match command {
-                TaskManagerCommand::ListTasks(list_sender) => {
+                TaskManagerCommand::ListProcesses(list_sender) => {
                     let vec: Vec<NominativeStatus> = self
                         .processes
                         .lock()
@@ -170,75 +175,83 @@ impl Routine {
                             status: process.status.clone(),
                         })
                         .collect();
+
                     list_sender
                         .send(vec)
                         .expect("Receiver should never be dropped");
+
                     sender
                         .send(Ok(()))
                         .expect("Receiver should never be dropped");
                 }
 
-                TaskManagerCommand::StopTask { task_name } => {
-                    self.stop_task(task_name.as_str()).await;
+                TaskManagerCommand::StartProgram { program_name } => {
+                    if let Some(program_config) = self.get_program_config(program_name.as_str()) {
+                        self.start_program(program_config).await;
+                        sender
+                            .send(Ok(()))
+                            .expect("Receiver should never be dropped")
+                    } else {
+                        sender
+                            .send(Err(super::ServerCommandError::NoSuchTask(program_name)))
+                            .expect("Receiver should never be dropped")
+                    };
+                }
+
+                TaskManagerCommand::RestartProgram { program_name } => {
+                    if let Some(program_config) = self.get_program_config(program_name.as_str()) {
+                        self.stop_program(program_name.as_str()).await;
+                        self.start_program(program_config).await;
+                        sender
+                            .send(Ok(()))
+                            .expect("Receiver should never be dropped")
+                    } else {
+                        sender
+                            .send(Err(super::ServerCommandError::NoSuchTask(program_name)))
+                            .expect("Receiver should never be dropped")
+                    };
+                }
+
+                TaskManagerCommand::StopProgram { program_name } => {
+                    self.stop_program(program_name.as_str()).await;
                     sender
                         .send(Ok(()))
                         .expect("Receiver should never be dropped");
                 }
 
-                TaskManagerCommand::RestartTask { task_name } => {
-                    if let Some(task) = self.get_task(task_name.as_str()) {
-                        self.stop_task(task_name.as_str()).await;
-                        self.start_task(task).await.unwrap();
-                        sender
-                            .send(Ok(()))
-                            .expect("Receiver should never be dropped")
-                    } else {
-                        sender
-                            .send(Err(super::ServerCommandError::NoSuchTask(task_name)))
-                            .expect("Receiver should never be dropped")
-                    };
-                }
-
-                TaskManagerCommand::StartTask { task_name } => {
-                    if let Some(task) = self.get_task(task_name.as_str()) {
-                        self.start_task(task).await.unwrap();
-                        sender
-                            .send(Ok(()))
-                            .expect("Receiver should never be dropped")
-                    } else {
-                        sender
-                            .send(Err(super::ServerCommandError::NoSuchTask(task_name)))
-                            .expect("Receiver should never be dropped")
-                    };
-                }
-
-                TaskManagerCommand::AddClient { task_name, client } => {
-                    if let Some(vec) = self.clients.lock().await.get(&task_name) {
-                        vec.add(client);
+                TaskManagerCommand::SubscribeToProgramEvents {
+                    program_name,
+                    client,
+                } => {
+                    if let Some(subscribed_clients) = self.clients.lock().await.get(&program_name) {
+                        subscribed_clients.add(client);
                     }
                     sender
                         .send(Ok(()))
                         .expect("Receiver should never be dropped");
                 }
 
-                TaskManagerCommand::DeleteClient { task_name, client } => {
-                    if let Some(vec) = self.clients.lock().await.get(&task_name) {
-                        vec.remove(client);
+                TaskManagerCommand::UnsubscribeToProgramEvents {
+                    program_name,
+                    client,
+                } => {
+                    if let Some(subscribed_clients) = self.clients.lock().await.get(&program_name) {
+                        subscribed_clients.remove(client);
                     }
                     sender
                         .send(Ok(()))
                         .expect("Receiver should never be dropped");
                 }
 
-                TaskManagerCommand::StopAll => {
-                    self.stop_all_routines().await;
+                TaskManagerCommand::StopAllProcesses => {
+                    self.stop_all_processes().await;
                     sender
                         .send(Ok(()))
                         .expect("Receiver should never be dropped");
                 }
 
                 TaskManagerCommand::Exit => {
-                    self.stop_all_routines().await;
+                    self.stop_all_processes().await;
                     sender
                         .send(Ok(()))
                         .expect("Receiver should never be dropped");
@@ -248,7 +261,7 @@ impl Routine {
         }
     }
 
-    async fn stop_all_routines(&mut self) {
+    async fn stop_all_processes(&mut self) {
         for (_, process) in self.processes.lock().await.iter_mut() {
             match process.status {
                 Status::Starting | Status::Running => process.stop().await,
@@ -257,38 +270,20 @@ impl Routine {
         }
     }
 
-    async fn stop_task(&mut self, task_name: &str) {
+    async fn stop_program(&mut self, program_name: &str) {
         for (process_name, process) in self.processes.lock().await.iter_mut() {
-            if process_name.starts_with(task_name) {
+            if process_name.starts_with(program_name) {
                 process.stop().await;
             }
         }
     }
 
-    fn get_task(&self, task_name: &str) -> Option<Arc<Program>> {
-        for program in self.tasks.iter() {
-            if program.name() == task_name {
+    fn get_program_config(&self, program_name: &str) -> Option<Arc<ProgramConfig>> {
+        for program in self.program_configs.iter() {
+            if program.name() == program_name {
                 return Some(program.clone());
             }
         }
         None
-    }
-
-    async fn is_task_running(&self, task_name: String, num_procs: u32) -> bool {
-        for i in 0..num_procs {
-            let lock = self.processes.lock().await;
-            let status = lock.get(&format!("{task_name}-{i}"));
-            if let Some(status) = status {
-                match status.status {
-                    Status::Exited(_)
-                    | Status::FailedToSpawn(_)
-                    | Status::ErrorDuringStartup { exit_code: _ } => {}
-                    _ => return false,
-                }
-            } else {
-                return false;
-            }
-        }
-        true
     }
 }

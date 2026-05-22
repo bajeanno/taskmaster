@@ -4,7 +4,7 @@ mod process_handler;
 mod tasks_manager;
 
 use crate::tasks_manager::ServerCommandError;
-use config::{Config, Program};
+use config::{Config, ProgramConfig};
 use error::Error;
 use std::sync::Arc;
 use tasks_manager::TaskManagerCommand;
@@ -43,7 +43,7 @@ fn entrypoint() -> Result<(), Error> {
     start_server(port, tasks)
 }
 
-pub fn convert_tasks_to_arc(programs: Vec<Program>) -> Vec<Arc<Program>> {
+pub fn convert_tasks_to_arc(programs: Vec<ProgramConfig>) -> Vec<Arc<ProgramConfig>> {
     programs.into_iter().map(Arc::new).collect()
 }
 
@@ -83,7 +83,7 @@ mod taskmaster {
     }
 }
 
-fn get_tasks_from_config(config_file: &str) -> Vec<Program> {
+fn get_tasks_from_config(config_file: &str) -> Vec<ProgramConfig> {
     match Config::parse(config_file) {
         Ok(config) => config.programs,
         Err(err) => {
@@ -103,7 +103,7 @@ fn daemonize() -> Result<(), Error> {
     Ok(())
 }
 
-fn start_server(_port: i32, _tasks: Vec<Arc<Program>>) -> Result<(), Error> {
+fn start_server(_port: i32, _tasks: Vec<Arc<ProgramConfig>>) -> Result<(), Error> {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
         .block_on(async { Result::<(), Error>::Ok(()) })

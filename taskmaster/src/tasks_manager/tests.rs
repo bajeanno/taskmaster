@@ -44,7 +44,7 @@ async fn task_manager_list_tasks() {
     let handle = Routine::spawn(tasks);
     let (sender, receiver) = oneshot::channel();
     handle
-        .send(TaskManagerCommand::ListTasks(sender))
+        .send(TaskManagerCommand::ListProcesses(sender))
         .await
         .unwrap();
     receiver.await.expect("Receiver failed");
@@ -71,8 +71,8 @@ async fn task_manager_stop() {
     let handle = Routine::spawn(tasks);
 
     handle
-        .send(TaskManagerCommand::StopTask {
-            task_name: String::from("taskmaster_test_task"),
+        .send(TaskManagerCommand::StopProgram {
+            program_name: String::from("taskmaster_test_task"),
         })
         .await
         .unwrap();
@@ -99,8 +99,8 @@ async fn task_manager_start_already_started() {
     let handle = Routine::spawn(tasks);
 
     handle
-        .send(TaskManagerCommand::StartTask {
-            task_name: String::from("taskmaster_test_task"),
+        .send(TaskManagerCommand::StartProgram {
+            program_name: String::from("taskmaster_test_task"),
         })
         .await
         .unwrap();
@@ -127,8 +127,8 @@ async fn task_manager_restart() {
     let handle = Routine::spawn(arc_tasks);
 
     handle
-        .send(TaskManagerCommand::RestartTask {
-            task_name: String::from("taskmaster_test_task"),
+        .send(TaskManagerCommand::RestartProgram {
+            program_name: String::from("taskmaster_test_task"),
         })
         .await
         .unwrap();
