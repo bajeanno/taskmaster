@@ -239,7 +239,7 @@ impl Routine {
         stderr_file: Arc<Mutex<OutputFile>>,
     ) -> Status {
         let outputs = Outputs::new(&mut child);
-        let listen_task_output = tokio::spawn(Self::listen(
+        let listen_task = tokio::spawn(Self::listen(
             outputs,
             stdout_file,
             stderr_file,
@@ -268,7 +268,7 @@ impl Routine {
             }
         };
 
-        listen_task_output
+        listen_task
             .await
             .expect("error while listening task's output");
         status
