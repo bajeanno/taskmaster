@@ -96,7 +96,7 @@ pub struct Routine {
     start_attempts: u32,
     command: Command,
     process_name: String,
-    is_stopped: bool,
+    kill_command_received: bool,
 }
 
 #[derive(Error, Debug)]
@@ -147,7 +147,7 @@ impl Routine {
                 kill_command_receiver,
                 start_attempts: 0,
                 command,
-                is_stopped: false,
+                kill_command_received: false,
                 process_name,
             }
             .routine(stdout_file, stderr_file)
@@ -175,7 +175,7 @@ impl Routine {
                 self.config.name().clone(),
             );
 
-            if self.is_stopped || !should_try_restart {
+            if self.kill_command_received || !should_try_restart {
                 break;
             }
         }
@@ -254,7 +254,7 @@ impl Routine {
             }
 
             sender = self.kill_command_receiver.recv() => {
-                self.is_stopped = true;
+                self.kill_command_received = true;
                 Self::kill_subprocess(
                     sender,
                     &mut child,
