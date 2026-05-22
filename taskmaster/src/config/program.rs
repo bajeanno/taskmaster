@@ -374,6 +374,22 @@ mod tests {
     }
 
     #[test]
+    fn parsing_program_with_digits_in_name() {
+        let yaml_content = r#"programs:
+        program1:
+            cmd: "echo test""#;
+        assert_config_parsing_error(yaml_content);
+    }
+
+    #[test]
+    fn parsing_program_with_multiple_digits_not_at_end() {
+        let yaml_content = r#"programs:
+        pro123gram:
+            cmd: "echo test""#;
+        assert_config_parsing_error(yaml_content);
+    }
+
+    #[test]
     fn parsing_with_umask_max() {
         let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         builder.umask = 0o777;
