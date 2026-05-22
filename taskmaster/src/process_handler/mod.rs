@@ -11,6 +11,6 @@ pub use routine::{
     KillCommandSender, Log, LogReceiver, LogSender, LogType, ProcessState, ProcessStateChannel,
     Routine, RoutineSpawnError, StatusReceiver, StatusSender,
 };
-pub use status::Status;
+pub use status::{Status, NominativeStatus};
 #[allow(unused)]
 use std::process::Command;

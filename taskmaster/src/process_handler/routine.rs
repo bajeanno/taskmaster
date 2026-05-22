@@ -1,5 +1,4 @@
-use super::{Handle, Status, command};
-use crate::NominativeStatus;
+use super::{Handle, NominativeStatus, Status, command};
 use crate::config::program::{AutoRestart, Program};
 use libc::signal::kill;
 use libc::unistd::{mode_t, umask};

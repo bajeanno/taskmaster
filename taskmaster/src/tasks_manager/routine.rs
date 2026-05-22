@@ -1,7 +1,8 @@
 use super::Process;
 use super::TaskManagerCommand;
 use super::handle::Handle;
-use crate::{CommandReceiver, NominativeStatus};
+use crate::CommandReceiver;
+use crate::process_handler::NominativeStatus;
 use crate::{
     config::Program,
     process_handler::{

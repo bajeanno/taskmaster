@@ -1,5 +1,4 @@
-use crate::NominativeStatus;
-use crate::process_handler::{Log, LogType, Routine, Status};
+use crate::process_handler::{Log, LogType, NominativeStatus, Routine, Status};
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
