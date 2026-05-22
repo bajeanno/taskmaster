@@ -167,6 +167,10 @@ impl Routine {
                 .run_program(Arc::clone(&stdout_file), Arc::clone(&stderr_file))
                 .await;
 
+            if self.kill_command_received {
+                break;
+            }
+
             let should_try_restart = self.should_try_restart(start_time, &status);
 
             Self::send_new_status_to_task_manager(
@@ -175,7 +179,7 @@ impl Routine {
                 self.config.name().clone(),
             );
 
-            if self.kill_command_received || !should_try_restart {
+            if !should_try_restart {
                 break;
             }
         }
