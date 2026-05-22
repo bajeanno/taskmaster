@@ -134,7 +134,7 @@ async fn create_task_then_interrupt() {
         fs::File,
         io::{Cursor, Read},
     };
-    use tokio::{fs::remove_file, sync::oneshot};
+    use tokio::fs::remove_file;
 
     let yaml_content = r#"programs:
     taskmaster_test_task:
@@ -174,11 +174,9 @@ async fn create_task_then_interrupt() {
     let handle2 = tokio::spawn(check_status(Arc::clone(&status_receiver)));
 
     handle2.await.expect("failed to join status handle"); // wait for running status to send stop signal
-    let (s, r) = oneshot::channel();
-    if let Err(e) = routine_handle.kill_command_sender.send(s).await {
+    if let Err(e) = routine_handle.kill_command_sender.send(()).await {
         panic!("Failed to send stop signal: {:?}", e);
     }
-    r.await.expect("error receiving process state");
 
     routine_handle.join_handle.await.unwrap();
     check_status_exited(Arc::clone(&status_receiver)).await; // check exited status after stop signal

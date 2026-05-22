@@ -8,9 +8,8 @@ mod tests;
 pub use handle::Handle;
 #[allow(unused)]
 pub use routine::{
-    KillCommandSender, Log, LogReceiver, LogSender, LogType, ProcessState, ProcessStateChannel,
-    Routine, RoutineSpawnError, StatusReceiver, StatusSender,
+    Log, LogReceiver, LogSender, LogType, Routine, RoutineSpawnError, StatusReceiver, StatusSender,
 };
-pub use status::{Status, NominativeStatus};
+pub use status::{NominativeStatus, Status};
 #[allow(unused)]
 use std::process::Command;

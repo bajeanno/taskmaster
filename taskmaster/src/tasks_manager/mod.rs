@@ -3,10 +3,10 @@ mod process;
 mod routine;
 mod tests;
 
+use crate::process_handler::NominativeStatus;
 use process::Process;
 use routine::Client;
 use tokio::sync::oneshot;
-use crate::process_handler::NominativeStatus;
 
 #[derive(Debug)]
 pub enum ServerCommandError {

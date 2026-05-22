@@ -9,7 +9,6 @@ use std::sync::{Arc, LazyLock};
 use thiserror::Error;
 use tokio::fs::OpenOptions;
 use tokio::process::Command;
-use tokio::sync::oneshot;
 use tokio::{fs::File, io::AsyncWriteExt};
 use tokio::{
     io::{AsyncBufRead, AsyncBufReadExt, BufReader, Error},
@@ -48,16 +47,14 @@ impl Log {
     }
 }
 
-pub type StatusReceiver = mpsc::UnboundedReceiver<NominativeStatus>;
 pub type LogReceiver = mpsc::UnboundedReceiver<Log>;
-pub type StatusSender = mpsc::UnboundedSender<NominativeStatus>;
 pub type LogSender = mpsc::UnboundedSender<Log>;
-pub type KillCommandReceiver = mpsc::Receiver<oneshot::Sender<ProcessState>>;
-pub type KillCommandSender = mpsc::Sender<oneshot::Sender<ProcessState>>;
 
-pub type ProcessStateSender = oneshot::Sender<ProcessState>;
-pub type ProcessStateReceiver = oneshot::Receiver<ProcessState>;
-pub type ProcessStateChannel = (ProcessStateSender, ProcessStateReceiver);
+pub type StatusReceiver = mpsc::UnboundedReceiver<NominativeStatus>;
+pub type StatusSender = mpsc::UnboundedSender<NominativeStatus>;
+
+pub type KillCommandReceiver = mpsc::Receiver<()>;
+pub type KillCommandSender = mpsc::Sender<()>;
 
 pub struct Outputs {
     stdout: BufReader<ChildStdout>,
@@ -105,12 +102,6 @@ pub enum RoutineSpawnError {
     OpeningStdoutFile(std::io::Error),
     #[error("{0}")]
     OpeningStderrFile(std::io::Error),
-}
-
-#[derive(Debug)]
-pub enum ProcessState {
-    Running,
-    Stopped,
 }
 
 impl Routine {
@@ -167,10 +158,6 @@ impl Routine {
                 .run_program(Arc::clone(&stdout_file), Arc::clone(&stderr_file))
                 .await;
 
-            if self.kill_command_received {
-                break;
-            }
-
             let should_try_restart = self.should_try_restart(start_time, &status);
 
             Self::send_new_status_to_task_manager(
@@ -179,7 +166,7 @@ impl Routine {
                 self.config.name().clone(),
             );
 
-            if !should_try_restart {
+            if self.kill_command_received || !should_try_restart {
                 break;
             }
         }
@@ -257,10 +244,9 @@ impl Routine {
                 status
             }
 
-            sender = self.kill_command_receiver.recv() => {
+            _ = self.kill_command_receiver.recv() => {
                 self.kill_command_received = true;
                 Self::kill_subprocess(
-                    sender,
                     &mut child,
                     self.config.stop_signal()
                 );
@@ -274,25 +260,11 @@ impl Routine {
         status
     }
 
-    fn kill_subprocess(
-        sender: Option<oneshot::Sender<ProcessState>>,
-        child: &mut Child,
-        stop_signal: &Signal,
-    ) {
+    fn kill_subprocess(child: &mut Child, stop_signal: &Signal) {
         let Some(pid) = child.id() else {
-            if let Some(sender) = sender {
-                sender
-                    .send(ProcessState::Stopped)
-                    .expect("receiver was dropped");
-            }
             return;
         };
         unsafe { kill(pid as i32, *stop_signal as i32) };
-        if let Some(sender) = sender {
-            sender
-                .send(ProcessState::Running)
-                .expect("receiver was dropped");
-        }
     }
 
     async fn wait_for_child(
