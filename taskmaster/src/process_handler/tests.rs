@@ -87,7 +87,7 @@ async fn create_task() {
     let status_receiver = Arc::new(Mutex::new(status_receiver));
     let status_checker_handle = tokio::spawn(check_status(Arc::clone(&status_receiver)));
 
-    routine_handle.join_handle.await.unwrap();
+    routine_handle.wait_for_routine_to_finish().await;
     log_checker_handle
         .await
         .expect("failed to join status handle");
@@ -174,11 +174,7 @@ async fn create_task_then_interrupt() {
     let handle2 = tokio::spawn(check_status(Arc::clone(&status_receiver)));
 
     handle2.await.expect("failed to join status handle"); // wait for running status to send stop signal
-    if let Err(e) = routine_handle.kill_command_sender.send(()).await {
-        panic!("Failed to send stop signal: {:?}", e);
-    }
-
-    routine_handle.join_handle.await.unwrap();
+    routine_handle.stop().await;
     check_status_exited(Arc::clone(&status_receiver)).await; // check exited status after stop signal
 
     let stdout_file = "/tmp/taskmaster_tests_interrupt.stdout";

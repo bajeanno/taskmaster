@@ -1,4 +1,4 @@
-use tokio::{sync::oneshot, task::JoinHandle as TokioJoinHandle};
+use tokio::{io::join, sync::oneshot, task::JoinHandle as TokioJoinHandle};
 
 use crate::{CommandSender, TaskManagerCommand, tasks_manager::ServerCommandError};
 
@@ -7,7 +7,7 @@ type JoinHandle = TokioJoinHandle<()>;
 #[allow(dead_code)] //TODO: Remove that
 pub struct Handle {
     command_sender: CommandSender,
-    pub join_handle: JoinHandle,
+    join_handle: JoinHandle,
 }
 
 #[allow(dead_code)] //TODO: Remove that
@@ -28,7 +28,10 @@ impl Handle {
     }
 
     pub(super) async fn stop(self) {
-        self.send(TaskManagerCommand::Exit).await.unwrap();
-        self.join_handle.await.expect("error awaiting task_manager");
+        let result = self.send(TaskManagerCommand::Exit).await;
+        let join_handle_result = self.join_handle.await;
+
+        result.expect("failed to send exit command to task manager");
+        join_handle_result.expect("error awaiting task manager");
     }
 }
