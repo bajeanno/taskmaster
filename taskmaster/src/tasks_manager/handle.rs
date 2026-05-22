@@ -24,7 +24,9 @@ impl Handle {
         self.command_sender
             .send((command, sender))
             .expect("Receiver should never be dropped");
-        receiver.await.expect("Je sais pas pq mais ça marche pas")
+        receiver
+            .await
+            .expect("error while waiting for response from sub-routine")
     }
 
     pub(super) async fn stop(self) {

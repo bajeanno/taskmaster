@@ -272,7 +272,7 @@ impl Routine {
 
     async fn stop_program(&mut self, program_name: &str) {
         for (process_name, process) in self.processes.lock().await.iter_mut() {
-            if process_name.starts_with(program_name) {
+    if process_name.starts_with(program_name) { //TODO: change start_with call, invalid
                 process.stop().await;
             }
         }
