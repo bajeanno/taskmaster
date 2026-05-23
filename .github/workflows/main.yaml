@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run tests
-        run: RUST_BACKTRACE=1 cargo test --all
+        run: RUST_BACKTRACE=1 cargo test --all -- --no-capture
 
   format:
     runs-on: ubuntu-latest
