@@ -14,11 +14,17 @@ async fn check_status(status_receiver: Arc<Mutex<UnboundedReceiver<NominativeSta
     }
 }
 
-async fn check_status_exited(status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>) {
-    match status_receiver.lock().await.recv().await.unwrap().status {
-        Status::Exited(_) => {}
-        status => panic!("not expected {status:?}"),
-    }
+async fn check_status_exited(
+    status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>,
+    process_name: String,
+) {
+    let nominative_status = status_receiver.lock().await.recv().await.unwrap().clone();
+    assert_eq!(nominative_status.process_name, process_name);
+    assert!(
+        matches!(nominative_status.status, Status::Exited(_)),
+        "not expected {:?}",
+        nominative_status.status
+    );
 }
 
 async fn check_realtime_output(mut log_receiver: mpsc::UnboundedReceiver<Log>) {
@@ -80,7 +86,7 @@ async fn create_task() {
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, log_receiver) = mpsc::unbounded_channel();
     let name = program.name().to_owned() + "-0";
-    let routine_handle = Routine::spawn(Arc::new(program), status_sender, log_sender, name)
+    let routine_handle = Routine::spawn(Arc::new(program), status_sender, log_sender, name.clone())
         .await
         .expect("failed to spawn tokio::task");
     let log_checker_handle = tokio::spawn(check_realtime_output(log_receiver));
@@ -94,7 +100,7 @@ async fn create_task() {
     status_checker_handle
         .await
         .expect("failed to join status handle");
-    check_status_exited(Arc::clone(&status_receiver)).await;
+    check_status_exited(Arc::clone(&status_receiver), name).await;
 
     let stdout_file = "/tmp/taskmaster_tests.stdout";
     let stderr_file = "/tmp/taskmaster_tests.stderr";
@@ -166,7 +172,7 @@ async fn create_task_then_interrupt() {
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, _) = mpsc::unbounded_channel();
     let name = config.name().to_owned() + "_0";
-    let routine_handle = Routine::spawn(Arc::new(config), status_sender, log_sender, name)
+    let routine_handle = Routine::spawn(Arc::new(config), status_sender, log_sender, name.clone())
         .await
         .expect("failed to spawn tokio::task");
     let status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>> =
@@ -175,7 +181,7 @@ async fn create_task_then_interrupt() {
 
     handle2.await.expect("failed to join status handle"); // wait for running status to send stop signal
     routine_handle.stop().await;
-    check_status_exited(Arc::clone(&status_receiver)).await; // check exited status after stop signal
+    check_status_exited(Arc::clone(&status_receiver), name).await; // check exited status after stop signal
 
     let stdout_file = "/tmp/taskmaster_tests_interrupt.stdout";
     let stderr_file = "/tmp/taskmaster_tests_interrupt.stderr";
