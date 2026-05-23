@@ -96,14 +96,13 @@ impl Routine {
 
     async fn start_process(&mut self, process_id: String, program_config: Arc<ProgramConfig>) {
         match self.processes.lock().await.entry(process_id.clone()) {
-            hash_map::Entry::Occupied(mut entry) => match entry.get().handle {
-                Some(_) => {}
-                None => {
+            hash_map::Entry::Occupied(mut entry) => {
+                if !entry.get().is_async_task_running() {
                     *entry.get_mut() = self
                         .start_process_handler_routine(program_config, process_id)
                         .await
                 }
-            },
+            }
             hash_map::Entry::Vacant(entry) => {
                 entry.insert(
                     self.start_process_handler_routine(program_config, process_id)
@@ -126,14 +125,8 @@ impl Routine {
         )
         .await
         {
-            Ok(handle) => Process {
-                handle: Some(handle),
-                status: Status::Starting,
-            },
-            Err(err) => Process {
-                handle: None,
-                status: Status::FailedToSpawnRoutine(err),
-            },
+            Ok(handle) => Process::new(Some(handle), Status::Starting),
+            Err(err) => Process::new(None, Status::FailedToSpawnRoutine(err)),
         }
     }
 
@@ -264,10 +257,7 @@ impl Routine {
 
     async fn stop_all_processes(&mut self) {
         for (_, process) in self.processes.lock().await.iter_mut() {
-            match process.status {
-                Status::Starting | Status::Running => process.stop().await,
-                _ => {} //routine already stopped (crashed or exited) (do nothing)
-            }
+            process.stop().await;
         }
     }
 
