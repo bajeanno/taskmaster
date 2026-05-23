@@ -7,7 +7,7 @@ async fn check_status(
     status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>,
     process_name: String,
 ) {
-    let nominative_status = status_receiver.lock().await.recv().await.unwrap().clone();
+    let nominative_status = status_receiver.lock().await.recv().await.unwrap();
     assert_eq!(
         nominative_status.process_name, process_name,
         "process name doesn't match in nominative status, while expecting for Status::Starting"
@@ -17,7 +17,7 @@ async fn check_status(
         "expected status::starting, got {:?}",
         nominative_status.status
     );
-    let nominative_status = status_receiver.lock().await.recv().await.unwrap().clone();
+    let nominative_status = status_receiver.lock().await.recv().await.unwrap();
     assert_eq!(
         nominative_status.process_name, process_name,
         "process name doesn't match in nominative status, while expecting for Status::Running"
@@ -33,7 +33,7 @@ async fn check_status_exited(
     status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>,
     process_name: &str,
 ) {
-    let nominative_status = status_receiver.lock().await.recv().await.unwrap().clone();
+    let nominative_status = status_receiver.lock().await.recv().await.unwrap();
     assert_eq!(nominative_status.process_name, process_name);
     assert!(
         matches!(nominative_status.status, Status::Exited(_)),
@@ -101,15 +101,21 @@ async fn create_task() {
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, log_receiver) = mpsc::unbounded_channel();
     let name = format!("{}-0", program.name());
-    let routine_handle = Routine::spawn(Arc::new(program), status_sender, log_sender, name.clone())
-        .await
-        .expect("failed to spawn tokio::task");
+    let routine_handle = Routine::spawn(
+        Arc::new(program),
+        status_sender,
+        log_sender,
+        name.clone(),
+        0,
+    )
+    .await
+    .expect("failed to spawn tokio::task");
     let log_checker_handle = tokio::spawn(check_realtime_output(log_receiver));
     let status_receiver = Arc::new(Mutex::new(status_receiver));
     let status_checker_handle =
         tokio::spawn(check_status(Arc::clone(&status_receiver), name.clone()));
 
-    routine_handle.wait_for_routine_to_finish().await;
+    routine_handle.join().await;
     log_checker_handle
         .await
         .expect("failed to join status handle");
@@ -188,15 +194,16 @@ async fn create_task_then_interrupt() {
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, _) = mpsc::unbounded_channel();
     let name = format!("{}-0", config.name());
-    let routine_handle = Routine::spawn(Arc::new(config), status_sender, log_sender, name.clone())
-        .await
-        .expect("failed to spawn tokio::task");
+    let routine_handle =
+        Routine::spawn(Arc::new(config), status_sender, log_sender, name.clone(), 0)
+            .await
+            .expect("failed to spawn tokio::task");
     let status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>> =
         Arc::new(Mutex::new(status_receiver));
     let handle2 = tokio::spawn(check_status(Arc::clone(&status_receiver), name.clone()));
 
     handle2.await.expect("failed to join status handle"); // wait for running status to send stop signal
-    routine_handle.join().await;
+    routine_handle.stop_and_join().await;
     check_status_exited(Arc::clone(&status_receiver), &name).await; // check exited status after stop signal
 
     let stdout_file = "/tmp/taskmaster_tests_interrupt.stdout";

@@ -5,8 +5,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::process_handler::RoutineSpawnError;
 
 #[allow(dead_code)] //TODO: remove that
-#[derive(Debug)]
-#[cfg_attr(test, derive(Clone))]
+#[derive(Debug, Clone)]
 pub struct NominativeStatus {
     pub process_name: String,
     pub status: Status,
@@ -18,15 +17,16 @@ pub struct NominativeStatus {
 pub enum Status {
     Starting,
     Running,
-    ErrorDuringStartup { exit_code: u8 },
     FailedToStartProcess(String),
+    ErrorDuringStartup(ExitStatus),
     Exited(ExitStatus),
     FailedToSpawnRoutine(RoutineSpawnError),
+    NotRestarting { process_generation: u32 },
 }
 
 impl Status {
     pub fn is_running(&self) -> bool {
-        matches!(self, Status::Running | Status::Starting)
+        matches!(self, Status::Starting | Status::Running)
     }
 }
 

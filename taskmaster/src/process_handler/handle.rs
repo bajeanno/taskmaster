@@ -1,5 +1,5 @@
 use crate::process_handler::routine::KillCommandSender;
-use tokio::task::JoinHandle as TokioJoinHandle;
+use tokio::{task::JoinHandle as TokioJoinHandle};
 
 type JoinHandle = TokioJoinHandle<()>;
 
@@ -21,7 +21,7 @@ impl Handle {
         }
     }
 
-    pub async fn join(self) {
+    pub async fn stop_and_join(self) {
         let result = self.kill_command_sender.send(()).await;
         let join_handle_result = self.join_handle.await;
 
@@ -29,8 +29,7 @@ impl Handle {
         join_handle_result.expect("failed to join handle");
     }
 
-    #[cfg(test)]
-    pub async fn wait_for_routine_to_finish(self) {
+    pub async fn join(self) {
         self.join_handle.await.expect("failed to join handle");
     }
 }

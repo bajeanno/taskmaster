@@ -100,14 +100,20 @@ impl Routine {
         match self.processes.lock().await.entry(process_id.clone()) {
             hash_map::Entry::Occupied(mut entry) => {
                 if !entry.get().is_async_task_running() {
+                    let process_generation = entry.get().process_generation().wrapping_add(1);
+
                     *entry.get_mut() = self
-                        .start_process_handler_routine(program_config, process_id)
+                        .start_process_handler_routine(
+                            program_config,
+                            process_id,
+                            process_generation,
+                        )
                         .await
                 }
             }
             hash_map::Entry::Vacant(entry) => {
                 entry.insert(
-                    self.start_process_handler_routine(program_config, process_id)
+                    self.start_process_handler_routine(program_config, process_id, 0)
                         .await,
                 );
             }
@@ -118,17 +124,19 @@ impl Routine {
         &self,
         program_config: Arc<ProgramConfig>,
         process_id: String,
+        process_generation: u32,
     ) -> Process {
         match process_handler::Routine::spawn(
             program_config,
             self.status_sender.clone(),
             self.log_sender.clone(),
             process_id,
+            process_generation,
         )
         .await
         {
-            Ok(handle) => Process::new(Some(handle), Status::Starting),
-            Err(err) => Process::new(None, Status::FailedToSpawnRoutine(err)),
+            Ok(handle) => Process::new(Some(handle), Status::Starting, process_generation),
+            Err(err) => Process::new(None, Status::FailedToSpawnRoutine(err), process_generation),
         }
     }
 
@@ -136,10 +144,16 @@ impl Routine {
         mut status_receiver: StatusReceiver,
         process_hashmap: Arc<Mutex<HashMap<String, Process>>>,
     ) {
-        while let Some(status) = status_receiver.recv().await {
+        while let Some(nominative_status) = status_receiver.recv().await {
             let mut map = process_hashmap.lock().await;
-            if let Some(process) = map.get_mut(&status.process_name) {
-                process.status = status.status;
+            if let Some(process) = map.get_mut(&nominative_status.process_name) {
+                if let Status::NotRestarting { process_generation } = nominative_status.status
+                    && process.process_generation() == process_generation
+                {
+                    process.join_if_running().await;
+                }
+
+                process.status = nominative_status.status;
             }
         }
     }
@@ -189,7 +203,7 @@ impl Routine {
                             .expect("Receiver should never be dropped")
                     } else {
                         sender
-                            .send(Err(super::ServerCommandError::NoSuchTask(program_name)))
+                            .send(Err(super::ServerCommandError::NoSuchProgram(program_name)))
                             .expect("Receiver should never be dropped")
                     };
                 }
@@ -203,7 +217,7 @@ impl Routine {
                             .expect("Receiver should never be dropped")
                     } else {
                         sender
-                            .send(Err(super::ServerCommandError::NoSuchTask(program_name)))
+                            .send(Err(super::ServerCommandError::NoSuchProgram(program_name)))
                             .expect("Receiver should never be dropped")
                     };
                 }
@@ -259,7 +273,7 @@ impl Routine {
 
     async fn stop_all_processes(&mut self) {
         for (_, process) in self.processes.lock().await.iter_mut() {
-            process.stop().await;
+            process.stop_and_join_if_running().await;
         }
     }
 
@@ -267,7 +281,7 @@ impl Routine {
         for (process_name, process) in self.processes.lock().await.iter_mut() {
             if process_name.starts_with(program_name) {
                 //TODO: change start_with call, invalid
-                process.stop().await;
+                process.stop_and_join_if_running().await;
             }
         }
     }

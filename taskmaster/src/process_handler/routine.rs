@@ -15,7 +15,7 @@ use tokio::{
     io::{AsyncBufRead, AsyncBufReadExt, BufReader, Error},
     process::{Child, ChildStderr, ChildStdout},
     sync::{Mutex, mpsc},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 #[derive(Clone, Debug)]
@@ -94,6 +94,7 @@ pub struct Routine {
     command: Command,
     process_name: String,
     kill_command_received: bool,
+    process_generation: u32,
 }
 
 #[derive(Error, Debug, Clone)]
@@ -111,6 +112,7 @@ impl Routine {
         status_sender: UnboundedSender<NominativeStatus>,
         log_sender: LogSender,
         process_name: String,
+        process_generation: u32,
     ) -> Result<Handle, RoutineSpawnError> {
         let (kill_command_sender, kill_command_receiver) = mpsc::channel(1);
         let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
@@ -141,9 +143,10 @@ impl Routine {
                 command,
                 process_name,
                 kill_command_received: false,
+                process_generation,
             }
             .routine(stdout_file, stderr_file)
-            .await;
+            .await
         });
         Ok(Handle::new(join_handle, kill_command_sender))
     }
@@ -154,15 +157,18 @@ impl Routine {
         stderr_file: Arc<Mutex<OutputFile>>,
     ) {
         loop {
-            let start_time = Instant::now();
             let status = self
                 .run_program(Arc::clone(&stdout_file), Arc::clone(&stderr_file))
                 .await;
 
-            let should_try_restart = self.should_try_restart(start_time, &status);
+            let should_try_restart = self.should_try_restart(&status);
 
             self.status_sender.send_new_status_to_task_manager(status);
             if self.kill_command_received || !should_try_restart {
+                self.status_sender
+                    .send_new_status_to_task_manager(Status::NotRestarting {
+                        process_generation: self.process_generation,
+                    });
                 break;
             }
         }
@@ -253,10 +259,9 @@ impl Routine {
     }
 
     fn kill_subprocess(child: &mut Child, stop_signal: &Signal) {
-        let Some(pid) = child.id() else {
-            return;
-        };
-        unsafe { kill(pid as i32, *stop_signal as i32) };
+        if let Some(pid) = child.id() {
+            unsafe { kill(pid as i32, *stop_signal as i32) };
+        }
     }
 
     async fn wait_for_child(
@@ -270,17 +275,15 @@ impl Routine {
 
                 // Wait for process to terminate or crash before start_time
                 exit_status = child.wait() => {
-                    return Status::ErrorDuringStartup {
-                        exit_code: exit_status
-                            .expect("Failed to get exit status")
-                            .code()
-                            .expect("Failed to get exit code") as u8
-                    };
+                    return Status::ErrorDuringStartup(
+                        exit_status.expect("Failed to get exit status"),
+                    );
                 }
             }
         }
 
         status_sender.send_new_status_to_task_manager(Status::Running);
+
         // Wait for process to terminate or crash
         Status::Exited(child.wait().await.expect("error waiting for child"))
     }
@@ -297,24 +300,19 @@ impl Routine {
     ///   - `config.auto_restart` is `false`: Return false (we don't want to restart)
     ///   - `config.auto_restart` is `unexpected` and the exit status is in `config.exitcodes`: Return false (we don't want to restart)
     ///   - otherwise return true (we want to restart)
-    ///
-    fn should_try_restart(&mut self, start_time: Instant, status: &Status) -> bool {
-        let started_properly = start_time.elapsed().as_secs() >= (*self.config.start_time()).into();
+    fn should_try_restart(&mut self, status: &Status) -> bool {
+        match status {
+            Status::ErrorDuringStartup(_) => self.start_attempts < *self.config.start_retries(),
 
-        if started_properly {
-            self.start_attempts = 0;
+            _ => {
+                self.start_attempts = 0;
 
-            match *self.config.auto_restart() {
-                AutoRestart::False => false,
-                AutoRestart::OnFailure => !self.is_expected_status(status),
-                AutoRestart::True => true,
+                match *self.config.auto_restart() {
+                    AutoRestart::False => false,
+                    AutoRestart::OnFailure => !self.is_expected_status(status),
+                    AutoRestart::True => true,
+                }
             }
-        } else {
-            if self.start_attempts >= *self.config.start_retries() {
-                return false;
-            }
-
-            true
         }
     }
 

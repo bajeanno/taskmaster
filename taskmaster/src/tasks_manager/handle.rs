@@ -12,14 +12,14 @@ pub struct Handle {
 
 #[allow(dead_code)] //TODO: Remove that
 impl Handle {
-    pub(super) fn new(command_sender: CommandSender, join_handle: JoinHandle) -> Handle {
+    pub fn new(command_sender: CommandSender, join_handle: JoinHandle) -> Handle {
         Handle {
             command_sender,
             join_handle,
         }
     }
 
-    pub(super) async fn send(&self, command: TaskManagerCommand) -> Result<(), ServerCommandError> {
+    pub async fn send(&self, command: TaskManagerCommand) -> Result<(), ServerCommandError> {
         let (sender, receiver) = oneshot::channel();
         self.command_sender
             .send((command, sender))
@@ -29,11 +29,10 @@ impl Handle {
             .expect("error while waiting for response from sub-routine")
     }
 
-    pub(super) async fn stop(self) {
-        let result = self.send(TaskManagerCommand::Exit).await;
-        let join_handle_result = self.join_handle.await;
-
-        result.expect("failed to send exit command to task manager");
-        join_handle_result.expect("error awaiting task manager");
+    pub async fn stop(self) {
+        self.send(TaskManagerCommand::Exit)
+            .await
+            .expect("Exit command failed");
+        self.join_handle.await.expect("error awaiting task manager");
     }
 }
