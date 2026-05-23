@@ -1,4 +1,4 @@
-use super::{Handle, NominativeStatus, Status, command};
+use super::{Handle, NominativeStatus, Status, StatusSender, command};
 use crate::config::program::{AutoRestart, ProgramConfig};
 use libc::signal::kill;
 use libc::unistd::{mode_t, umask};
@@ -9,6 +9,7 @@ use std::sync::{Arc, LazyLock};
 use thiserror::Error;
 use tokio::fs::OpenOptions;
 use tokio::process::Command;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::{fs::File, io::AsyncWriteExt};
 use tokio::{
     io::{AsyncBufRead, AsyncBufReadExt, BufReader, Error},
@@ -51,7 +52,6 @@ pub type LogReceiver = mpsc::UnboundedReceiver<Log>;
 pub type LogSender = mpsc::UnboundedSender<Log>;
 
 pub type StatusReceiver = mpsc::UnboundedReceiver<NominativeStatus>;
-pub type StatusSender = mpsc::UnboundedSender<NominativeStatus>;
 
 pub type KillCommandReceiver = mpsc::Receiver<()>;
 pub type KillCommandSender = mpsc::Sender<()>;
@@ -108,7 +108,7 @@ pub enum RoutineSpawnError {
 impl Routine {
     pub async fn spawn(
         config: Arc<ProgramConfig>,
-        status_sender: StatusSender,
+        status_sender: UnboundedSender<NominativeStatus>,
         log_sender: LogSender,
         process_name: String,
     ) -> Result<Handle, RoutineSpawnError> {
@@ -135,12 +135,12 @@ impl Routine {
             Self {
                 config,
                 log_sender,
-                status_sender,
+                status_sender: StatusSender::new(status_sender, process_name.clone()),
                 kill_command_receiver,
                 start_attempts: 0,
                 command,
-                kill_command_received: false,
                 process_name,
+                kill_command_received: false,
             }
             .routine(stdout_file, stderr_file)
             .await;
@@ -161,12 +161,7 @@ impl Routine {
 
             let should_try_restart = self.should_try_restart(start_time, &status);
 
-            Self::send_new_status_to_task_manager(
-                &mut self.status_sender,
-                status,
-                self.process_name.clone(),
-            );
-
+            self.status_sender.send_new_status_to_task_manager(status);
             if self.kill_command_received || !should_try_restart {
                 break;
             }
@@ -208,11 +203,8 @@ impl Routine {
 
         match child {
             Ok(child) => {
-                Self::send_new_status_to_task_manager(
-                    &mut self.status_sender,
-                    Status::Starting,
-                    self.process_name.clone(),
-                );
+                self.status_sender
+                    .send_new_status_to_task_manager(Status::Starting);
                 self.handle_running_child(child, stdout_file, stderr_file)
                     .await
             }
@@ -240,7 +232,6 @@ impl Routine {
                 &mut child,
                 *self.config.start_time(),
                 &mut self.status_sender,
-                self.process_name.clone(),
             ) => {
                 status
             }
@@ -272,7 +263,6 @@ impl Routine {
         child: &mut Child,
         start_time: u32,
         status_sender: &mut StatusSender,
-        process_name: String,
     ) -> Status {
         if start_time != 0 {
             tokio::select! {
@@ -290,7 +280,7 @@ impl Routine {
             }
         }
 
-        Self::send_new_status_to_task_manager(status_sender, Status::Running, process_name);
+        status_sender.send_new_status_to_task_manager(Status::Running);
         // Wait for process to terminate or crash
         Status::Exited(child.wait().await.expect("error waiting for child"))
     }
@@ -337,19 +327,6 @@ impl Routine {
         } else {
             false
         }
-    }
-
-    fn send_new_status_to_task_manager(
-        status_sender: &mut StatusSender,
-        status: Status,
-        process_name: String,
-    ) {
-        status_sender
-            .send(NominativeStatus {
-                process_name,
-                status,
-            })
-            .expect("Receiver was dropped");
     }
 
     /// Spawns the child and upgrades the start_attempts counter

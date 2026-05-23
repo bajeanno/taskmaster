@@ -5,12 +5,14 @@ use crate::CommandReceiver;
 use crate::process_handler::NominativeStatus;
 use crate::{
     config::ProgramConfig,
-    process_handler::{self, LogReceiver, LogSender, Status, StatusReceiver, StatusSender},
+    process_handler::{self, LogReceiver, LogSender, Status, StatusReceiver},
 };
-use std::collections::HashMap;
-use std::collections::hash_map;
+use std::collections::{HashMap, hash_map};
 use std::sync::Arc;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{
+    Mutex,
+    mpsc::{self, UnboundedSender},
+};
 
 // Mocking Client struct brought by the rpc-genie crate
 pub struct Client {}
@@ -37,7 +39,7 @@ pub struct Routine {
     processes: Arc<Mutex<HashMap<String, Process>>>,
     command_receiver: CommandReceiver,
     log_sender: LogSender,
-    status_sender: StatusSender,
+    status_sender: UnboundedSender<NominativeStatus>,
 }
 
 #[allow(dead_code)] //TODO: remove that
