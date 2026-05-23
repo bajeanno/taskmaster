@@ -11,10 +11,7 @@ impl Process {
     }
 
     pub(super) fn is_async_task_running(&self) -> bool {
-        match self.handle {
-            Some(_) => true,
-            None => false,
-        }
+        self.handle.is_some()
     }
 
     /// Stops a routine by sending a kill command.
