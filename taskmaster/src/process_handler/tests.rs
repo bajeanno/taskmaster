@@ -100,7 +100,7 @@ async fn create_task() {
 
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, log_receiver) = mpsc::unbounded_channel();
-    let name = program.name().to_owned() + "-0";
+    let name = format!("{}-0", program.name());
     let routine_handle = Routine::spawn(Arc::new(program), status_sender, log_sender, name.clone())
         .await
         .expect("failed to spawn tokio::task");
@@ -187,7 +187,7 @@ async fn create_task_then_interrupt() {
 
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, _) = mpsc::unbounded_channel();
-    let name = config.name().to_owned() + "_0";
+    let name = format!("{}-0", config.name());
     let routine_handle = Routine::spawn(Arc::new(config), status_sender, log_sender, name.clone())
         .await
         .expect("failed to spawn tokio::task");

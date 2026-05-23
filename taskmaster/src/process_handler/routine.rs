@@ -164,7 +164,7 @@ impl Routine {
             Self::send_new_status_to_task_manager(
                 &mut self.status_sender,
                 status,
-                self.config.name().clone(),
+                self.process_name.clone(),
             );
 
             if self.kill_command_received || !should_try_restart {
@@ -211,7 +211,7 @@ impl Routine {
                 Self::send_new_status_to_task_manager(
                     &mut self.status_sender,
                     Status::Starting,
-                    self.config.name().to_string(),
+                    self.process_name.clone(),
                 );
                 self.handle_running_child(child, stdout_file, stderr_file)
                     .await
