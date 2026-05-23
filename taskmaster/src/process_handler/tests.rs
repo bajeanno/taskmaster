@@ -3,20 +3,35 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
-async fn check_status(status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>) {
-    match status_receiver.lock().await.recv().await.unwrap().status {
-        Status::Starting => {}
-        other => panic!("Expected Status::Starting, got {other:?}"),
-    }
-    match status_receiver.lock().await.recv().await.unwrap().status {
-        Status::Running => {}
-        status => panic!("not expected {status:?}"),
-    }
+async fn check_status(
+    status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>,
+    process_name: String,
+) {
+    let nominative_status = status_receiver.lock().await.recv().await.unwrap().clone();
+    assert_eq!(
+        nominative_status.process_name, process_name,
+        "process name doesn't match in nominative status, while expecting for Status::Starting"
+    );
+    assert!(
+        matches!(nominative_status.status, Status::Starting),
+        "expected status::starting, got {:?}",
+        nominative_status.status
+    );
+    let nominative_status = status_receiver.lock().await.recv().await.unwrap().clone();
+    assert_eq!(
+        nominative_status.process_name, process_name,
+        "process name doesn't match in nominative status, while expecting for Status::Running"
+    );
+    assert!(
+        matches!(nominative_status.status, Status::Running),
+        "expected Status::Running, got {:?}",
+        nominative_status.status
+    );
 }
 
 async fn check_status_exited(
     status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>,
-    process_name: String,
+    process_name: &str,
 ) {
     let nominative_status = status_receiver.lock().await.recv().await.unwrap().clone();
     assert_eq!(nominative_status.process_name, process_name);
@@ -91,7 +106,8 @@ async fn create_task() {
         .expect("failed to spawn tokio::task");
     let log_checker_handle = tokio::spawn(check_realtime_output(log_receiver));
     let status_receiver = Arc::new(Mutex::new(status_receiver));
-    let status_checker_handle = tokio::spawn(check_status(Arc::clone(&status_receiver)));
+    let status_checker_handle =
+        tokio::spawn(check_status(Arc::clone(&status_receiver), name.clone()));
 
     routine_handle.wait_for_routine_to_finish().await;
     log_checker_handle
@@ -100,7 +116,7 @@ async fn create_task() {
     status_checker_handle
         .await
         .expect("failed to join status handle");
-    check_status_exited(Arc::clone(&status_receiver), name).await;
+    check_status_exited(Arc::clone(&status_receiver), &name).await;
 
     let stdout_file = "/tmp/taskmaster_tests.stdout";
     let stderr_file = "/tmp/taskmaster_tests.stderr";
@@ -177,11 +193,11 @@ async fn create_task_then_interrupt() {
         .expect("failed to spawn tokio::task");
     let status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>> =
         Arc::new(Mutex::new(status_receiver));
-    let handle2 = tokio::spawn(check_status(Arc::clone(&status_receiver)));
+    let handle2 = tokio::spawn(check_status(Arc::clone(&status_receiver), name.clone()));
 
     handle2.await.expect("failed to join status handle"); // wait for running status to send stop signal
     routine_handle.stop().await;
-    check_status_exited(Arc::clone(&status_receiver), name).await; // check exited status after stop signal
+    check_status_exited(Arc::clone(&status_receiver), &name).await; // check exited status after stop signal
 
     let stdout_file = "/tmp/taskmaster_tests_interrupt.stdout";
     let stderr_file = "/tmp/taskmaster_tests_interrupt.stderr";
