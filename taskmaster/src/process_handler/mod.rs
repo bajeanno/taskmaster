@@ -6,8 +6,11 @@ mod status;
 mod tests;
 
 pub use handle::Handle;
+
 #[allow(unused)]
-pub use routine::{Log, LogType, Routine};
-pub use status::Status;
+pub use routine::{
+    Log, LogReceiver, LogSender, LogType, Routine, RoutineSpawnError, StatusReceiver,
+};
+pub use status::{NominativeStatus, Status, StatusSender};
 #[allow(unused)]
 use std::process::Command;

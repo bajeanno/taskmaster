@@ -4,7 +4,5 @@ members = [
     "tmcli",
     "crates/daemonize",
     "crates/libc",
-    "crates/connection",
-    "crates/commands",
 ]
 resolver = "2"

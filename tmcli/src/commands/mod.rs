@@ -11,7 +11,7 @@ use thiserror::Error;
 use crate::{commands::placeholder::PlaceHolderError, session::Session};
 
 #[derive(Error, Debug)]
-#[allow(dead_code)]
+#[allow(dead_code)] //TODO: Remove that
 pub enum CommandExecutionError {
     #[error("No such program: `{0}`")]
     NoSuchProgram(String),

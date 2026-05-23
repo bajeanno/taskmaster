@@ -1,5 +1,5 @@
-use super::{Handle, Status, command};
-use crate::config::program::{AutoRestart, Program};
+use super::{Handle, NominativeStatus, Status, StatusSender, command};
+use crate::config::program::{AutoRestart, ProgramConfig};
 use libc::signal::kill;
 use libc::unistd::{mode_t, umask};
 use signal::Signal;
@@ -7,15 +7,15 @@ use std::panic;
 use std::process::Stdio;
 use std::sync::{Arc, LazyLock};
 use thiserror::Error;
-use tokio::io::AsyncBufRead;
+use tokio::fs::OpenOptions;
 use tokio::process::Command;
-use tokio::sync::oneshot;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::{fs::File, io::AsyncWriteExt};
 use tokio::{
-    io::{AsyncBufReadExt, BufReader, Error},
+    io::{AsyncBufRead, AsyncBufReadExt, BufReader, Error},
     process::{Child, ChildStderr, ChildStdout},
     sync::{Mutex, mpsc},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 #[derive(Clone, Debug)]
@@ -27,7 +27,7 @@ pub enum LogType {
 #[derive(Clone, Debug)]
 pub struct Log {
     pub message: String,
-    pub program_name: String,
+    pub process_name: String,
     pub log_type: LogType,
 }
 
@@ -36,24 +36,25 @@ impl Log {
         match output_file {
             OutputFile::Stdout(_) => Log {
                 message: String::from_utf8_lossy(buffer).to_string(),
-                program_name: name.to_string(),
+                process_name: name.to_string(),
                 log_type: LogType::Stdout,
             },
             OutputFile::Stderr(_) => Log {
                 message: String::from_utf8_lossy(buffer).to_string(),
-                program_name: name.to_string(),
+                process_name: name.to_string(),
                 log_type: LogType::Stderr,
             },
         }
     }
 }
 
-pub type StatusReceiver = mpsc::UnboundedReceiver<Status>;
 pub type LogReceiver = mpsc::UnboundedReceiver<Log>;
-pub type StatusSender = mpsc::UnboundedSender<Status>;
 pub type LogSender = mpsc::UnboundedSender<Log>;
-pub type KillCommandReceiver = mpsc::Receiver<oneshot::Sender<ProcessState>>;
-pub type KillCommandSender = mpsc::Sender<oneshot::Sender<ProcessState>>;
+
+pub type StatusReceiver = mpsc::UnboundedReceiver<NominativeStatus>;
+
+pub type KillCommandReceiver = mpsc::Receiver<()>;
+pub type KillCommandSender = mpsc::Sender<()>;
 
 pub struct Outputs {
     stdout: BufReader<ChildStdout>,
@@ -88,74 +89,66 @@ pub struct Routine {
     status_sender: StatusSender,
     log_sender: LogSender,
     kill_command_receiver: KillCommandReceiver,
-    config: Program,
+    config: Arc<ProgramConfig>,
     start_attempts: u32,
     command: Command,
+    process_name: String,
+    kill_command_received: bool,
+    process_generation: u32,
 }
 
-//TODO: check error context once the task manager is done
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum RoutineSpawnError {
-    #[error("Error creating stdout file for program {program_name}: {error}")]
-    OpeningStdoutFile {
-        error: std::io::Error,
-        program_name: String,
-    },
-    #[error("Error creating stderr file for program {program_name}: {error}")]
-    OpeningStderrFile {
-        error: std::io::Error,
-        program_name: String,
-    },
+    #[error("Failed to open stdout file: {0}")]
+    OpeningStdoutFile(String),
+    #[error("Failed to open stderr file: {0}")]
+    OpeningStderrFile(String),
 }
 
-#[derive(Debug)]
-pub enum ProcessState {
-    Running,
-    Stopped,
-}
-
-#[allow(dead_code)] //TODO: Remove that
 impl Routine {
-    pub async fn spawn(config: Program) -> Result<Handle, RoutineSpawnError> {
-        let (status_sender, status_receiver) = mpsc::unbounded_channel();
-        let (log_sender, log_receiver) = mpsc::unbounded_channel();
+    pub async fn spawn(
+        config: Arc<ProgramConfig>,
+        status_sender: UnboundedSender<NominativeStatus>,
+        log_sender: LogSender,
+        process_name: String,
+        process_generation: u32,
+    ) -> Result<Handle, RoutineSpawnError> {
         let (kill_command_sender, kill_command_receiver) = mpsc::channel(1);
         let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
-            File::create(config.stdout()).await.map_err(|error| {
-                RoutineSpawnError::OpeningStdoutFile {
-                    program_name: config.name().to_string(),
-                    error,
-                }
-            })?,
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(config.stdout())
+                .await
+                .map_err(|err| RoutineSpawnError::OpeningStdoutFile(err.to_string()))?,
         )));
         let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(
-            File::create(config.stderr()).await.map_err(|error| {
-                RoutineSpawnError::OpeningStderrFile {
-                    program_name: config.name().to_string(),
-                    error,
-                }
-            })?,
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(config.stderr())
+                .await
+                .map_err(|err| RoutineSpawnError::OpeningStderrFile(err.to_string()))?,
         )));
         let command = command::create_command(&config);
 
         let join_handle = tokio::spawn(async move {
             Self {
                 config,
-                status_sender,
                 log_sender,
+                status_sender: StatusSender::new(status_sender, process_name.clone()),
                 kill_command_receiver,
                 start_attempts: 0,
                 command,
+                process_name,
+                kill_command_received: false,
+                process_generation,
             }
             .routine(stdout_file, stderr_file)
-            .await;
+            .await
         });
-        Ok(Handle::new(
-            join_handle,
-            status_receiver,
-            log_receiver,
-            kill_command_sender,
-        ))
+        Ok(Handle::new(join_handle, kill_command_sender))
     }
 
     async fn routine(
@@ -164,17 +157,18 @@ impl Routine {
         stderr_file: Arc<Mutex<OutputFile>>,
     ) {
         loop {
-            let start_time = Instant::now();
-
             let status = self
                 .run_program(Arc::clone(&stdout_file), Arc::clone(&stderr_file))
                 .await;
 
-            let should_try_restart = self.should_try_restart(start_time, &status);
+            let should_try_restart = self.should_try_restart(&status);
 
-            Self::send_new_status_to_task_manager(&mut self.status_sender, status);
-
-            if !should_try_restart {
+            self.status_sender.send_new_status_to_task_manager(status);
+            if self.kill_command_received || !should_try_restart {
+                self.status_sender
+                    .send_new_status_to_task_manager(Status::NotRestarting {
+                        process_generation: self.process_generation,
+                    });
                 break;
             }
         }
@@ -215,11 +209,12 @@ impl Routine {
 
         match child {
             Ok(child) => {
-                Self::send_new_status_to_task_manager(&mut self.status_sender, Status::Starting);
+                self.status_sender
+                    .send_new_status_to_task_manager(Status::Starting);
                 self.handle_running_child(child, stdout_file, stderr_file)
                     .await
             }
-            Err(err) => Status::FailedToSpawn(err),
+            Err(err) => Status::FailedToStartProcess(err.to_string()),
         }
     }
 
@@ -235,21 +230,21 @@ impl Routine {
             stdout_file,
             stderr_file,
             self.log_sender.clone(),
-            self.config.name().clone(),
+            self.process_name.clone(),
         ));
 
         let status = tokio::select! {
             status = Self::wait_for_child(
                 &mut child,
                 *self.config.start_time(),
-                &mut self.status_sender
+                &mut self.status_sender,
             ) => {
                 status
             }
 
-            sender = self.kill_command_receiver.recv() => {
+            _ = self.kill_command_receiver.recv() => {
+                self.kill_command_received = true;
                 Self::kill_subprocess(
-                    sender.expect("receiver was dropped"),
                     &mut child,
                     self.config.stop_signal()
                 );
@@ -263,22 +258,10 @@ impl Routine {
         status
     }
 
-    fn kill_subprocess(
-        sender: oneshot::Sender<ProcessState>,
-        child: &mut Child,
-        stop_signal: &Signal,
-    ) {
-        let Some(pid) = child.id() else {
-            sender
-                .send(ProcessState::Stopped)
-                .expect("receiver was dropped");
-            return;
-        };
-
-        unsafe { kill(pid as i32, *stop_signal as i32) };
-        sender
-            .send(ProcessState::Running)
-            .expect("receiver was dropped");
+    fn kill_subprocess(child: &mut Child, stop_signal: &Signal) {
+        if let Some(pid) = child.id() {
+            unsafe { kill(pid as i32, *stop_signal as i32) };
+        }
     }
 
     async fn wait_for_child(
@@ -292,17 +275,15 @@ impl Routine {
 
                 // Wait for process to terminate or crash before start_time
                 exit_status = child.wait() => {
-                    return Status::ErrorDuringStartup {
-                        exit_code: exit_status
-                            .expect("Failed to get exit status")
-                            .code()
-                            .expect("Failed to get exit code") as u8
-                    };
+                    return Status::ErrorDuringStartup(
+                        exit_status.expect("Failed to get exit status"),
+                    );
                 }
             }
         }
 
-        Self::send_new_status_to_task_manager(status_sender, Status::Running);
+        status_sender.send_new_status_to_task_manager(Status::Running);
+
         // Wait for process to terminate or crash
         Status::Exited(child.wait().await.expect("error waiting for child"))
     }
@@ -319,24 +300,19 @@ impl Routine {
     ///   - `config.auto_restart` is `false`: Return false (we don't want to restart)
     ///   - `config.auto_restart` is `unexpected` and the exit status is in `config.exitcodes`: Return false (we don't want to restart)
     ///   - otherwise return true (we want to restart)
-    ///
-    fn should_try_restart(&mut self, start_time: Instant, status: &Status) -> bool {
-        let started_properly = start_time.elapsed().as_secs() >= (*self.config.start_time()).into();
+    fn should_try_restart(&mut self, status: &Status) -> bool {
+        match status {
+            Status::ErrorDuringStartup(_) => self.start_attempts < *self.config.start_retries(),
 
-        if started_properly {
-            self.start_attempts = 0;
+            _ => {
+                self.start_attempts = 0;
 
-            match *self.config.auto_restart() {
-                AutoRestart::False => false,
-                AutoRestart::OnFailure => !self.is_expected_status(status),
-                AutoRestart::True => true,
+                match *self.config.auto_restart() {
+                    AutoRestart::False => false,
+                    AutoRestart::OnFailure => !self.is_expected_status(status),
+                    AutoRestart::True => true,
+                }
             }
-        } else {
-            if self.start_attempts >= *self.config.start_retries() {
-                return false;
-            }
-
-            true
         }
     }
 
@@ -349,10 +325,6 @@ impl Routine {
         } else {
             false
         }
-    }
-
-    fn send_new_status_to_task_manager(status_sender: &mut StatusSender, status: Status) {
-        status_sender.send(status).expect("Receiver was dropped");
     }
 
     /// Spawns the child and upgrades the start_attempts counter
@@ -390,7 +362,7 @@ impl Routine {
         stdout_file: Arc<Mutex<OutputFile>>,
         stderr_file: Arc<Mutex<OutputFile>>,
         log_sender: LogSender,
-        program_name: String,
+        process_name: String,
     ) {
         let stdout = outputs.stdout;
         let stderr = outputs.stderr;
@@ -403,13 +375,13 @@ impl Routine {
                 stdout,
                 log_sender.clone(),
                 &mut stdout_file_mutex_guard,
-                &program_name
+                &process_name
             ),
             listen_and_log(
                 stderr,
                 log_sender,
                 &mut stderr_file_mutex_guard,
-                &program_name
+                &process_name
             ),
         );
     }
@@ -435,25 +407,25 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputF
     match (output, &log.log_type) {
         (OutputFile::Stdout(file), LogType::Stdout) => {
             let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
-                eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.program_name);
+                eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.process_name);
             });
         }
         (OutputFile::Stderr(file), LogType::Stderr) => {
             let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
-                eprintln!("Taskmaster error: {}: Failed to write process stderr output to log file: {err}", log.program_name);
+                eprintln!("Taskmaster error: {}: Failed to write process stderr output to log file: {err}", log.process_name);
             });
         }
         _ => panic!(
             "log function was called with different values for output and log_type, expected same values"
         ),
     }
-    let program_name = log.program_name.clone();
+    let process_name = log.process_name.clone();
     log_sender
         .send(log)
         .inspect_err(|_| {
             eprintln!(
                 "Taskmaster error: {}: Log receiver was dropped",
-                program_name
+                process_name
             )
         })
         .unwrap()

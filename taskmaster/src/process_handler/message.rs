@@ -2,7 +2,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::process_handler::Status;
 
-#[allow(dead_code)]
+#[allow(dead_code)] //TODO: Remove that
 pub enum Message {
     Stop,
     Restart,

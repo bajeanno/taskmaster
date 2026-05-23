@@ -29,7 +29,7 @@ pub struct Command {
 #[derive(Debug, Getters, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
 #[serde(deny_unknown_fields)]
-pub struct Program {
+pub struct ProgramConfig {
     #[serde(skip)]
     name: String,
 
@@ -141,7 +141,7 @@ fn default_umask() -> mode_t {
     0o666
 }
 
-impl Display for Program {
+impl Display for ProgramConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -157,7 +157,7 @@ impl Display for Command {
     }
 }
 
-impl Program {
+impl ProgramConfig {
     pub(super) fn name_mut(&mut self) -> &mut String {
         &mut self.name
     }
@@ -191,7 +191,7 @@ impl FromStr for Command {
 #[cfg(test)]
 mod tests {
     use crate::config::program::{AutoRestart, CommandError};
-    use crate::config::{Config, program::Command, program::Program};
+    use crate::config::{Config, program::Command, program::ProgramConfig};
     use libc::unistd::mode_t;
     use signal::Signal;
     use std::collections::HashMap;
@@ -253,12 +253,12 @@ mod tests {
             })
         }
 
-        fn build(self) -> Result<Program, CommandError> {
+        fn build(self) -> Result<ProgramConfig, CommandError> {
             if self.command.exec.is_empty() {
                 return Err(CommandError::EmptyCommand);
             }
 
-            let program = Program {
+            let program = ProgramConfig {
                 name: self.name,
                 cmd: self.command,
                 pids: vec![],
@@ -282,7 +282,7 @@ mod tests {
         }
     }
 
-    fn assert_config_parses_to(yaml_content: &str, expected_program: Program) {
+    fn assert_config_parses_to(yaml_content: &str, expected_program: ProgramConfig) {
         let expected_config = Config {
             programs: vec![expected_program],
         };

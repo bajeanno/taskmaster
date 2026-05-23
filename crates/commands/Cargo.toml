@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 serde = { version = "1.0.217", features = ["derive"] }
+tokio = "1.51.1"
