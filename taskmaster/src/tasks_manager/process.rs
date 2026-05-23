@@ -20,7 +20,7 @@ impl Process {
     /// Stops a routine by sending a kill command.
     pub(super) async fn stop(&mut self) {
         if let Some(handle) = self.handle.take() {
-            handle.stop().await;
+            handle.join().await;
         }
     }
 }

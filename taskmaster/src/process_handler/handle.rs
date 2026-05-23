@@ -21,7 +21,7 @@ impl Handle {
         }
     }
 
-    pub async fn stop(self) {
+    pub async fn join(self) {
         let result = self.kill_command_sender.send(()).await;
         let join_handle_result = self.join_handle.await;
 

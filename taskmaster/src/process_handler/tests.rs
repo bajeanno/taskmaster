@@ -196,7 +196,7 @@ async fn create_task_then_interrupt() {
     let handle2 = tokio::spawn(check_status(Arc::clone(&status_receiver), name.clone()));
 
     handle2.await.expect("failed to join status handle"); // wait for running status to send stop signal
-    routine_handle.stop().await;
+    routine_handle.join().await;
     check_status_exited(Arc::clone(&status_receiver), &name).await; // check exited status after stop signal
 
     let stdout_file = "/tmp/taskmaster_tests_interrupt.stdout";
