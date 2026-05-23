@@ -7,8 +7,9 @@ use crate::{
     config::ProgramConfig,
     process_handler::{self, LogReceiver, LogSender, Status, StatusReceiver, StatusSender},
 };
+use std::collections::HashMap;
 use std::collections::hash_map;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::{Mutex, mpsc};
 
 // Mocking Client struct brought by the rpc-genie crate
@@ -31,7 +32,7 @@ impl SubscribedClients {
 
 #[allow(dead_code)] //TODO: Remove that
 pub struct Routine {
-    program_configs: Vec<Arc<ProgramConfig>>,
+    program_configs: Arc<Vec<Arc<ProgramConfig>>>,
     clients: ClientMap,
     processes: Arc<Mutex<HashMap<String, Process>>>,
     command_receiver: CommandReceiver,
@@ -48,7 +49,7 @@ impl Routine {
 
         let handle = tokio::spawn(async move {
             Self {
-                program_configs,
+                program_configs: program_configs.into(),
                 processes: Arc::new(Mutex::new(HashMap::new())),
                 clients: Arc::new(Mutex::new(HashMap::new())),
                 command_receiver,
@@ -77,18 +78,18 @@ impl Routine {
     }
 
     async fn start_programs(&mut self) {
-        for program_config in self.program_configs.clone().iter() {
-            self.start_program(program_config.clone()).await;
+        for program_config in Arc::clone(&self.program_configs).iter() {
+            self.start_program(&program_config).await;
         }
     }
 
-    async fn start_program(&mut self, program_config: Arc<ProgramConfig>) {
+    async fn start_program(&mut self, program_config: &Arc<ProgramConfig>) {
         let num_procs = *program_config.num_procs();
 
         for id in 0..num_procs {
             let program_name = program_config.name();
             let process_id = format!("{program_name}-{id}");
-            self.start_process(process_id, Arc::clone(&program_config))
+            self.start_process(process_id, Arc::clone(program_config))
                 .await;
         }
     }
@@ -187,7 +188,7 @@ impl Routine {
 
                 TaskManagerCommand::StartProgram { program_name } => {
                     if let Some(program_config) = self.get_program_config(program_name.as_str()) {
-                        self.start_program(program_config).await;
+                        self.start_program(&program_config).await;
                         sender
                             .send(Ok(()))
                             .expect("Receiver should never be dropped")
@@ -201,7 +202,7 @@ impl Routine {
                 TaskManagerCommand::RestartProgram { program_name } => {
                     if let Some(program_config) = self.get_program_config(program_name.as_str()) {
                         self.stop_program(program_name.as_str()).await;
-                        self.start_program(program_config).await;
+                        self.start_program(&program_config).await;
                         sender
                             .send(Ok(()))
                             .expect("Receiver should never be dropped")
@@ -272,7 +273,8 @@ impl Routine {
 
     async fn stop_program(&mut self, program_name: &str) {
         for (process_name, process) in self.processes.lock().await.iter_mut() {
-    if process_name.starts_with(program_name) { //TODO: change start_with call, invalid
+            if process_name.starts_with(program_name) {
+                //TODO: change start_with call, invalid
                 process.stop().await;
             }
         }
@@ -281,7 +283,7 @@ impl Routine {
     fn get_program_config(&self, program_name: &str) -> Option<Arc<ProgramConfig>> {
         for program in self.program_configs.iter() {
             if program.name() == program_name {
-                return Some(program.clone());
+                return Some(Arc::clone(program));
             }
         }
         None
