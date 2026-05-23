@@ -2,7 +2,7 @@
 fn create_tasks() -> String {
     r#"programs:
     taskmaster_test_task:
-        cmd: "cat"
+        cmd: "sleep 100000"
         numprocs: 2
         umask: 022
         workingdir: /tmp
