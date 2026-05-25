@@ -79,7 +79,6 @@ impl Outputs {
         }
     }
 }
-
 enum OutputFile {
     Stdout(File),
     Stderr(File),

@@ -41,8 +41,12 @@ pub struct ProgramConfig {
 
     pub cmd: Command,
 
-    #[serde(rename = "numprocs", default = "default_num_procs")]
-    num_procs: u32,
+    #[serde(
+        rename = "numprocs",
+        default = "default_num_procs",
+        deserialize_with = "deserialize_num_procs"
+    )]
+    num_procs: u8,
 
     #[serde(rename = "workingdir", default = "default_work_dir")]
     working_dir: String,
@@ -117,6 +121,21 @@ where
     }
 }
 
+fn deserialize_num_procs<'de, D>(deserializer: D) -> Result<u8, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let num_procs = u8::deserialize(deserializer)
+        .map_err(|err| serde::de::Error::custom(format!("Failed to parse numprocs: {err}")))?;
+    if num_procs == 0 {
+        Err(serde::de::Error::custom(
+            "Failed to parse numprocs: cannot be 0".to_string(),
+        ))
+    } else {
+        Ok(num_procs)
+    }
+}
+
 fn default_output() -> String {
     "/dev/null".to_string()
 }
@@ -125,7 +144,7 @@ fn default_signal() -> Signal {
     Signal::SIGINT
 }
 
-fn default_num_procs() -> u32 {
+fn default_num_procs() -> u8 {
     1
 }
 
@@ -217,7 +236,7 @@ mod tests {
         pub name: String,
         pub umask: mode_t,
         pub exit_codes: Vec<u8>,
-        pub num_procs: u32,
+        pub num_procs: u8,
         pub working_dir: String,
         pub auto_restart: AutoRestart,
         pub auto_start: bool,

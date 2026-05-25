@@ -1,5 +1,6 @@
 use crate::process_handler::{self, Status};
 
+#[derive(Default)]
 pub struct Process {
     handle: Option<process_handler::Handle>,
     pub status: Status,

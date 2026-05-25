@@ -24,6 +24,14 @@ pub enum Status {
     NotRestarting { process_generation: u32 },
 }
 
+impl Default for Status {
+    fn default() -> Self {
+        Self::NotRestarting {
+            process_generation: 0,
+        }
+    }
+}
+
 impl Status {
     pub fn is_running(&self) -> bool {
         matches!(self, Status::Starting | Status::Running)

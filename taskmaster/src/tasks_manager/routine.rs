@@ -36,7 +36,7 @@ impl SubscribedClients {
 pub struct Routine {
     program_configs: Arc<Vec<Arc<ProgramConfig>>>,
     clients: ClientMap,
-    processes: Arc<Mutex<HashMap<String, Process>>>,
+    processes: Arc<Mutex<HashMap<String, Vec<Process>>>>,
     command_receiver: CommandReceiver,
     log_sender: LogSender,
     status_sender: UnboundedSender<NominativeStatus>,
@@ -86,36 +86,39 @@ impl Routine {
     }
 
     async fn start_program(&mut self, program_config: &Arc<ProgramConfig>) {
-        let num_procs = *program_config.num_procs();
+        let num_procs: u8 = *program_config.num_procs();
 
         for id in 0..num_procs {
-            let program_name = program_config.name();
-            let process_id = format!("{program_name}-{id}");
-            self.start_process(process_id, Arc::clone(program_config))
-                .await;
+            self.start_process(id as usize, Arc::clone(program_config)).await;
         }
     }
 
-    async fn start_process(&mut self, process_id: String, program_config: Arc<ProgramConfig>) {
-        match self.processes.lock().await.entry(process_id.clone()) {
-            hash_map::Entry::Occupied(mut entry) => {
-                if !entry.get().is_async_task_running() {
-                    let process_generation = entry.get().process_generation().wrapping_add(1);
+    async fn start_process(&mut self, process_id: usize, program_config: Arc<ProgramConfig>) {
+        let process_name = format!("{}-{}", program_config.name(), process_id);
 
-                    *entry.get_mut() = self
+        match self.processes.lock().await.entry(process_name.clone()) {
+            hash_map::Entry::Occupied(mut entry) => {
+                if !entry.get()[process_id].is_async_task_running() {
+                    let process_generation =
+                        entry.get()[process_id].process_generation().wrapping_add(1);
+
+                    (*entry.get_mut())[process_id] = self
                         .start_process_handler_routine(
                             program_config,
                             process_id,
                             process_generation,
                         )
-                        .await
+                        .await;
                 }
             }
             hash_map::Entry::Vacant(entry) => {
-                entry.insert(
-                    self.start_process_handler_routine(program_config, process_id, 0)
-                        .await,
-                );
+                let mut processes: Vec<Process> = (0..*program_config.num_procs())
+                    .map(|_| Process::default())
+                    .collect();
+                processes[process_id] = self
+                    .start_process_handler_routine(program_config, process_id, 0)
+                    .await;
+                entry.insert(processes);
             }
         };
     }
@@ -123,14 +126,16 @@ impl Routine {
     async fn start_process_handler_routine(
         &self,
         program_config: Arc<ProgramConfig>,
-        process_id: String,
+        process_id: usize,
         process_generation: u32,
     ) -> Process {
+        let process_name = format!("{}-{}", program_config.name(), process_id);
+
         match process_handler::Routine::spawn(
             program_config,
             self.status_sender.clone(),
             self.log_sender.clone(),
-            process_id,
+            process_name,
             process_generation,
         )
         .await
@@ -140,19 +145,30 @@ impl Routine {
         }
     }
 
+    fn split_process_name(mut process_name: String) -> Option<(String, usize)> {
+        let dash_index = process_name.rfind('-')?;
+        let tmp = process_name.split_off(dash_index);
+        let id: usize = tmp[1..].parse().ok()?;
+        let program_name = process_name;
+        Some((program_name, id))
+    }
+
     async fn listen_for_status(
         mut status_receiver: StatusReceiver,
-        process_hashmap: Arc<Mutex<HashMap<String, Process>>>,
+        process_hashmap: Arc<Mutex<HashMap<String, Vec<Process>>>>,
     ) {
         while let Some(nominative_status) = status_receiver.recv().await {
             let mut map = process_hashmap.lock().await;
-            if let Some(process) = map.get_mut(&nominative_status.process_name) {
+            let (program_name, id) =
+                Self::split_process_name(nominative_status.process_name.clone())
+                    .expect("Error: process name does not contain process id");
+            if let Some(processes) = map.get_mut(&program_name) {
+                let process = &mut processes[id];
                 if let Status::NotRestarting { process_generation } = nominative_status.status
                     && process.process_generation() == process_generation
                 {
                     process.join_if_running().await;
                 }
-
                 process.status = nominative_status.status;
             }
         }
@@ -180,9 +196,11 @@ impl Routine {
                         .lock()
                         .await
                         .iter()
-                        .map(|(name, process)| NominativeStatus {
-                            process_name: name.clone(),
-                            status: process.status.clone(),
+                        .flat_map(|(name, proceses)| {
+                            proceses.iter().map(|process| NominativeStatus {
+                                process_name: name.clone(),
+                                status: process.status.clone(),
+                            })
                         })
                         .collect();
 
@@ -272,17 +290,25 @@ impl Routine {
     }
 
     async fn stop_all_processes(&mut self) {
-        for (_, process) in self.processes.lock().await.iter_mut() {
+        let mut processes = self.processes.lock().await;
+
+        for process in processes
+            .iter_mut()
+            .flat_map(|(_, process_vec)| process_vec.iter_mut())
+        {
             process.stop_and_join_if_running().await;
         }
     }
 
     async fn stop_program(&mut self, program_name: &str) {
-        for (process_name, process) in self.processes.lock().await.iter_mut() {
-            if process_name.starts_with(program_name) {
-                //TODO: change start_with call, invalid
-                process.stop_and_join_if_running().await;
-            }
+        let mut processes = self.processes.lock().await;
+
+        for process in processes
+            .get_mut(program_name)
+            .iter_mut()
+            .flat_map(|process_vec| process_vec.iter_mut())
+        {
+            process.stop_and_join_if_running().await;
         }
     }
 
@@ -293,5 +319,19 @@ impl Routine {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::tasks_manager::routine::Routine;
+
+    #[test]
+    fn test_split_process_name() {
+        let process_name = "taskmaster_test_task-0".to_string();
+        assert_eq!(
+            Routine::split_process_name(process_name),
+            Some(("taskmaster_test_task".to_string(), 0))
+        );
     }
 }
