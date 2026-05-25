@@ -153,10 +153,10 @@ impl Routine {
 
     async fn listen_for_status(
         mut status_receiver: StatusReceiver,
-        process_hashmap: Arc<Mutex<HashMap<String, Vec<Process>>>>,
+        processes: Arc<Mutex<HashMap<String, Vec<Process>>>>,
     ) {
         while let Some(nominative_status) = status_receiver.recv().await {
-            let mut map = process_hashmap.lock().await;
+            let mut map = processes.lock().await;
             let (program_name, id) =
                 Self::split_process_name(nominative_status.process_name.clone())
                     .expect("Error: process name does not contain process id");
