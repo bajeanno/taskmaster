@@ -14,7 +14,7 @@ pub enum ServerCommandError {
 }
 
 pub enum TaskManagerCommand {
-    ListProcesses(oneshot::Sender<Vec<NominativeStatus>>),
+    ListProcesses(oneshot::Sender<Vec<Vec<NominativeStatus>>>),
     StartProgram {
         program_name: String,
     },

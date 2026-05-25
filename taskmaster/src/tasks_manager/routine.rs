@@ -189,16 +189,20 @@ impl Routine {
         while let Some((command, sender)) = self.command_receiver.recv().await {
             match command {
                 TaskManagerCommand::ListProcesses(list_sender) => {
-                    let vec: Vec<NominativeStatus> = self
+                    let vec = self
                         .processes
                         .lock()
                         .await
                         .iter()
-                        .flat_map(|(name, proceses)| {
-                            proceses.iter().map(|process| NominativeStatus {
-                                process_name: name.clone(),
-                                status: process.status.clone(),
-                            })
+                        .map(|(name, proceses)| {
+                            proceses
+                                .iter()
+                                .enumerate()
+                                .map(|(i, process)| NominativeStatus {
+                                    process_name: format!("{name}-{i}"),
+                                    status: process.status.clone(),
+                                })
+                                .collect()
                         })
                         .collect();
 
