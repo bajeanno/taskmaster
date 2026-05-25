@@ -140,7 +140,7 @@ impl Routine {
         )
         .await
         {
-            Ok(handle) => Process::new(Some(handle), Status::Starting, process_generation),
+            Ok(handle) => Process::new(Some(handle), Status::RoutineStarting, process_generation),
             Err(err) => Process::new(None, Status::FailedToSpawnRoutine(err), process_generation),
         }
     }
