@@ -12,16 +12,20 @@ pub struct NominativeStatus {
 }
 
 #[allow(dead_code)] //TODO: Remove that
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum Status {
+    #[default]
+    RoutineStarting,
     Starting,
     Running,
     FailedToStartProcess(String),
     ErrorDuringStartup(ExitStatus),
     Exited(ExitStatus),
     FailedToSpawnRoutine(RoutineSpawnError),
-    NotRestarting { process_generation: u32 },
+    NotRestarting {
+        process_generation: u32,
+    },
 }
 
 impl Status {
