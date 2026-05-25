@@ -88,7 +88,8 @@ impl Routine {
         let num_procs: u8 = *program_config.num_procs();
 
         for id in 0..num_procs {
-            self.start_process(id as usize, Arc::clone(program_config)).await;
+            self.start_process(id as usize, Arc::clone(program_config))
+                .await;
         }
     }
 
