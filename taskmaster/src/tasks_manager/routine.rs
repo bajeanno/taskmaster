@@ -105,7 +105,7 @@ impl Routine {
                     (*entry.get_mut())[process_id] = self
                         .start_process_handler_routine(
                             program_config,
-                            process_id,
+                            process_name,
                             process_generation,
                         )
                         .await;
@@ -116,7 +116,7 @@ impl Routine {
                     .map(|_| Process::default())
                     .collect();
                 processes[process_id] = self
-                    .start_process_handler_routine(program_config, process_id, 0)
+                    .start_process_handler_routine(program_config, process_name, 0)
                     .await;
                 entry.insert(processes);
             }
@@ -126,11 +126,9 @@ impl Routine {
     async fn start_process_handler_routine(
         &self,
         program_config: Arc<ProgramConfig>,
-        process_id: usize,
+        process_name: String,
         process_generation: u32,
     ) -> Process {
-        let process_name = format!("{}-{}", program_config.name(), process_id);
-
         match process_handler::Routine::spawn(
             program_config,
             self.status_sender.clone(),
