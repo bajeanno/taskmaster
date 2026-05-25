@@ -28,7 +28,6 @@ struct SubscribedClients;
 impl SubscribedClients {
     fn add(&self, _client: Client) {}
     fn remove(&self, _client: Client) {}
-
     fn for_each(&self, _callback: impl FnMut(&Client)) {}
 }
 
