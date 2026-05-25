@@ -156,11 +156,11 @@ impl Routine {
         processes: Arc<Mutex<HashMap<String, Vec<Process>>>>,
     ) {
         while let Some(nominative_status) = status_receiver.recv().await {
-            let mut map = processes.lock().await;
+            let mut processes = processes.lock().await;
             let (program_name, id) =
                 Self::split_process_name(nominative_status.process_name.clone())
                     .expect("Error: process name does not contain process id");
-            if let Some(processes) = map.get_mut(&program_name) {
+            if let Some(processes) = processes.get_mut(&program_name) {
                 let process = &mut processes[id];
                 if let Status::NotRestarting { process_generation } = nominative_status.status
                     && process.process_generation() == process_generation
