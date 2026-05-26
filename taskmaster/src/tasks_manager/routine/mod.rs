@@ -99,7 +99,12 @@ impl Routine {
     async fn start_process(&mut self, process_id: usize, program_config: Arc<ProgramConfig>) {
         let process_name = format!("{}-{}", program_config.name(), process_id);
 
-        match self.processes.lock().await.entry(program_config.name().clone()) {
+        match self
+            .processes
+            .lock()
+            .await
+            .entry(program_config.name().clone())
+        {
             hash_map::Entry::Occupied(mut entry) => {
                 if !entry.get()[process_id].is_async_task_running() {
                     let process_generation =
