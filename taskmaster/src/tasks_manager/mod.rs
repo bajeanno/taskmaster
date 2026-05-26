@@ -1,6 +1,8 @@
 mod handle;
 mod process;
 mod routine;
+
+#[cfg(test)]
 mod tests;
 
 use crate::process_handler::NominativeStatus;

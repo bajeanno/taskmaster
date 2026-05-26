@@ -96,20 +96,15 @@ async fn create_task() {
         .programs
         .into_iter()
         .next()
-        .expect("Config vector is empty");
+        .expect("Config vector is empty")
+        .1;
 
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, log_receiver) = mpsc::unbounded_channel();
     let name = format!("{}-0", program.name());
-    let routine_handle = Routine::spawn(
-        Arc::new(program),
-        status_sender,
-        log_sender,
-        name.clone(),
-        0,
-    )
-    .await
-    .expect("failed to spawn tokio::task");
+    let routine_handle = Routine::spawn(program, status_sender, log_sender, name.clone(), 0)
+        .await
+        .expect("failed to spawn tokio::task");
     let log_checker_handle = tokio::spawn(check_realtime_output(log_receiver));
     let status_receiver = Arc::new(Mutex::new(status_receiver));
     let status_checker_handle =
@@ -189,15 +184,15 @@ async fn create_task_then_interrupt() {
         .programs
         .into_iter()
         .next()
-        .expect("Config vector is empty");
+        .expect("Config hashmap is empty")
+        .1;
 
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, _) = mpsc::unbounded_channel();
     let name = format!("{}-0", config.name());
-    let routine_handle =
-        Routine::spawn(Arc::new(config), status_sender, log_sender, name.clone(), 0)
-            .await
-            .expect("failed to spawn tokio::task");
+    let routine_handle = Routine::spawn(config, status_sender, log_sender, name.clone(), 0)
+        .await
+        .expect("failed to spawn tokio::task");
     let status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>> =
         Arc::new(Mutex::new(status_receiver));
     let handle2 = tokio::spawn(check_status(Arc::clone(&status_receiver), name.clone()));
