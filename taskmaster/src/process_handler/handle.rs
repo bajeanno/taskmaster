@@ -1,4 +1,4 @@
-use crate::process_handler::routine::KillCommandSender;
+use crate::process_handler::KillCommandSender;
 use tokio::task::JoinHandle as TokioJoinHandle;
 
 type JoinHandle = TokioJoinHandle<()>;
