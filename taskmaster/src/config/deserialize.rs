@@ -1,7 +1,7 @@
-use std::str::FromStr;
+use libc::unistd::mode_t;
 use serde::{Deserialize, Deserializer, de};
 use signal::Signal;
-use libc::unistd::mode_t;
+use std::str::FromStr;
 
 pub fn deserialize_signal<'de, D>(deserializer: D) -> Result<Signal, D::Error>
 where
