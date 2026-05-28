@@ -34,3 +34,18 @@ where
         Ok(umask)
     }
 }
+
+pub fn deserialize_num_procs<'de, D>(deserializer: D) -> Result<u8, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let num_procs = u8::deserialize(deserializer)
+        .map_err(|err| serde::de::Error::custom(format!("Failed to parse numprocs: {err}")))?;
+    if num_procs == 0 {
+        Err(serde::de::Error::custom(
+            "Failed to parse numprocs: cannot be 0".to_string(),
+        ))
+    } else {
+        Ok(num_procs)
+    }
+}

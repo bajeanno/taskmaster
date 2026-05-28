@@ -9,7 +9,7 @@ pub fn default_signal() -> Signal {
     Signal::SIGINT
 }
 
-pub fn default_num_procs() -> u32 {
+pub fn default_num_procs() -> u8 {
     1
 }
 

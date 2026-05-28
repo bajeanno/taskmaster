@@ -3,7 +3,7 @@ use super::default::{
     default_exit_codes, default_num_procs, default_output, default_signal, default_umask,
     default_work_dir,
 };
-use super::deserialize::{deserialize_signal, deserialize_umask};
+use super::deserialize::{deserialize_signal, deserialize_umask, deserialize_num_procs};
 pub use crate::config::error::CommandError;
 use derive_getters::Getters;
 use libc::{sys::types::Pid, unistd::mode_t};
