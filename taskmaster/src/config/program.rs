@@ -1,29 +1,15 @@
-use crate::config::error::CommandError;
+use super::{AutoRestart, Command};
+use super::default::{
+    default_exit_codes, default_num_procs, default_output, default_signal, default_umask,
+    default_work_dir,
+};
+use super::deserialize::{deserialize_signal, deserialize_umask};
+pub use crate::config::error::CommandError;
 use derive_getters::Getters;
-use libc::sys::types::Pid;
-use libc::unistd::mode_t;
-use serde::{Deserialize, Deserializer, de};
+use libc::{sys::types::Pid, unistd::mode_t};
+use serde::{Deserialize, Deserializer};
 use signal::Signal;
 use std::{collections::HashMap, fmt::Display, str::FromStr};
-
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize, Default)]
-pub enum AutoRestart {
-    #[serde(rename = "true")]
-    True,
-    #[default]
-    #[serde(rename = "false")]
-    False,
-    #[serde(rename = "unexpected")]
-    OnFailure,
-}
-
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug)]
-pub struct Command {
-    pub exec: String,
-    pub args: Vec<String>,
-}
 
 #[allow(dead_code)] // TODO: remove this
 #[derive(Debug, Getters, Deserialize)]
@@ -31,13 +17,13 @@ pub struct Command {
 #[serde(deny_unknown_fields)]
 pub struct ProgramConfig {
     #[serde(skip)]
-    name: String,
+    pub(super) name: String,
 
     #[serde(default)]
-    pids: Vec<Pid>,
+    pub(super) pids: Vec<Pid>,
 
     #[serde(default = "default_umask", deserialize_with = "deserialize_umask")]
-    umask: mode_t,
+    pub(super) umask: mode_t,
 
     pub cmd: Command,
 
@@ -49,115 +35,44 @@ pub struct ProgramConfig {
     num_procs: u8,
 
     #[serde(rename = "workingdir", default = "default_work_dir")]
-    working_dir: String,
+    pub(super) working_dir: String,
 
     #[serde(rename = "autostart", default)]
-    auto_start: bool,
+    pub(super) auto_start: bool,
 
     #[serde(rename = "autorestart", default)]
-    auto_restart: AutoRestart,
+    pub(super) auto_restart: AutoRestart,
 
     #[serde(rename = "exitcodes", default = "default_exit_codes")]
-    exit_codes: Vec<u8>,
+    pub(super) exit_codes: Vec<u8>,
 
     #[serde(rename = "startretries", default)]
-    start_retries: u32,
+    pub(super) start_retries: u32,
 
     #[serde(rename = "starttime", default)]
-    start_time: u32,
+    pub(super) start_time: u32,
 
     #[serde(
         rename = "stopsignal",
         default = "default_signal",
         deserialize_with = "deserialize_signal"
     )]
-    stop_signal: Signal,
+    pub(super) stop_signal: Signal,
 
     #[serde(rename = "stoptime", default)]
-    stop_time: u32,
+    pub(super) stop_time: u32,
 
     #[serde(default = "default_output")]
-    stdout: String,
+    pub(super) stdout: String,
 
     #[serde(default = "default_output")]
-    stderr: String,
+    pub(super) stderr: String,
 
     #[serde(rename = "clearenv", default)]
-    clear_env: bool,
+    pub(super) clear_env: bool,
 
     #[serde(default)]
-    env: HashMap<String, String>,
-}
-
-fn deserialize_signal<'de, D>(deserializer: D) -> Result<Signal, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let mut signal_str = String::deserialize(deserializer)
-        .map_err(|err| serde::de::Error::custom(format!("Failed to parse signal: {err}")))?;
-    if !signal_str.starts_with("SIG") {
-        signal_str = format!("SIG{signal_str}");
-    }
-    let signal: Signal = Signal::from_str(signal_str.as_str())
-        .map_err(|err| de::Error::custom(format!("Failed to convert signal from string: {err}")))?;
-    Ok(signal)
-}
-
-fn deserialize_umask<'de, D>(deserializer: D) -> Result<mode_t, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let umask_str = String::deserialize(deserializer)
-        .map_err(|err| serde::de::Error::custom(format!("Failed to parse umask: {err}")))?;
-    let umask = mode_t::from_str_radix(umask_str.as_str(), 8).map_err(|err| {
-        serde::de::Error::custom(format!("ParseIntError on umask parsing: {err}"))
-    })?;
-    if umask > 0o777 {
-        Err(serde::de::Error::custom(
-            "umask is greater than 0o777 (max value accepted)",
-        ))
-    } else {
-        Ok(umask)
-    }
-}
-
-fn deserialize_num_procs<'de, D>(deserializer: D) -> Result<u8, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let num_procs = u8::deserialize(deserializer)
-        .map_err(|err| serde::de::Error::custom(format!("Failed to parse numprocs: {err}")))?;
-    if num_procs == 0 {
-        Err(serde::de::Error::custom(
-            "Failed to parse numprocs: cannot be 0".to_string(),
-        ))
-    } else {
-        Ok(num_procs)
-    }
-}
-
-fn default_output() -> String {
-    "/dev/null".to_string()
-}
-
-fn default_signal() -> Signal {
-    Signal::SIGINT
-}
-
-fn default_num_procs() -> u8 {
-    1
-}
-
-fn default_work_dir() -> String {
-    String::from("/")
-}
-
-fn default_exit_codes() -> Vec<u8> {
-    vec![0]
-}
-
-fn default_umask() -> mode_t {
-    0o666
+    pub(super) env: HashMap<String, String>,
 }
 
 impl Display for ProgramConfig {

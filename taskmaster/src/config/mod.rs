@@ -1,6 +1,8 @@
 pub mod program;
 pub use program::ProgramConfig;
 
+mod default;
+mod deserialize;
 mod error;
 pub use error::ParseError;
 
@@ -9,6 +11,25 @@ use serde::de::Error;
 use std::collections::HashMap;
 use std::fs::File;
 use std::sync::Arc;
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize, Default)]
+pub enum AutoRestart {
+    #[serde(rename = "true")]
+    True,
+    #[default]
+    #[serde(rename = "false")]
+    False,
+    #[serde(rename = "unexpected")]
+    OnFailure,
+}
+
+#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug)]
+pub struct Command {
+    pub exec: String,
+    pub args: Vec<String>,
+}
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
