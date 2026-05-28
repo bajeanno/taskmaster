@@ -1,5 +1,8 @@
+use super::KillCommandReceiver;
+use super::LogSender;
 use super::{Handle, NominativeStatus, Status, StatusSender, command};
 use crate::config::program::{AutoRestart, ProgramConfig};
+use crate::process_handler::{Log, LogType, OutputFile, Outputs};
 use libc::signal::kill;
 use libc::unistd::{mode_t, umask};
 use signal::Signal;
@@ -8,81 +11,15 @@ use std::process::Stdio;
 use std::sync::{Arc, LazyLock};
 use thiserror::Error;
 use tokio::fs::OpenOptions;
+use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::sync::mpsc::UnboundedSender;
-use tokio::{fs::File, io::AsyncWriteExt};
 use tokio::{
-    io::{AsyncBufRead, AsyncBufReadExt, BufReader, Error},
-    process::{Child, ChildStderr, ChildStdout},
+    io::{AsyncBufRead, AsyncBufReadExt, Error},
+    process::Child,
     sync::{Mutex, mpsc},
     time::Duration,
 };
-
-#[derive(Clone, Debug)]
-pub enum LogType {
-    Stdout,
-    Stderr,
-}
-
-#[derive(Clone, Debug)]
-pub struct Log {
-    pub message: String,
-    pub process_name: String,
-    pub log_type: LogType,
-}
-
-impl Log {
-    fn new(output_file: &OutputFile, buffer: &[u8], name: &str) -> Self {
-        match output_file {
-            OutputFile::Stdout(_) => Log {
-                message: String::from_utf8_lossy(buffer).to_string(),
-                process_name: name.to_string(),
-                log_type: LogType::Stdout,
-            },
-            OutputFile::Stderr(_) => Log {
-                message: String::from_utf8_lossy(buffer).to_string(),
-                process_name: name.to_string(),
-                log_type: LogType::Stderr,
-            },
-        }
-    }
-}
-
-pub type LogReceiver = mpsc::UnboundedReceiver<Log>;
-pub type LogSender = mpsc::UnboundedSender<Log>;
-
-pub type StatusReceiver = mpsc::UnboundedReceiver<NominativeStatus>;
-
-pub type KillCommandReceiver = mpsc::Receiver<()>;
-pub type KillCommandSender = mpsc::Sender<()>;
-
-pub struct Outputs {
-    stdout: BufReader<ChildStdout>,
-    stderr: BufReader<ChildStderr>,
-}
-
-impl Outputs {
-    pub fn new(child: &mut Child) -> Self {
-        Self {
-            stdout: BufReader::new(
-                child
-                    .stdout
-                    .take()
-                    .expect("Child process stdout not captured"),
-            ),
-            stderr: BufReader::new(
-                child
-                    .stderr
-                    .take()
-                    .expect("Child process stderr not captured"),
-            ),
-        }
-    }
-}
-enum OutputFile {
-    Stdout(File),
-    Stderr(File),
-}
 
 pub struct Routine {
     status_sender: StatusSender,
@@ -386,6 +323,32 @@ impl Routine {
     }
 }
 
+async fn listen_and_log<R: AsyncBufRead + Unpin>(
+    mut output: R,
+    mut sender: LogSender,
+    output_file: &mut OutputFile,
+    name: &str,
+) {
+    loop {
+        let mut buffer = Vec::new();
+        let bytes_read = output.read_until(b'\n', &mut buffer).await;
+
+        match bytes_read {
+            Ok(0) => break,
+            Ok(_) => {
+                let log = Log::new(output_file, &buffer, name);
+                dispatch_log(log, &mut sender, output_file).await;
+            }
+            Err(err) => {
+                eprintln!(
+                    "Taskmaster error: {name}: Error encountered while reading stderr: {err}"
+                );
+                break;
+            }
+        }
+    }
+}
+
 /// Sends a log message over the channel and writes it to the appropriate output file.
 /// This function performs two operations:
 /// - Write the log message to the corresponding output file (stdout or stderr)
@@ -428,30 +391,4 @@ async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputF
             )
         })
         .unwrap()
-}
-
-async fn listen_and_log<R: AsyncBufRead + Unpin>(
-    mut output: R,
-    mut sender: LogSender,
-    output_file: &mut OutputFile,
-    name: &str,
-) {
-    loop {
-        let mut buffer = Vec::new();
-        let bytes_read = output.read_until(b'\n', &mut buffer).await;
-
-        match bytes_read {
-            Ok(0) => break,
-            Ok(_) => {
-                let log = Log::new(output_file, &buffer, name);
-                dispatch_log(log, &mut sender, output_file).await;
-            }
-            Err(err) => {
-                eprintln!(
-                    "Taskmaster error: {name}: Error encountered while reading stderr: {err}"
-                );
-                break;
-            }
-        }
-    }
 }
