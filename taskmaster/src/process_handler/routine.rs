@@ -1,7 +1,7 @@
 use super::KillCommandReceiver;
 use super::LogSender;
 use super::{Handle, NominativeStatus, Status, StatusSender, command};
-use crate::config::program::{AutoRestart, ProgramConfig};
+use crate::config::{AutoRestart, ProgramConfig};
 use crate::process_handler::{Log, LogType, OutputFile, Outputs};
 use libc::signal::kill;
 use libc::unistd::{mode_t, umask};
