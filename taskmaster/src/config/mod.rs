@@ -8,11 +8,12 @@ use serde::Deserialize;
 use serde::de::Error;
 use std::collections::HashMap;
 use std::fs::File;
+use std::sync::Arc;
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Config {
-    pub programs: Vec<ProgramConfig>,
+    pub programs: HashMap<String, Arc<ProgramConfig>>,
 }
 
 #[derive(Deserialize)]
@@ -23,7 +24,7 @@ struct TmpConfig {
 }
 
 impl TmpConfig {
-    fn programs(self) -> Result<Vec<ProgramConfig>, serde_yaml::Error> {
+    fn programs(self) -> Result<HashMap<String, ProgramConfig>, serde_yaml::Error> {
         self.programs
             .into_iter()
             .map(|(name, mut program)| {
@@ -34,8 +35,8 @@ impl TmpConfig {
                     )));
                 }
 
-                *program.name_mut() = name;
-                Ok(program)
+                *program.name_mut() = name.clone();
+                Ok((name, program))
             })
             .collect()
     }
@@ -45,7 +46,11 @@ impl Config {
     pub fn from_reader(file: impl std::io::Read) -> Result<Config, serde_yaml::Error> {
         let tmp_config: TmpConfig = serde_yaml::from_reader(file)?;
         let config = Self {
-            programs: tmp_config.programs()?,
+            programs: tmp_config
+                .programs()?
+                .into_iter()
+                .map(|(name, program)| (name, Arc::new(program)))
+                .collect(),
         };
         Ok(config)
     }

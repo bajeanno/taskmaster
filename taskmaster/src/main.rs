@@ -6,7 +6,7 @@ mod tasks_manager;
 use crate::tasks_manager::ServerCommandError;
 use config::{Config, ProgramConfig};
 use error::Error;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tasks_manager::TaskManagerCommand;
 use tokio::sync::{mpsc, oneshot};
 
@@ -34,17 +34,12 @@ fn entrypoint() -> Result<(), Error> {
     let Args { port } = parse_args(std::env::args().nth(1))?;
 
     let tasks = get_tasks_from_config("taskmaster.yaml");
-    let tasks = convert_tasks_to_arc(tasks);
 
     if !cfg!(debug_assertions) {
         daemonize()?
     }
 
     start_server(port, tasks)
-}
-
-pub fn convert_tasks_to_arc(programs: Vec<ProgramConfig>) -> Vec<Arc<ProgramConfig>> {
-    programs.into_iter().map(Arc::new).collect()
 }
 
 fn parse_args(port: Option<String>) -> Result<Args, Error> {
@@ -83,12 +78,12 @@ mod taskmaster {
     }
 }
 
-fn get_tasks_from_config(config_file: &str) -> Vec<ProgramConfig> {
+fn get_tasks_from_config(config_file: &str) -> HashMap<String, Arc<ProgramConfig>> {
     match Config::parse(config_file) {
         Ok(config) => config.programs,
         Err(err) => {
             eprintln!("Warning {err}"); //TODO: log error and/or broadcast to clients
-            Vec::new()
+            HashMap::new()
         }
     }
 }
@@ -103,7 +98,7 @@ fn daemonize() -> Result<(), Error> {
     Ok(())
 }
 
-fn start_server(_port: i32, _tasks: Vec<Arc<ProgramConfig>>) -> Result<(), Error> {
+fn start_server(_port: i32, _tasks: HashMap<String, Arc<ProgramConfig>>) -> Result<(), Error> {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
         .block_on(async { Result::<(), Error>::Ok(()) })

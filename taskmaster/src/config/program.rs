@@ -216,6 +216,7 @@ mod tests {
     use std::collections::HashMap;
     use std::io::Cursor;
     use std::str::FromStr;
+    use std::sync::Arc;
 
     fn yaml_from_string_command(command: &str) -> String {
         let start = r#"programs:
@@ -302,9 +303,9 @@ mod tests {
     }
 
     fn assert_config_parses_to(yaml_content: &str, expected_program: ProgramConfig) {
-        let expected_config = Config {
-            programs: vec![expected_program],
-        };
+        let mut programs = HashMap::new();
+        programs.insert(expected_program.name.clone(), Arc::new(expected_program));
+        let expected_config = Config { programs };
 
         let config_reader = Cursor::new(yaml_content);
         let parsed_config = Config::from_reader(config_reader);

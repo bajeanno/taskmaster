@@ -1,4 +1,9 @@
-#[cfg(test)]
+use super::routine::Routine;
+use crate::config::Config;
+use crate::tasks_manager::TaskManagerCommand;
+use std::io::Cursor;
+use tokio::sync::oneshot;
+
 fn create_tasks() -> String {
     r#"programs:
     taskmaster_test_task:
@@ -25,23 +30,11 @@ fn create_tasks() -> String {
 
 #[tokio::test]
 async fn task_manager_list_tasks() {
-    use super::routine::Routine;
-    use crate::config::Config;
-    use crate::convert_tasks_to_arc;
-    use crate::tasks_manager::TaskManagerCommand;
-    use std::io::Cursor;
-    use tokio::sync::oneshot;
-
     let yaml_content = create_tasks();
-    let program = Config::from_reader(Cursor::new(yaml_content))
+    let programs_configs = Config::from_reader(Cursor::new(yaml_content))
         .expect("Parse error")
-        .programs
-        .into_iter()
-        .next()
-        .expect("Config vector is empty");
-    let tasks = vec![program];
-    let tasks = convert_tasks_to_arc(tasks);
-    let handle = Routine::spawn(tasks);
+        .programs;
+    let handle = Routine::spawn(programs_configs);
     let (sender, receiver) = oneshot::channel();
     handle
         .send(TaskManagerCommand::ListProcesses(sender))
@@ -53,22 +46,11 @@ async fn task_manager_list_tasks() {
 
 #[tokio::test]
 async fn task_manager_stop() {
-    use super::routine::Routine;
-    use crate::config::Config;
-    use crate::convert_tasks_to_arc;
-    use crate::tasks_manager::TaskManagerCommand;
-    use std::io::Cursor;
-
     let yaml_content = create_tasks();
-    let config = Config::from_reader(Cursor::new(yaml_content))
+    let programs_configs = Config::from_reader(Cursor::new(yaml_content))
         .expect("Parse error")
-        .programs
-        .into_iter()
-        .next()
-        .expect("Config vector is empty");
-    let tasks = vec![config];
-    let tasks = convert_tasks_to_arc(tasks);
-    let handle = Routine::spawn(tasks);
+        .programs;
+    let handle = Routine::spawn(programs_configs);
 
     handle
         .send(TaskManagerCommand::StopProgram {
@@ -81,22 +63,11 @@ async fn task_manager_stop() {
 
 #[tokio::test]
 async fn task_manager_start_already_started() {
-    use super::routine::Routine;
-    use crate::config::Config;
-    use crate::convert_tasks_to_arc;
-    use crate::tasks_manager::TaskManagerCommand;
-    use std::io::Cursor;
-
     let yaml_content = create_tasks();
-    let config = Config::from_reader(Cursor::new(yaml_content))
+    let programs_configs = Config::from_reader(Cursor::new(yaml_content))
         .expect("Parse error")
-        .programs
-        .into_iter()
-        .next()
-        .expect("Config vector is empty");
-    let tasks = vec![config];
-    let tasks = convert_tasks_to_arc(tasks);
-    let handle = Routine::spawn(tasks);
+        .programs;
+    let handle = Routine::spawn(programs_configs);
 
     handle
         .send(TaskManagerCommand::StartProgram {
@@ -108,23 +79,35 @@ async fn task_manager_start_already_started() {
 }
 
 #[tokio::test]
-async fn task_manager_restart() {
-    use super::routine::Routine;
-    use crate::config::Config;
-    use crate::convert_tasks_to_arc;
-    use crate::tasks_manager::TaskManagerCommand;
-    use std::io::Cursor;
-
+async fn task_manager_stop_then_start() {
     let yaml_content = create_tasks();
-    let config = Config::from_reader(Cursor::new(yaml_content))
+    let programs_configs = Config::from_reader(Cursor::new(yaml_content))
         .expect("Parse error")
-        .programs
-        .into_iter()
-        .next()
-        .expect("Config vector is empty");
-    let tasks = vec![config];
-    let arc_tasks = convert_tasks_to_arc(tasks);
-    let handle = Routine::spawn(arc_tasks);
+        .programs;
+    let handle = Routine::spawn(programs_configs);
+
+    handle
+        .send(TaskManagerCommand::StopProgram {
+            program_name: String::from("taskmaster_test_task"),
+        })
+        .await
+        .unwrap();
+    handle
+        .send(TaskManagerCommand::StartProgram {
+            program_name: String::from("taskmaster_test_task"),
+        })
+        .await
+        .unwrap();
+    handle.stop().await;
+}
+
+#[tokio::test]
+async fn task_manager_restart() {
+    let yaml_content = create_tasks();
+    let programs_configs = Config::from_reader(Cursor::new(yaml_content))
+        .expect("Parse error")
+        .programs;
+    let handle = Routine::spawn(programs_configs);
 
     handle
         .send(TaskManagerCommand::RestartProgram {
