@@ -1,5 +1,3 @@
-
-
 #[cfg(test)]
 mod tests {
     use crate::config::program::{AutoRestart, CommandError};
