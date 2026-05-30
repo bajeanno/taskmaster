@@ -47,7 +47,7 @@ async fn check_realtime_output(mut log_receiver: mpsc::UnboundedReceiver<Log>) {
         match log_receiver.recv().await {
             Some(log) => match log.log_type {
                 LogType::Stdout => {
-                    assert_eq!(log.message, "Hello taskmaster!\n");
+                    assert_eq!(log.message, "taskmaster_test_task-0: Hello taskmaster!\n");
                     assert_eq!(log.process_name, "taskmaster_test_task-0");
                 }
                 LogType::Stderr => {
@@ -128,7 +128,7 @@ async fn create_task() {
         .expect("failed to read stdout file");
     {
         let buffer = String::from_utf8(buffer).expect("failed to convert stdout to string");
-        assert_eq!(buffer.trim(), "Hello taskmaster!");
+        assert_eq!(buffer.trim(), "taskmaster_test_task-0: Hello taskmaster!");
     }
 
     file = File::open(stderr_file).expect("failed to open stderr file");

@@ -33,12 +33,12 @@ impl Log {
     fn new(output_file: &OutputFile, buffer: &[u8], name: &str) -> Self {
         match output_file {
             OutputFile::Stdout(_) => Log {
-                message: String::from_utf8_lossy(buffer).to_string(),
+                message: format!("{}: {}", name.to_string(), String::from_utf8_lossy(buffer).to_string()),
                 process_name: name.to_string(),
                 log_type: LogType::Stdout,
             },
             OutputFile::Stderr(_) => Log {
-                message: String::from_utf8_lossy(buffer).to_string(),
+                message: format!("{}: {}", name.to_string(), String::from_utf8_lossy(buffer).to_string()),
                 process_name: name.to_string(),
                 log_type: LogType::Stderr,
             },
