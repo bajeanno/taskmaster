@@ -31,7 +31,6 @@ impl Routine {
             }
 
             TaskManagerCommand::StopProgram { program_name } => {
-                println!("{}", program_name);
                 self.stop_program(program_name).await?
             }
 
