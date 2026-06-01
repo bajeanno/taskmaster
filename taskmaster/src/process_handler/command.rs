@@ -2,7 +2,7 @@ use crate::ProgramConfig;
 use tokio::process::Command;
 
 pub(super) fn create_command(config: &ProgramConfig) -> Command {
-    let mut command = Command::new("bash");
+    let mut command = Command::new("sh");
     command.arg("-c");
     command.arg(&config.cmd);
 
