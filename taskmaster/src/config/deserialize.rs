@@ -49,3 +49,17 @@ where
         Ok(num_procs)
     }
 }
+
+pub fn deserialize_command<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let command = String::deserialize(deserializer)?;
+    if command.is_empty() {
+        Err(serde::de::Error::custom(
+            "Failed to parse command: command is empty".to_string(),
+        ))
+    } else {
+        Ok(command)
+    }
+}

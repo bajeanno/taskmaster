@@ -1,18 +1,19 @@
 #[cfg(test)]
 mod tests;
 
+use super::AutoRestart;
 use super::default::{
     default_exit_codes, default_num_procs, default_output, default_signal, default_umask,
     default_work_dir,
 };
-use super::deserialize::{deserialize_num_procs, deserialize_signal, deserialize_umask};
-use super::{AutoRestart, Command};
-pub use crate::config::error::CommandError;
+use super::deserialize::{
+    deserialize_command, deserialize_num_procs, deserialize_signal, deserialize_umask,
+};
 use derive_getters::Getters;
 use libc::{sys::types::Pid, unistd::mode_t};
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 use signal::Signal;
-use std::{collections::HashMap, fmt::Display, str::FromStr};
+use std::{collections::HashMap, fmt::Display};
 
 #[allow(dead_code)] // TODO: remove this
 #[derive(Debug, Getters, Deserialize)]
@@ -28,7 +29,8 @@ pub struct ProgramConfig {
     #[serde(default = "default_umask", deserialize_with = "deserialize_umask")]
     umask: mode_t,
 
-    pub cmd: Command,
+    #[serde(deserialize_with = "deserialize_command")]
+    pub cmd: String,
 
     #[serde(
         rename = "numprocs",
@@ -88,39 +90,8 @@ impl Display for ProgramConfig {
     }
 }
 
-impl Display for Command {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {:?}", self.exec, self.args)
-    }
-}
-
 impl ProgramConfig {
     pub(super) fn name_mut(&mut self) -> &mut String {
         &mut self.name
-    }
-}
-
-impl<'de> Deserialize<'de> for Command {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let cmd = String::deserialize(deserializer)?;
-        Command::from_str(cmd.as_str())
-            .map_err(|err| serde::de::Error::custom(format!("Command parsing error: {}", err)))
-    }
-}
-
-impl FromStr for Command {
-    type Err = CommandError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts = shell_words::split(s).map_err(CommandError::SplitError)?;
-
-        let mut parts_iter = parts.into_iter();
-        let program = parts_iter.next().ok_or(CommandError::EmptyCommand)?;
-        Ok(Command {
-            exec: program,
-            args: parts_iter.collect(),
-        })
     }
 }
