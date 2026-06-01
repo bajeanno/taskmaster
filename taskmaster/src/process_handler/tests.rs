@@ -123,22 +123,14 @@ async fn create_task() {
     let stderr_file = "/tmp/taskmaster_tests.stderr";
 
     let mut file = File::open(stdout_file).expect("failed to open stdout file");
-    let mut buffer: Vec<u8> = Vec::new();
-    file.read_to_end(&mut buffer)
+    let mut buffer_stdout: Vec<u8> = Vec::new();
+    file.read_to_end(&mut buffer_stdout)
         .expect("failed to read stdout file");
-    {
-        let buffer = String::from_utf8(buffer).expect("failed to convert stdout to string");
-        assert_eq!(buffer.trim(), "taskmaster_test_task-0: Hello taskmaster!");
-    }
 
     file = File::open(stderr_file).expect("failed to open stderr file");
-    buffer = Vec::new();
-    file.read_to_end(&mut buffer)
+    let mut buffer_stderr: Vec<u8> = Vec::new();
+    file.read_to_end(&mut buffer_stderr)
         .expect("failed to read stderr file");
-    {
-        let buffer = String::from_utf8(buffer).expect("failed to convert stderr to string");
-        assert_eq!(buffer.trim(), "");
-    }
 
     remove_file("/tmp/taskmaster_tests.stdout")
         .await
@@ -148,6 +140,11 @@ async fn create_task() {
         .await
         .inspect_err(|err| eprintln!("{err}"))
         .unwrap();
+
+    let buffer = String::from_utf8(buffer_stdout).expect("failed to convert stdout to string");
+    assert_eq!(buffer.trim(), "taskmaster_test_task-0: Hello taskmaster!");
+    let buffer = String::from_utf8(buffer_stderr).expect("failed to convert stderr to string");
+    assert_eq!(buffer.trim(), "");
 }
 
 #[tokio::test]
@@ -205,22 +202,14 @@ async fn create_task_then_interrupt() {
     let stderr_file = "/tmp/taskmaster_tests_interrupt.stderr";
 
     let mut file = File::open(stdout_file).expect("failed to open stdout file");
-    let mut buffer: Vec<u8> = Vec::new();
-    file.read_to_end(&mut buffer)
+    let mut buffer_stdout: Vec<u8> = Vec::new();
+    file.read_to_end(&mut buffer_stdout)
         .expect("failed to read stdout file");
-    {
-        let buffer = String::from_utf8(buffer).expect("failed to convert stdout to string");
-        assert_eq!(buffer.trim(), "");
-    }
 
     file = File::open(stderr_file).expect("failed to open stderr file");
-    buffer = Vec::new();
-    file.read_to_end(&mut buffer)
+    let mut buffer_stderr: Vec<u8> = Vec::new();
+    file.read_to_end(&mut buffer_stderr)
         .expect("failed to read stderr file");
-    {
-        let buffer = String::from_utf8(buffer).expect("failed to convert stderr to string");
-        assert_eq!(buffer.trim(), "");
-    }
 
     remove_file(stdout_file)
         .await
@@ -230,4 +219,9 @@ async fn create_task_then_interrupt() {
         .await
         .inspect_err(|err| eprintln!("{err}"))
         .unwrap();
+
+    let buffer = String::from_utf8(buffer_stdout).expect("failed to convert stdout to string");
+    assert_eq!(buffer.trim(), "");
+    let buffer = String::from_utf8(buffer_stderr).expect("failed to convert stderr to string");
+    assert_eq!(buffer.trim(), "");
 }
