@@ -7,6 +7,7 @@ use super::default::{
 };
 use super::deserialize::{deserialize_num_procs, deserialize_signal, deserialize_umask};
 use super::{AutoRestart, Command};
+use crate::config::Config;
 pub use crate::config::error::CommandError;
 use derive_getters::Getters;
 use libc::{sys::types::Pid, unistd::mode_t};
@@ -15,8 +16,8 @@ use signal::Signal;
 use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 #[allow(dead_code)] // TODO: remove this
-#[derive(Debug, Getters, Deserialize)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Getters, Deserialize, PartialEq)]
+// #[cfg_attr(test, derive(PartialEq))]
 #[serde(deny_unknown_fields)]
 pub struct ProgramConfig {
     #[serde(skip)]
@@ -94,9 +95,17 @@ impl Display for Command {
     }
 }
 
+#[allow(dead_code)]
 impl ProgramConfig {
     pub(super) fn name_mut(&mut self) -> &mut String {
         &mut self.name
+    }
+
+    pub fn is_in_config(&self, config: Config) -> bool {
+        config
+            .programs
+            .get(&self.name)
+            .is_some_and(|program| program.as_ref() == self)
     }
 }
 

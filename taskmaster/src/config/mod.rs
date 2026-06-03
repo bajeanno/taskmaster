@@ -12,8 +12,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::sync::Arc;
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize, Default)]
+// #[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Deserialize, Default, PartialEq)]
 pub enum AutoRestart {
     #[serde(rename = "true")]
     True,
@@ -24,8 +24,8 @@ pub enum AutoRestart {
     OnFailure,
 }
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug)]
+// #[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, PartialEq)]
 pub struct Command {
     pub exec: String,
     pub args: Vec<String>,
@@ -86,5 +86,15 @@ impl Config {
             file: file_name.to_string(),
             error: err,
         })
+    }
+
+    pub fn diff(&self, new_config: Config) -> Vec<String> {
+        let mut same: Vec<String> = Vec::new();
+        for (name, program) in new_config.programs.iter() {
+            if self.programs.get(name) == Some(program) {
+                same.push(name.clone());
+            }
+        }
+        same
     }
 }
