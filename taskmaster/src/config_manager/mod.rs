@@ -27,11 +27,7 @@ impl ConfigManager {
     }
 
     pub fn load_config(&mut self, file: Option<&str>) {
-        let file = match file {
-            Some(str) => str,
-            None => "taskmaster.yaml",
-        };
-        match Config::parse(file) {
+        match Config::parse(file.unwrap_or("taskmaster.yaml")) {
             Ok(config) => self.state = Active(Arc::new(config)),
             Err(err) => {
                 eprintln!("Warning {err}"); //TODO: log error and/or broadcast to clients

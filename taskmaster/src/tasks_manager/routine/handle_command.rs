@@ -24,7 +24,7 @@ impl Routine {
             TaskManagerCommand::Reload(_config) => {
                 todo!()
             }
-            
+
             TaskManagerCommand::StartProgram { program_name } => {
                 self.handle_start_program_command(program_name).await?
             }
