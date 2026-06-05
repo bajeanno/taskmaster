@@ -77,8 +77,12 @@ impl Routine {
         ));
         self.event_listener().await;
 
-        logs_handle.abort();
-        status_handle.abort();
+        drop(self.log_sender);
+        logs_handle.await.expect("listen_for_logs task panicked");
+        drop(self.status_sender);
+        status_handle
+            .await
+            .expect("listen_for_status task panicked");
     }
 
     async fn start_programs(&mut self) {
