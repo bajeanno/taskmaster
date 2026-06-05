@@ -87,14 +87,4 @@ impl Config {
             error: err,
         })
     }
-
-    pub fn diff(&self, new_config: Config) -> Vec<String> {
-        let mut same: Vec<String> = Vec::new();
-        for (name, program) in new_config.programs.iter() {
-            if self.programs.get(name) == Some(program) {
-                same.push(name.clone());
-            }
-        }
-        same
-    }
 }

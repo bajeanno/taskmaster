@@ -5,7 +5,7 @@ mod routine;
 #[cfg(test)]
 mod tests;
 
-use crate::{config::Config, process_handler::NominativeStatus};
+use crate::process_handler::NominativeStatus;
 use process::Process;
 use routine::Client;
 use tokio::sync::oneshot;
@@ -17,7 +17,7 @@ pub enum ServerCommandError {
 
 pub enum TaskManagerCommand {
     ListProcesses(oneshot::Sender<Vec<Vec<NominativeStatus>>>),
-    Reload(Config),
+    Reload(String),
     StartProgram {
         program_name: String,
     },

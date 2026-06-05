@@ -4,7 +4,7 @@ mod error;
 mod process_handler;
 mod tasks_manager;
 
-use crate::{config_manager::ConfigManager, tasks_manager::ServerCommandError};
+use crate::{config_manager::ConfigState, tasks_manager::ServerCommandError};
 use config::ProgramConfig;
 use error::Error;
 use tasks_manager::TaskManagerCommand;
@@ -37,7 +37,9 @@ fn entrypoint() -> Result<(), Error> {
         daemonize()?
     }
 
-    start_server(port)
+    // TODO: replace None with an Optional arguments that specifies the config
+    // file name
+    start_server(port, None)
 }
 
 fn parse_args(port: Option<String>) -> Result<Args, Error> {
@@ -86,8 +88,9 @@ fn daemonize() -> Result<(), Error> {
     Ok(())
 }
 
-fn start_server(_port: i32) -> Result<(), Error> {
-    let _config_manager = ConfigManager::new();
+fn start_server(_port: i32, config_file: Option<String>) -> Result<(), Error> {
+    let _config_manager = ConfigState::from_config(config_file.as_deref());
+
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
         .block_on(async { Result::<(), Error>::Ok(()) })

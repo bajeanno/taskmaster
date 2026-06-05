@@ -1,10 +1,9 @@
 use super::routine::Routine;
-use crate::config::Config;
+use crate::config_manager::ConfigState;
 use crate::tasks_manager::TaskManagerCommand;
-use std::io::Cursor;
 use tokio::sync::oneshot;
 
-fn create_tasks() -> String {
+fn create_tasks_yaml_content() -> String {
     r#"programs:
     taskmaster_test_task:
         cmd: "sleep 100000"
@@ -30,11 +29,7 @@ fn create_tasks() -> String {
 
 #[tokio::test]
 async fn task_manager_list_tasks() {
-    let yaml_content = create_tasks();
-    let programs_configs = Config::from_reader(Cursor::new(yaml_content))
-        .expect("Parse error")
-        .programs;
-    let handle = Routine::spawn(programs_configs);
+    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content()));
     let (sender, receiver) = oneshot::channel();
     handle
         .send(TaskManagerCommand::ListProcesses(sender))
@@ -46,12 +41,7 @@ async fn task_manager_list_tasks() {
 
 #[tokio::test]
 async fn task_manager_stop() {
-    let yaml_content = create_tasks();
-    let programs_configs = Config::from_reader(Cursor::new(yaml_content))
-        .expect("Parse error")
-        .programs;
-    let handle = Routine::spawn(programs_configs);
-
+    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content()));
     handle
         .send(TaskManagerCommand::StopProgram {
             program_name: String::from("taskmaster_test_task"),
@@ -63,11 +53,7 @@ async fn task_manager_stop() {
 
 #[tokio::test]
 async fn task_manager_start_already_started() {
-    let yaml_content = create_tasks();
-    let programs_configs = Config::from_reader(Cursor::new(yaml_content))
-        .expect("Parse error")
-        .programs;
-    let handle = Routine::spawn(programs_configs);
+    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content()));
 
     handle
         .send(TaskManagerCommand::StartProgram {
@@ -80,12 +66,7 @@ async fn task_manager_start_already_started() {
 
 #[tokio::test]
 async fn task_manager_stop_then_start() {
-    let yaml_content = create_tasks();
-    let programs_configs = Config::from_reader(Cursor::new(yaml_content))
-        .expect("Parse error")
-        .programs;
-    let handle = Routine::spawn(programs_configs);
-
+    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content()));
     handle
         .send(TaskManagerCommand::StopProgram {
             program_name: String::from("taskmaster_test_task"),
@@ -103,11 +84,7 @@ async fn task_manager_stop_then_start() {
 
 #[tokio::test]
 async fn task_manager_restart() {
-    let yaml_content = create_tasks();
-    let programs_configs = Config::from_reader(Cursor::new(yaml_content))
-        .expect("Parse error")
-        .programs;
-    let handle = Routine::spawn(programs_configs);
+    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content()));
 
     handle
         .send(TaskManagerCommand::RestartProgram {

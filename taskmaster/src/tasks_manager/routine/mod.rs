@@ -4,6 +4,7 @@ use super::Process;
 use super::TaskManagerCommand;
 use super::handle::Handle;
 use crate::CommandReceiver;
+use crate::config_manager::ConfigState::{self, Active};
 use crate::process_handler::NominativeStatus;
 use crate::tasks_manager::ServerCommandError;
 use crate::{
@@ -36,7 +37,7 @@ impl SubscribedClients {
 
 #[allow(dead_code)] //TODO: Remove that
 pub struct Routine {
-    program_configs: Arc<HashMap<String, Arc<ProgramConfig>>>,
+    config_state: ConfigState,
     clients: ClientMap,
     processes: Arc<Mutex<HashMap<String, Vec<Process>>>>,
     command_receiver: CommandReceiver,
@@ -46,14 +47,14 @@ pub struct Routine {
 
 #[allow(dead_code)] //TODO: remove that
 impl Routine {
-    pub fn spawn(program_configs: HashMap<String, Arc<ProgramConfig>>) -> Handle {
+    pub fn spawn(config_state: ConfigState) -> Handle {
         let (log_sender, log_receiver) = mpsc::unbounded_channel();
         let (status_sender, status_receiver) = mpsc::unbounded_channel();
         let (command_sender, command_receiver) = mpsc::unbounded_channel();
 
         let handle = tokio::spawn(async move {
             Self {
-                program_configs: Arc::new(program_configs),
+                config_state,
                 processes: Arc::new(Mutex::new(HashMap::new())),
                 clients: Arc::new(Mutex::new(HashMap::new())),
                 command_receiver,
@@ -68,7 +69,9 @@ impl Routine {
     }
 
     async fn routine(mut self, status_receiver: StatusReceiver, log_receiver: LogReceiver) {
-        self.start_programs().await;
+        if let Active(config) = &self.config_state {
+            self.start_programs(&Arc::clone(config).programs).await;
+        }
 
         let logs_handle = tokio::spawn(Self::listen_for_logs(log_receiver, self.clients.clone()));
         let status_handle = tokio::spawn(Self::listen_for_status(
@@ -81,8 +84,8 @@ impl Routine {
         status_handle.abort();
     }
 
-    async fn start_programs(&mut self) {
-        for (_, program_config) in Arc::clone(&self.program_configs).iter() {
+    async fn start_programs(&mut self, programs: &HashMap<String, Arc<ProgramConfig>>) {
+        for (_, program_config) in programs.iter() {
             self.start_program(program_config).await;
         }
     }
@@ -204,7 +207,7 @@ impl Routine {
     async fn event_listener(&mut self) {
         while let Some((command, sender)) = self.command_receiver.recv().await {
             if matches!(command, TaskManagerCommand::Exit) {
-                self.stop_all_processes().await;
+                self.stop_and_join_all_processes().await;
                 sender
                     .send(Ok(()))
                     .expect("Receiver should never be dropped");
@@ -217,7 +220,7 @@ impl Routine {
         }
     }
 
-    async fn stop_all_processes(&mut self) {
+    async fn stop_and_join_all_processes(&mut self) {
         let mut processes = self.processes.lock().await;
 
         for process in processes

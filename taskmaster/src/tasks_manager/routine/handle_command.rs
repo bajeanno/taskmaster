@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     config::ProgramConfig,
+    config_manager::ConfigState::{self, Active, LoadError, Uninitialized},
     process_handler::NominativeStatus,
     tasks_manager::{
         ServerCommandError, TaskManagerCommand,
@@ -21,8 +22,12 @@ impl Routine {
                     .expect("Receiver should never be dropped");
             }
 
-            TaskManagerCommand::Reload(_config) => {
-                todo!()
+            TaskManagerCommand::Reload(file) => {
+                match ConfigState::from_config(Some(file.as_str())) {
+                    Active(new_config) => self.update_processes(new_config).await,
+                    ConfigState::LoadError { error } => todo!("{}", error),
+                    ConfigState::Uninitialized => return Ok(()), // Should never happen,
+                }
             }
 
             TaskManagerCommand::StartProgram { program_name } => {
@@ -54,7 +59,7 @@ impl Routine {
                     .await?
             }
 
-            TaskManagerCommand::StopAllProcesses => self.stop_all_processes().await,
+            TaskManagerCommand::StopAllProcesses => self.stop_and_join_all_processes().await,
 
             TaskManagerCommand::Exit => {
                 panic!("Exit command should be handled by Routine::event_listener")
@@ -137,6 +142,39 @@ impl Routine {
     }
 
     fn get_program_config(&self, program_name: &str) -> Option<Arc<ProgramConfig>> {
-        self.program_configs.get(program_name).map(Arc::clone)
+        if let Active(config) = &self.config_state {
+            config.programs.get(program_name).map(Arc::clone)
+        } else {
+            None
+        }
+    }
+
+    async fn update_processes(&mut self, new_config: Arc<crate::config::Config>) {
+        match self.config_state.take() {
+            Active(current_config) => {
+                for (name, _) in current_config.programs.iter() {
+                    if !new_config.programs.contains_key(name) {
+                        // Even though we don't lock anything between the moment we stop the program
+                        // and the moment we remove it from the map, it is still impossible for a
+                        // second user to start the program after we stopped it and before we
+                        // remove it from the hashmap because we only handle one user command
+                        // at a time
+                        self.stop_program(name).await.expect(
+                            "program not found inside iterating function, should never happen",
+                        );
+                        self.processes.lock().await.remove(name);
+                    }
+                }
+                for (name, program) in new_config.programs.iter() {
+                    if current_config.programs.contains_key(name) {
+                        self.start_program(program).await;
+                    }
+                }
+            }
+            LoadError { error: _ } | Uninitialized => {
+                self.start_programs(&new_config.programs).await;
+            }
+        }
+        self.config_state = Active(new_config);
     }
 }

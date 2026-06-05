@@ -2,37 +2,48 @@ use std::sync::Arc;
 
 use crate::config::Config;
 
-use ConfigState::{Active, Uninitialized};
-
 #[allow(dead_code)]
-enum ConfigState {
+#[derive(Default)]
+pub enum ConfigState {
     Active(Arc<Config>),
+    #[default]
     Uninitialized,
-    LoadError { error: String },
+    LoadError {
+        error: String,
+    },
 }
 
 #[allow(dead_code)]
-pub struct ConfigManager {
-    state: ConfigState,
-    last_reload_error: Option<String>,
-}
+impl ConfigState {
+    #[cfg(test)]
+    pub fn from_content(content: String) -> Self {
+        use std::io::Cursor;
 
-#[allow(dead_code)]
-impl ConfigManager {
-    pub fn new() -> Self {
-        Self {
-            state: Uninitialized,
-            last_reload_error: None,
-        }
+        let config = Config::from_reader(Cursor::new(content)).expect("parse error");
+        Self::Active(Arc::new(config))
+    }
+
+    pub fn from_config(file: Option<&str>) -> Self {
+        let mut config = Self::default();
+        config.load_config(file);
+        config
     }
 
     pub fn load_config(&mut self, file: Option<&str>) {
         match Config::parse(file.unwrap_or("taskmaster.yaml")) {
-            Ok(config) => self.state = Active(Arc::new(config)),
+            Ok(config) => *self = Self::Active(Arc::new(config)),
             Err(err) => {
                 eprintln!("Warning {err}"); //TODO: log error and/or broadcast to clients
-                self.last_reload_error = Some(err.to_string());
+                *self = Self::LoadError {
+                    error: err.to_string(),
+                };
             }
         };
+    }
+
+    pub fn take(&mut self) -> Self {
+        let mut tmp = Self::default();
+        std::mem::swap(&mut tmp, self);
+        tmp
     }
 }
