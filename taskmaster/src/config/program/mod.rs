@@ -17,7 +17,6 @@ use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 #[allow(dead_code)] // TODO: remove this
 #[derive(Debug, Getters, Deserialize, PartialEq)]
-// #[cfg_attr(test, derive(PartialEq))]
 #[serde(deny_unknown_fields)]
 pub struct ProgramConfig {
     #[serde(skip)]
