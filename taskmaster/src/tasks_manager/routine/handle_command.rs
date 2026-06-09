@@ -24,8 +24,20 @@ impl Routine {
 
             TaskManagerCommand::Reload(file) => {
                 match ConfigState::from_config(Some(file.as_str())) {
-                    Active(new_config) => self.update_processes(new_config).await,
-                    ConfigState::LoadError { error } => todo!("{}", error),
+                    Active(new_config) => {
+                        match self.config_state.take() {
+                            Active(current_config) => {
+                                self.update_processes(current_config, new_config.clone()).await
+                            }
+                            Uninitialized | LoadError { error: _ } => {
+                                self.start_programs(&new_config.programs).await
+                            }
+                        }
+                        self.config_state = Active(new_config);
+                    }
+                    ConfigState::LoadError { error } => {
+                        return Err(ServerCommandError::LoadError(error));
+                    }
                     ConfigState::Uninitialized => return Ok(()), // Should never happen,
                 }
             }
@@ -149,32 +161,31 @@ impl Routine {
         }
     }
 
-    async fn update_processes(&mut self, new_config: Arc<crate::config::Config>) {
-        match self.config_state.take() {
-            Active(current_config) => {
-                for (name, _) in current_config.programs.iter() {
-                    if !new_config.programs.contains_key(name) {
-                        // Even though we don't lock anything between the moment we stop the program
-                        // and the moment we remove it from the map, it is still impossible for a
-                        // second user to start the program after we stopped it and before we
-                        // remove it from the hashmap because we only handle one user command
-                        // at a time
-                        self.stop_program(name).await.expect(
-                            "program not found inside iterating function, should never happen",
-                        );
-                        self.processes.lock().await.remove(name);
-                    }
-                }
-                for (name, program) in new_config.programs.iter() {
-                    if current_config.programs.contains_key(name) {
-                        self.start_program(program).await;
-                    }
-                }
-            }
-            LoadError { error: _ } | Uninitialized => {
-                self.start_programs(&new_config.programs).await;
+    // Even though we don't lock anything between the moment we stop the program
+    // and the moment we remove it from the map, it is still impossible for a
+    // second user to start the program after we stopped it and before we
+    // remove it from the hashmap because we only handle one user command
+    // at a time
+    async fn update_processes(
+        &mut self,
+        current_config: Arc<crate::config::Config>,
+        new_config: Arc<crate::config::Config>,
+    ) {
+        for (name, current_program) in current_config.programs.iter() {
+            if let Some(new_program) = new_config.programs.get(name)
+                && new_program != current_program
+            {
+                self.stop_program(name)
+                    .await
+                    .expect("program not found inside iterating function, should never happen");
+                self.processes.lock().await.remove(name);
             }
         }
-        self.config_state = Active(new_config);
+
+        for (name, program) in new_config.programs.iter() {
+            if current_config.programs.contains_key(name) {
+                self.start_program(program).await;
+            }
+        }
     }
 }

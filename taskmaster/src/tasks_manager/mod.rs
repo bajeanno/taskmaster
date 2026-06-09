@@ -13,6 +13,7 @@ use tokio::sync::oneshot;
 #[derive(Debug)]
 pub enum ServerCommandError {
     NoSuchProgram(String),
+    LoadError(String),
 }
 
 pub enum TaskManagerCommand {
