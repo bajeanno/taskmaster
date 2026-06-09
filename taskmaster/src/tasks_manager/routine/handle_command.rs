@@ -27,7 +27,8 @@ impl Routine {
                     Active(new_config) => {
                         match self.config_state.take() {
                             Active(current_config) => {
-                                self.update_processes(current_config, new_config.clone()).await
+                                self.update_processes(current_config, new_config.clone())
+                                    .await
                             }
                             Uninitialized | LoadError { error: _ } => {
                                 self.start_programs(&new_config.programs).await
