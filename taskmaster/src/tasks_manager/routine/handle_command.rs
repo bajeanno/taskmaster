@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     config::ProgramConfig,
-    config_manager::ConfigState::{self, Active, LoadError, Uninitialized},
+    config_state::ConfigState::{self, Active, LoadError, Uninitialized},
     process_handler::NominativeStatus,
     tasks_manager::{
         ServerCommandError, TaskManagerCommand,

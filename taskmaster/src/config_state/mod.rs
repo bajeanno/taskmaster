@@ -1,6 +1,5 @@
-use std::sync::Arc;
-
 use crate::config::Config;
+use std::sync::Arc;
 
 #[allow(dead_code)]
 #[derive(Default)]
@@ -13,7 +12,6 @@ pub enum ConfigState {
     },
 }
 
-#[allow(dead_code)]
 impl ConfigState {
     #[cfg(test)]
     pub fn from_content(content: String) -> Self {

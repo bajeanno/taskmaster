@@ -4,7 +4,7 @@ use super::Process;
 use super::TaskManagerCommand;
 use super::handle::Handle;
 use crate::CommandReceiver;
-use crate::config_manager::ConfigState::{self, Active};
+use crate::config_state::ConfigState::{self, Active};
 use crate::process_handler::NominativeStatus;
 use crate::tasks_manager::ServerCommandError;
 use crate::{

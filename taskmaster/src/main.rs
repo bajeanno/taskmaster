@@ -1,10 +1,10 @@
 mod config;
-mod config_manager;
+mod config_state;
 mod error;
 mod process_handler;
 mod tasks_manager;
 
-use crate::{config_manager::ConfigState, tasks_manager::ServerCommandError};
+use crate::{config_state::ConfigState, tasks_manager::ServerCommandError};
 use config::ProgramConfig;
 use error::Error;
 use tasks_manager::TaskManagerCommand;
