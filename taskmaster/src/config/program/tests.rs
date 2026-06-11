@@ -72,7 +72,6 @@ mod tests {
             let program = ProgramConfig {
                 name: self.name,
                 cmd: self.command,
-                pids: vec![],
                 umask: self.umask,
                 env: self.env,
                 exit_codes: self.exit_codes,

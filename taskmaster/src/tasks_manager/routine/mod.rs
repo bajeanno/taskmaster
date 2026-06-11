@@ -230,6 +230,40 @@ impl Routine {
             process.stop_and_join_if_running().await;
         }
     }
+
+    async fn compare_programs(
+        &mut self,
+        current_program: Arc<ProgramConfig>,
+        new_program: Arc<ProgramConfig>,
+    ) {
+        if *&current_program.cmd == *&new_program.cmd {
+            todo!("restart after reload")
+        }
+        let (current_num_procs, new_num_procs) = (
+            *current_program.num_procs() as isize,
+            *new_program.num_procs() as isize,
+        );
+
+        let procs_delta = current_num_procs - new_num_procs;
+        if procs_delta < 0 {
+            for process in &mut self
+                .processes
+                .lock()
+                .await
+                .get_mut(new_program.name())
+                .unwrap()
+                [*current_program.num_procs() as usize..*new_program.num_procs() as usize]
+            {
+                process.stop_and_join_if_running().await;
+            }
+        }
+
+        if procs_delta > 0 {
+            for id in *current_program.num_procs() as usize..*new_program.num_procs() as usize {
+                self.start_process(id, Arc::clone(&new_program)).await;
+            }
+        }
+    }
 }
 
 #[cfg(test)]

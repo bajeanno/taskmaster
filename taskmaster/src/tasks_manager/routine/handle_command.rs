@@ -23,24 +23,7 @@ impl Routine {
             }
 
             TaskManagerCommand::Reload(file) => {
-                match ConfigState::from_config(Some(file.as_str())) {
-                    Active(new_config) => {
-                        match self.config_state.take() {
-                            Active(current_config) => {
-                                self.update_processes(current_config, new_config.clone())
-                                    .await
-                            }
-                            Uninitialized | LoadError { error: _ } => {
-                                self.start_programs(&new_config.programs).await
-                            }
-                        }
-                        self.config_state = Active(new_config);
-                    }
-                    ConfigState::LoadError { error } => {
-                        return Err(ServerCommandError::LoadError(error));
-                    }
-                    ConfigState::Uninitialized => return Ok(()), // Should never happen,
-                }
+                self.reload_config(file.as_str()).await?;
             }
 
             TaskManagerCommand::StartProgram { program_name } => {
@@ -162,6 +145,32 @@ impl Routine {
         }
     }
 
+    async fn reload_config(&mut self, file: &str) -> Result<(), ServerCommandError> {
+        match ConfigState::from_config(Some(file)) {
+            Active(new_config) => {
+                let current_config_state = self.config_state.take();
+                self.config_state = Active(new_config.clone());
+                match current_config_state {
+                    Active(current_config) => {
+                        self.update_processes(&current_config, &new_config).await
+                    }
+                    Uninitialized | LoadError { error: _ } => {
+                        self.start_programs(&new_config.programs).await
+                    }
+                }
+            }
+
+            ConfigState::LoadError { error } => {
+                return Err(ServerCommandError::LoadError(error));
+            }
+
+            ConfigState::Uninitialized => {
+                panic!("Programmatic error: config_state is Uninitialized after reload")
+            }
+        }
+        Ok(())
+    }
+
     // Even though we don't lock anything between the moment we stop the program
     // and the moment we remove it from the map, it is still impossible for a
     // second user to start the program after we stopped it and before we
@@ -169,24 +178,40 @@ impl Routine {
     // at a time
     async fn update_processes(
         &mut self,
-        current_config: Arc<crate::config::Config>,
-        new_config: Arc<crate::config::Config>,
+        current_config: &Arc<crate::config::Config>,
+        new_config: &Arc<crate::config::Config>,
     ) {
         for (name, current_program) in current_config.programs.iter() {
-            if let Some(new_program) = new_config.programs.get(name)
-                && new_program != current_program
+            //if in current config and new config is found a program with same name, check inside program
+            // if program is the same then don't change, else stop then start the new one
+            if new_config
+                .programs
+                .get(name)
+                .map(|new_program| new_program != current_program)
+                .unwrap_or(true)
             {
-                self.stop_program(name)
+                self.stop_and_remove_program(name)
                     .await
                     .expect("program not found inside iterating function, should never happen");
-                self.processes.lock().await.remove(name);
             }
         }
+        self.start_programs(&new_config.programs).await;
+    }
 
-        for (name, program) in new_config.programs.iter() {
-            if current_config.programs.contains_key(name) {
-                self.start_program(program).await;
-            }
+    async fn stop_and_remove_program(
+        &mut self,
+        program_name: &str,
+    ) -> Result<(), ServerCommandError> {
+        let mut processes = self.processes.lock().await;
+
+        for process in processes
+            .get_mut(program_name)
+            .ok_or_else(|| ServerCommandError::NoSuchProgram(program_name.into()))?
+            .iter_mut()
+        {
+            process.stop_and_join_if_running().await;
         }
+        processes.remove(program_name);
+        Ok(())
     }
 }

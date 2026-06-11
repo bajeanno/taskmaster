@@ -6,7 +6,7 @@ pub fn default_output() -> String {
 }
 
 pub fn default_signal() -> Signal {
-    Signal::SIGINT
+    Signal::SIGTERM
 }
 
 pub fn default_num_procs() -> u8 {

@@ -366,6 +366,7 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
 /// That should never happen because those structs are both constructed side by side.
 ///
 async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputFile) {
+    //TODO: move this to task_manager
     match (output, &log.log_type) {
         (OutputFile::Stdout(file), LogType::Stdout) => {
             let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {

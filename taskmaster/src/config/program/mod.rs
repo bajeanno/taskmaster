@@ -9,7 +9,7 @@ use super::deserialize::{deserialize_num_procs, deserialize_signal, deserialize_
 use super::{AutoRestart, Command};
 pub use crate::config::error::CommandError;
 use derive_getters::Getters;
-use libc::{sys::types::Pid, unistd::mode_t};
+use libc::{unistd::mode_t};
 use serde::{Deserialize, Deserializer};
 use signal::Signal;
 use std::{collections::HashMap, fmt::Display, str::FromStr};
@@ -21,13 +21,10 @@ pub struct ProgramConfig {
     #[serde(skip)]
     name: String,
 
-    #[serde(default)]
-    pids: Vec<Pid>,
-
     #[serde(default = "default_umask", deserialize_with = "deserialize_umask")]
-    umask: mode_t,
+    umask: mode_t, //restart
 
-    pub cmd: Command,
+    pub cmd: Command, //restart
 
     #[serde(
         rename = "numprocs",
@@ -37,7 +34,7 @@ pub struct ProgramConfig {
     num_procs: u8,
 
     #[serde(rename = "workingdir", default = "default_work_dir")]
-    working_dir: String,
+    working_dir: String, //restart
 
     #[serde(rename = "autostart", default)]
     auto_start: bool,
@@ -59,8 +56,9 @@ pub struct ProgramConfig {
         default = "default_signal",
         deserialize_with = "deserialize_signal"
     )]
-    stop_signal: Signal,
+    stop_signal: Signal, 
 
+    //TODO: use this
     #[serde(rename = "stoptime", default)]
     stop_time: u32,
 
@@ -74,15 +72,15 @@ pub struct ProgramConfig {
     clear_env: bool,
 
     #[serde(default)]
-    env: HashMap<String, String>,
+    env: HashMap<String, String>, //restart
 }
 
 impl Display for ProgramConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{:<15}{:50}{: ^15?}{:>10o}",
-            self.name, self.cmd, self.pids, self.umask,
+            "{:<15}{:50}",
+            self.name, self.cmd,
         )
     }
 }
