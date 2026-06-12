@@ -9,7 +9,7 @@ use super::deserialize::{deserialize_num_procs, deserialize_signal, deserialize_
 use super::{AutoRestart, Command};
 pub use crate::config::error::CommandError;
 use derive_getters::Getters;
-use libc::{unistd::mode_t};
+use libc::unistd::mode_t;
 use serde::{Deserialize, Deserializer};
 use signal::Signal;
 use std::{collections::HashMap, fmt::Display, str::FromStr};
@@ -56,7 +56,7 @@ pub struct ProgramConfig {
         default = "default_signal",
         deserialize_with = "deserialize_signal"
     )]
-    stop_signal: Signal, 
+    stop_signal: Signal,
 
     //TODO: use this
     #[serde(rename = "stoptime", default)]
@@ -77,11 +77,7 @@ pub struct ProgramConfig {
 
 impl Display for ProgramConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:<15}{:50}",
-            self.name, self.cmd,
-        )
+        write!(f, "{:<15}{:50}", self.name, self.cmd,)
     }
 }
 

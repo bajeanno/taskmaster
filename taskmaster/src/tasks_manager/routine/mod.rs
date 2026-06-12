@@ -218,18 +218,19 @@ impl Routine {
             *current_program.num_procs() as isize,
             *new_program.num_procs() as isize,
         );
-        self.handle_num_procs_diff(current_num_procs, new_num_procs, current_program.name()).await;
+        self.handle_num_procs_diff(current_num_procs, new_num_procs, current_program.name())
+            .await;
     }
-    
-    async fn handle_num_procs_diff(&mut self, current_num_procs: isize, new_num_procs: isize, program_name: &str) {
+
+    async fn handle_num_procs_diff(
+        &mut self,
+        current_num_procs: isize,
+        new_num_procs: isize,
+        program_name: &str,
+    ) {
         let procs_delta = current_num_procs - new_num_procs;
         if procs_delta < 0 {
-            for process in &mut self
-                .processes
-                .lock()
-                .await
-                .get_mut(program_name)
-                .unwrap()
+            for process in &mut self.processes.lock().await.get_mut(program_name).unwrap()
                 [current_num_procs as usize..new_num_procs as usize]
             {
                 process.stop_and_join_if_running().await;
