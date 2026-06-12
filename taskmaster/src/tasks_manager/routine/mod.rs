@@ -14,7 +14,6 @@ use crate::{
 };
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::usize;
 use tokio::fs::OpenOptions;
 use tokio::sync::{
     Mutex,
@@ -211,7 +210,7 @@ impl Routine {
         current_program: Arc<ProgramConfig>,
         new_program: Arc<ProgramConfig>,
     ) {
-        if *&current_program.cmd == *&new_program.cmd {
+        if current_program.cmd == new_program.cmd {
             todo!("restart after reload")
         }
         let (current_num_procs, new_num_procs) = (
