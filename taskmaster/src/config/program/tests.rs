@@ -56,7 +56,7 @@ mod tests {
                 start_retries: 0,
                 start_time: 0,
                 stop_time: 0,
-                stop_signal: Signal::SIGINT,
+                stop_signal: Signal::SIGTERM,
                 clear_env: false,
                 stdout: "/dev/null".to_string(),
                 stderr: "/dev/null".to_string(),

@@ -6,13 +6,16 @@ use super::handle::Handle;
 use crate::CommandReceiver;
 use crate::config_state::ConfigState::{self, Active};
 use crate::process_handler::NominativeStatus;
+use crate::process_handler::OutputFile;
 use crate::tasks_manager::ServerCommandError;
 use crate::{
     config::ProgramConfig,
-    process_handler::{self, LogReceiver, LogSender, Status, StatusReceiver},
+    process_handler::{LogReceiver, LogSender, Status, StatusReceiver},
 };
-use std::collections::{HashMap, hash_map};
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::usize;
+use tokio::fs::OpenOptions;
 use tokio::sync::{
     Mutex,
     mpsc::{self, UnboundedSender},
@@ -86,72 +89,44 @@ impl Routine {
 
     async fn start_programs(&mut self, programs: &HashMap<String, Arc<ProgramConfig>>) {
         for (_, program_config) in programs.iter() {
-            self.start_program(program_config).await;
+            self.create_program_processes(program_config).await;
         }
     }
 
-    async fn start_program(&mut self, program_config: &Arc<ProgramConfig>) {
-        let num_procs: u8 = *program_config.num_procs();
-
-        for id in 0..num_procs {
-            self.start_process(id as usize, Arc::clone(program_config))
-                .await;
-        }
-    }
-
-    async fn start_process(&mut self, process_id: usize, program_config: Arc<ProgramConfig>) {
-        let process_name = format!("{}-{}", program_config.name(), process_id);
-
-        match self
-            .processes
+    async fn create_program_processes(&mut self, program_config: &Arc<ProgramConfig>) {
+        let num_procs: usize = *program_config.num_procs() as usize;
+        //TODO: move RoutineSpawnError
+        let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(program_config.stdout())
+                .await
+                .unwrap(), //TODO: remove that and handle error
+        )));
+        let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(program_config.stderr())
+                .await
+                .unwrap(), //TODO: remove that and handle error
+        )));
+        let vec: Vec<Process> = (0..num_procs)
+            .map(|id| {
+                Process::new(
+                    program_config.clone(),
+                    id,
+                    stderr_file.clone(),
+                    stdout_file.clone(),
+                )
+                .auto_start(self.status_sender.clone(), self.log_sender.clone())
+            })
+            .collect();
+        self.processes
             .lock()
             .await
-            .entry(program_config.name().clone())
-        {
-            hash_map::Entry::Occupied(mut entry) => {
-                if !entry.get()[process_id].is_async_task_running() {
-                    let process_generation =
-                        entry.get()[process_id].process_generation().wrapping_add(1);
-
-                    (*entry.get_mut())[process_id] = self
-                        .start_process_handler_routine(
-                            program_config,
-                            process_name,
-                            process_generation,
-                        )
-                        .await;
-                }
-            }
-            hash_map::Entry::Vacant(entry) => {
-                let mut processes: Vec<Process> = (0..*program_config.num_procs())
-                    .map(|_| Process::default())
-                    .collect();
-                processes[process_id] = self
-                    .start_process_handler_routine(program_config, process_name, 0)
-                    .await;
-                entry.insert(processes);
-            }
-        };
-    }
-
-    async fn start_process_handler_routine(
-        &self,
-        program_config: Arc<ProgramConfig>,
-        process_name: String,
-        process_generation: u32,
-    ) -> Process {
-        match process_handler::Routine::spawn(
-            program_config,
-            self.status_sender.clone(),
-            self.log_sender.clone(),
-            process_name,
-            process_generation,
-        )
-        .await
-        {
-            Ok(handle) => Process::new(Some(handle), Status::RoutineStarting, process_generation),
-            Err(err) => Process::new(None, Status::FailedToSpawnRoutine(err), process_generation),
-        }
+            .insert(program_config.name().clone(), vec);
     }
 
     fn split_process_name(mut process_name: String) -> Option<(String, usize)> {
@@ -243,24 +218,30 @@ impl Routine {
             *current_program.num_procs() as isize,
             *new_program.num_procs() as isize,
         );
-
+        self.handle_num_procs_diff(current_num_procs, new_num_procs, current_program.name()).await;
+    }
+    
+    async fn handle_num_procs_diff(&mut self, current_num_procs: isize, new_num_procs: isize, program_name: &str) {
         let procs_delta = current_num_procs - new_num_procs;
         if procs_delta < 0 {
             for process in &mut self
                 .processes
                 .lock()
                 .await
-                .get_mut(new_program.name())
+                .get_mut(program_name)
                 .unwrap()
-                [*current_program.num_procs() as usize..*new_program.num_procs() as usize]
+                [current_num_procs as usize..new_num_procs as usize]
             {
                 process.stop_and_join_if_running().await;
             }
         }
 
         if procs_delta > 0 {
-            for id in *current_program.num_procs() as usize..*new_program.num_procs() as usize {
-                self.start_process(id, Arc::clone(&new_program)).await;
+            //TODO: check if process if currently running
+            //TODO: if so, create process + .auto_start()
+            //TODO: else, only create process.
+            for id in current_num_procs..new_num_procs {
+                todo!("{id}");
             }
         }
     }

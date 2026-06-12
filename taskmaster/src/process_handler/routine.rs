@@ -10,7 +10,6 @@ use std::panic;
 use std::process::Stdio;
 use std::sync::{Arc, LazyLock};
 use thiserror::Error;
-use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::sync::mpsc::UnboundedSender;
@@ -43,30 +42,16 @@ pub enum RoutineSpawnError {
 }
 
 impl Routine {
-    pub async fn spawn(
+    pub fn spawn(
         config: Arc<ProgramConfig>,
         status_sender: UnboundedSender<NominativeStatus>,
         log_sender: LogSender,
         process_name: String,
+        stdout_file: Arc<Mutex<OutputFile>>,
+        stderr_file: Arc<Mutex<OutputFile>>,
         process_generation: u32,
-    ) -> Result<Handle, RoutineSpawnError> {
+    ) -> Handle {
         let (kill_command_sender, kill_command_receiver) = mpsc::channel(1);
-        let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
-            OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(config.stdout())
-                .await
-                .map_err(|err| RoutineSpawnError::OpeningStdoutFile(err.to_string()))?,
-        )));
-        let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(
-            OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(config.stderr())
-                .await
-                .map_err(|err| RoutineSpawnError::OpeningStderrFile(err.to_string()))?,
-        )));
         let command = command::create_command(&config);
 
         let join_handle = tokio::spawn(async move {
@@ -84,7 +69,7 @@ impl Routine {
             .routine(stdout_file, stderr_file)
             .await
         });
-        Ok(Handle::new(join_handle, kill_command_sender))
+        Handle::new(join_handle, kill_command_sender)
     }
 
     async fn routine(

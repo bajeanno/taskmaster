@@ -77,7 +77,7 @@ impl Outputs {
         }
     }
 }
-enum OutputFile {
+pub enum OutputFile {
     Stdout(File),
     Stderr(File),
 }

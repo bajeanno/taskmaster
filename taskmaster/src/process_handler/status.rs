@@ -16,6 +16,7 @@ pub struct NominativeStatus {
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum Status {
     #[default]
+    NotRunning,
     RoutineStarting,
     Starting,
     Running,

@@ -1,5 +1,6 @@
-use crate::process_handler::{Log, LogType, NominativeStatus, Routine, Status};
+use crate::process_handler::{Log, LogType, NominativeStatus, OutputFile, Routine, Status};
 use std::sync::Arc;
+use tokio::fs::OpenOptions;
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
@@ -102,9 +103,31 @@ async fn create_task() {
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, log_receiver) = mpsc::unbounded_channel();
     let name = format!("{}-0", program.name());
-    let routine_handle = Routine::spawn(program, status_sender, log_sender, name.clone(), 0)
-        .await
-        .expect("failed to spawn tokio::task");
+    let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
+        OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(program.stdout())
+            .await
+            .unwrap(),
+    )));
+    let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(
+        OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(program.stderr())
+            .await
+            .unwrap(),
+    )));
+    let routine_handle = Routine::spawn(
+        program,
+        status_sender,
+        log_sender,
+        name.clone(),
+        stdout_file,
+        stderr_file,
+        0,
+    );
     let log_checker_handle = tokio::spawn(check_realtime_output(log_receiver));
     let status_receiver = Arc::new(Mutex::new(status_receiver));
     let status_checker_handle =
@@ -187,9 +210,31 @@ async fn create_task_then_interrupt() {
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, _) = mpsc::unbounded_channel();
     let name = format!("{}-0", config.name());
-    let routine_handle = Routine::spawn(config, status_sender, log_sender, name.clone(), 0)
-        .await
-        .expect("failed to spawn tokio::task");
+    let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
+        OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(config.stdout())
+            .await
+            .unwrap(),
+    )));
+    let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(
+        OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(config.stderr())
+            .await
+            .unwrap(),
+    )));
+    let routine_handle = Routine::spawn(
+        config,
+        status_sender,
+        log_sender,
+        name.clone(),
+        stdout_file,
+        stderr_file,
+        0,
+    );
     let status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>> =
         Arc::new(Mutex::new(status_receiver));
     let handle2 = tokio::spawn(check_status(Arc::clone(&status_receiver), name.clone()));
