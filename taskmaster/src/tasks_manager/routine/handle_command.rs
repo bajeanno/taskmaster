@@ -114,7 +114,7 @@ impl Routine {
                     .enumerate()
                     .map(|(id, process)| NominativeStatus {
                         process_name: format!("{}-{}", name, id),
-                        status: process.status.clone(),
+                        status: process.nominative_status.status.clone(),
                     })
                     .collect()
             })

@@ -2,16 +2,20 @@
 mod tests;
 
 use super::default::{
-    default_exit_codes, default_num_procs, default_output, default_signal, default_umask,
-    default_work_dir,
+    default_exit_codes, default_num_procs, default_signal, default_umask, default_work_dir,
 };
-use super::deserialize::{deserialize_num_procs, deserialize_signal, deserialize_umask};
+use super::deserialize::{
+    deserialize_num_procs, deserialize_signal, deserialize_stderr_file, deserialize_stdout_file,
+    deserialize_umask,
+};
 use super::{AutoRestart, Command};
 pub use crate::config::error::CommandError;
+use crate::process_handler::OutputFile;
 use derive_getters::Getters;
 use libc::unistd::mode_t;
 use serde::{Deserialize, Deserializer};
 use signal::Signal;
+use std::sync::Arc;
 use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 #[allow(dead_code)] // TODO: remove this
@@ -62,11 +66,11 @@ pub struct ProgramConfig {
     #[serde(rename = "stoptime", default)]
     stop_time: u32,
 
-    #[serde(default = "default_output")]
-    stdout: String,
+    #[serde(default, deserialize_with = "deserialize_stdout_file")]
+    stdout: Arc<OutputFile>,
 
-    #[serde(default = "default_output")]
-    stderr: String,
+    #[serde(default, deserialize_with = "deserialize_stderr_file")]
+    stderr: Arc<OutputFile>,
 
     #[serde(rename = "clearenv", default)]
     clear_env: bool,

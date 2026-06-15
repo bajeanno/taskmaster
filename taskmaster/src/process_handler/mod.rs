@@ -7,16 +7,17 @@ mod tests;
 
 pub use handle::Handle;
 
-use tokio::{fs::File, io::BufReader, process::Child, sync::mpsc};
-
 #[allow(unused)]
 pub use routine::{Routine, RoutineSpawnError};
 pub use status::{NominativeStatus, Status, StatusSender};
+use std::fs::{File, OpenOptions};
 #[allow(unused)]
 use tokio::process::Command;
 use tokio::process::{ChildStderr, ChildStdout};
+use tokio::sync::Mutex;
+use tokio::{io::BufReader, process::Child, sync::mpsc};
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum LogType {
     Stdout,
     Stderr,
@@ -30,17 +31,17 @@ pub struct Log {
 }
 
 impl Log {
-    fn new(output_file: &OutputFile, buffer: &[u8], name: &str) -> Self {
-        match output_file {
-            OutputFile::Stdout(_) => Log {
+    fn new(log_type: LogType, buffer: &[u8], name: &str) -> Self {
+        match log_type {
+            LogType::Stdout => Log {
                 message: format!("{}: {}", name, String::from_utf8_lossy(buffer)),
                 process_name: name.to_string(),
-                log_type: LogType::Stdout,
+                log_type,
             },
-            OutputFile::Stderr(_) => Log {
+            LogType::Stderr => Log {
                 message: format!("{}: {}", name, String::from_utf8_lossy(buffer)),
                 process_name: name.to_string(),
-                log_type: LogType::Stderr,
+                log_type,
             },
         }
     }
@@ -77,7 +78,72 @@ impl Outputs {
         }
     }
 }
+
+#[derive(Debug, Default)]
 pub enum OutputFile {
-    Stdout(File),
-    Stderr(File),
+    Stdout {
+        file: Mutex<File>,
+        path: String,
+    },
+    Stderr {
+        file: Mutex<File>,
+        path: String,
+    },
+    #[default]
+    None,
+}
+
+impl OutputFile {
+    pub fn new_stdout(file_path: &str) -> Result<Self, std::io::Error> {
+        Ok(Self::Stdout {
+            file: Mutex::new(
+                OpenOptions::new()
+                    .append(true)
+                    .create(true)
+                    .open(file_path)?,
+            ),
+            path: file_path.to_string(),
+        })
+    }
+
+    pub fn new_stderr(file_path: &str) -> Result<Self, std::io::Error> {
+        Ok(Self::Stderr {
+            file: Mutex::new(
+                OpenOptions::new()
+                    .append(true)
+                    .create(true)
+                    .open(file_path)?,
+            ),
+            path: file_path.to_string(),
+        })
+    }
+}
+
+impl PartialEq for OutputFile {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                OutputFile::Stdout {
+                    file: _,
+                    path: path1,
+                },
+                OutputFile::Stdout {
+                    file: _,
+                    path: path2,
+                },
+            ) => path1 == path2,
+            (
+                OutputFile::Stderr {
+                    file: _,
+                    path: path1,
+                },
+                OutputFile::Stderr {
+                    file: _,
+                    path: path2,
+                },
+            ) => path1 == path2,
+            (OutputFile::None, OutputFile::None) => true,
+            _ => false,
+        }
+    }
 }

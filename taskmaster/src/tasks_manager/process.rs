@@ -1,37 +1,32 @@
 use std::sync::Arc;
 
-use tokio::sync::{Mutex, mpsc::UnboundedSender};
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     config::ProgramConfig,
-    process_handler::{self, LogSender, NominativeStatus, OutputFile, Status},
+    process_handler::{self, LogSender, NominativeStatus, Status},
 };
 
 pub struct Process {
     program_config: Arc<ProgramConfig>,
     handle: Option<process_handler::Handle>,
-    pub status: Status,
+    pub nominative_status: NominativeStatus,
     process_generation: u32,
-    id: usize,
-    stderr_file: Arc<Mutex<OutputFile>>,
-    stdout_file: Arc<Mutex<OutputFile>>,
+    process_name: String,
 }
 
 impl Process {
-    pub fn new(
-        program: Arc<ProgramConfig>,
-        id: usize,
-        stderr_file: Arc<Mutex<OutputFile>>,
-        stdout_file: Arc<Mutex<OutputFile>>,
-    ) -> Self {
+    pub fn new(program: Arc<ProgramConfig>, id: usize) -> Self {
+        let process_name = format!("{}-{}", program.name(), id);
         Self {
-            program_config: program.clone(),
+            program_config: Arc::clone(&program),
             handle: None,
-            status: Status::default(),
+            nominative_status: NominativeStatus {
+                process_name: process_name.clone(),
+                status: Status::default(),
+            },
             process_generation: 0,
-            id,
-            stderr_file,
-            stdout_file,
+            process_name,
         }
     }
 
@@ -54,19 +49,16 @@ impl Process {
         if self.handle.is_some() {
             return;
         }
-        let process_name = format!("{}-{}", self.id, self.program_config.name());
         let handle = process_handler::Routine::spawn(
             self.program_config.clone(),
             status_sender,
             log_sender,
-            process_name,
-            Arc::clone(&self.stdout_file),
-            Arc::clone(&self.stderr_file),
+            self.process_name.clone(),
             self.process_generation,
         );
 
         self.handle = Some(handle);
-        self.status = Status::RoutineStarting;
+        self.nominative_status.status = Status::RoutineStarting;
     }
 
     pub fn process_generation(&self) -> u32 {

@@ -6,11 +6,11 @@ use crate::process_handler::{Log, LogType, OutputFile, Outputs};
 use libc::signal::kill;
 use libc::unistd::{mode_t, umask};
 use signal::Signal;
+use std::io::Write;
 use std::panic;
 use std::process::Stdio;
 use std::sync::{Arc, LazyLock};
 use thiserror::Error;
-use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::{
@@ -30,6 +30,8 @@ pub struct Routine {
     process_name: String,
     kill_command_received: bool,
     process_generation: u32,
+    stderr_file: Arc<OutputFile>,
+    stdout_file: Arc<OutputFile>,
 }
 
 #[derive(Error, Debug, Clone)]
@@ -47,8 +49,6 @@ impl Routine {
         status_sender: UnboundedSender<NominativeStatus>,
         log_sender: LogSender,
         process_name: String,
-        stdout_file: Arc<Mutex<OutputFile>>,
-        stderr_file: Arc<Mutex<OutputFile>>,
         process_generation: u32,
     ) -> Handle {
         let (kill_command_sender, kill_command_receiver) = mpsc::channel(1);
@@ -56,6 +56,8 @@ impl Routine {
 
         let join_handle = tokio::spawn(async move {
             Self {
+                stdout_file: Arc::clone(config.stdout()),
+                stderr_file: Arc::clone(config.stderr()),
                 config,
                 log_sender,
                 status_sender: StatusSender::new(status_sender, process_name.clone()),
@@ -66,21 +68,15 @@ impl Routine {
                 kill_command_received: false,
                 process_generation,
             }
-            .routine(stdout_file, stderr_file)
+            .routine()
             .await
         });
         Handle::new(join_handle, kill_command_sender)
     }
 
-    async fn routine(
-        mut self,
-        stdout_file: Arc<Mutex<OutputFile>>,
-        stderr_file: Arc<Mutex<OutputFile>>,
-    ) {
+    async fn routine(mut self) {
         loop {
-            let status = self
-                .run_program(Arc::clone(&stdout_file), Arc::clone(&stderr_file))
-                .await;
+            let status = self.run_program().await;
 
             let should_try_restart = self.should_try_restart(&status);
 
@@ -95,11 +91,7 @@ impl Routine {
         }
     }
 
-    async fn run_program(
-        &mut self,
-        stdout_file: Arc<Mutex<OutputFile>>,
-        stderr_file: Arc<Mutex<OutputFile>>,
-    ) -> Status {
+    async fn run_program(&mut self) -> Status {
         let child = {
             // Save the current umask and restore it after the child process is spawned.
             // We need to do this because the child process inherits the umask of the parent process.
@@ -132,24 +124,18 @@ impl Routine {
             Ok(child) => {
                 self.status_sender
                     .send_new_status_to_task_manager(Status::Starting);
-                self.handle_running_child(child, stdout_file, stderr_file)
-                    .await
+                self.handle_running_child(child).await
             }
             Err(err) => Status::FailedToStartProcess(err.to_string()),
         }
     }
 
-    async fn handle_running_child(
-        &mut self,
-        mut child: Child,
-        stdout_file: Arc<Mutex<OutputFile>>,
-        stderr_file: Arc<Mutex<OutputFile>>,
-    ) -> Status {
+    async fn handle_running_child(&mut self, mut child: Child) -> Status {
         let outputs = Outputs::new(&mut child);
         let listen_task = tokio::spawn(Self::listen(
             outputs,
-            stdout_file,
-            stderr_file,
+            Arc::clone(&self.stdout_file),
+            Arc::clone(&self.stderr_file),
             self.log_sender.clone(),
             self.process_name.clone(),
         ));
@@ -280,28 +266,27 @@ impl Routine {
     ///  critical failure in the channel communication.
     async fn listen(
         outputs: Outputs,
-        stdout_file: Arc<Mutex<OutputFile>>,
-        stderr_file: Arc<Mutex<OutputFile>>,
+        stdout_file: Arc<OutputFile>,
+        stderr_file: Arc<OutputFile>,
         log_sender: LogSender,
         process_name: String,
     ) {
         let stdout = outputs.stdout;
         let stderr = outputs.stderr;
 
-        let mut stdout_file_mutex_guard = stdout_file.lock().await;
-        let mut stderr_file_mutex_guard = stderr_file.lock().await;
-
         tokio::join!(
             listen_and_log(
                 stdout,
                 log_sender.clone(),
-                &mut stdout_file_mutex_guard,
+                stdout_file,
+                LogType::Stdout,
                 &process_name
             ),
             listen_and_log(
                 stderr,
                 log_sender,
-                &mut stderr_file_mutex_guard,
+                stderr_file,
+                LogType::Stderr,
                 &process_name
             ),
         );
@@ -311,7 +296,8 @@ impl Routine {
 async fn listen_and_log<R: AsyncBufRead + Unpin>(
     mut output: R,
     mut sender: LogSender,
-    output_file: &mut OutputFile,
+    output_file: Arc<OutputFile>,
+    log_type: LogType,
     name: &str,
 ) {
     loop {
@@ -321,8 +307,8 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
         match bytes_read {
             Ok(0) => break,
             Ok(_) => {
-                let log = Log::new(output_file, &buffer, name);
-                dispatch_log(log, &mut sender, output_file).await;
+                let log = Log::new(log_type, &buffer, name);
+                dispatch_log(log, &mut sender, Arc::clone(&output_file)).await;
             }
             Err(err) => {
                 eprintln!(
@@ -350,19 +336,20 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
 /// Will panic if the `OutputFile` and the `LogType` enums are not accorded.
 /// That should never happen because those structs are both constructed side by side.
 ///
-async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputFile) {
+async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: Arc<OutputFile>) {
     //TODO: move this to task_manager
-    match (output, &log.log_type) {
-        (OutputFile::Stdout(file), LogType::Stdout) => {
-            let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
+    match (&*output, &log.log_type) {
+        (OutputFile::Stdout { file, path: _ }, LogType::Stdout) => {
+            let _ = file.lock().await.write_all(log.message.as_bytes()).inspect_err(|err| {
                 eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.process_name);
             });
         }
-        (OutputFile::Stderr(file), LogType::Stderr) => {
-            let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
+        (OutputFile::Stderr { file, path: _ }, LogType::Stderr) => {
+            let _ = file.lock().await.write_all(log.message.as_bytes()).inspect_err(|err| {
                 eprintln!("Taskmaster error: {}: Failed to write process stderr output to log file: {err}", log.process_name);
             });
         }
+        (OutputFile::None, _) => { /* Do nothing as there is no file to write output in */ }
         _ => panic!(
             "log function was called with different values for output and log_type, expected same values"
         ),

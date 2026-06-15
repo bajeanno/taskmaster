@@ -1,10 +1,6 @@
 use libc::unistd::mode_t;
 use signal::Signal;
 
-pub fn default_output() -> String {
-    "/dev/null".to_string()
-}
-
 pub fn default_signal() -> Signal {
     Signal::SIGTERM
 }

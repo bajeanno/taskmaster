@@ -4,9 +4,8 @@ use super::Process;
 use super::TaskManagerCommand;
 use super::handle::Handle;
 use crate::CommandReceiver;
-use crate::config_state::ConfigState::{self, Active};
+use crate::config_state::ConfigState;
 use crate::process_handler::NominativeStatus;
-use crate::process_handler::OutputFile;
 use crate::tasks_manager::ServerCommandError;
 use crate::{
     config::ProgramConfig,
@@ -14,7 +13,6 @@ use crate::{
 };
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::fs::OpenOptions;
 use tokio::sync::{
     Mutex,
     mpsc::{self, UnboundedSender},
@@ -71,7 +69,7 @@ impl Routine {
     }
 
     async fn routine(mut self, status_receiver: StatusReceiver, log_receiver: LogReceiver) {
-        if let Active(config) = &self.config_state {
+        if let ConfigState::Active(config) = &self.config_state {
             self.start_programs(&Arc::clone(config).programs).await;
         }
 
@@ -94,32 +92,10 @@ impl Routine {
 
     async fn create_program_processes(&mut self, program_config: &Arc<ProgramConfig>) {
         let num_procs: usize = *program_config.num_procs() as usize;
-        //TODO: move RoutineSpawnError
-        let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
-            OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(program_config.stdout())
-                .await
-                .unwrap(), //TODO: remove that and handle error
-        )));
-        let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(
-            OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(program_config.stderr())
-                .await
-                .unwrap(), //TODO: remove that and handle error
-        )));
         let vec: Vec<Process> = (0..num_procs)
             .map(|id| {
-                Process::new(
-                    program_config.clone(),
-                    id,
-                    stderr_file.clone(),
-                    stdout_file.clone(),
-                )
-                .auto_start(self.status_sender.clone(), self.log_sender.clone())
+                Process::new(program_config.clone(), id)
+                    .auto_start(self.status_sender.clone(), self.log_sender.clone())
             })
             .collect();
         self.processes
@@ -160,7 +136,7 @@ impl Routine {
                 {
                     process.join_if_running().await;
                 }
-                process.status = nominative_status.status;
+                process.nominative_status = nominative_status;
             }
         }
     }
@@ -214,23 +190,29 @@ impl Routine {
             todo!("restart after reload")
         }
         let (current_num_procs, new_num_procs) = (
-            *current_program.num_procs() as isize,
-            *new_program.num_procs() as isize,
+            *current_program.num_procs() as usize,
+            *new_program.num_procs() as usize,
         );
-        self.handle_num_procs_diff(current_num_procs, new_num_procs, current_program.name())
-            .await;
+        self.handle_num_procs_diff(
+            &current_program,
+            current_num_procs,
+            new_num_procs,
+            current_program.name(),
+        )
+        .await;
     }
 
     async fn handle_num_procs_diff(
         &mut self,
-        current_num_procs: isize,
-        new_num_procs: isize,
+        program_config: &Arc<ProgramConfig>,
+        current_num_procs: usize,
+        new_num_procs: usize,
         program_name: &str,
     ) {
-        let procs_delta = current_num_procs - new_num_procs;
+        let procs_delta = current_num_procs as isize - new_num_procs as isize;
         if procs_delta < 0 {
             for process in &mut self.processes.lock().await.get_mut(program_name).unwrap()
-                [current_num_procs as usize..new_num_procs as usize]
+                [current_num_procs..new_num_procs]
             {
                 process.stop_and_join_if_running().await;
             }
@@ -240,8 +222,12 @@ impl Routine {
             //TODO: check if process if currently running
             //TODO: if so, create process + .auto_start()
             //TODO: else, only create process.
-            for id in current_num_procs..new_num_procs {
-                todo!("{id}");
+            let mut lock = self.processes.lock().await;
+            let Some(process_vec) = lock.get_mut(program_name) else {
+                panic!("program is uninitialized");
+            };
+            for id in current_num_procs..=new_num_procs {
+                process_vec.insert(id, Process::new(Arc::clone(program_config), id));
             }
         }
     }

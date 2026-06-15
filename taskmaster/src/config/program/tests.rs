@@ -2,6 +2,7 @@
 mod tests {
     use crate::config::program::{AutoRestart, CommandError};
     use crate::config::{Config, program::Command, program::ProgramConfig};
+    use crate::process_handler::OutputFile;
     use libc::unistd::mode_t;
     use signal::Signal;
     use std::collections::HashMap;
@@ -37,8 +38,8 @@ mod tests {
         pub stop_time: u32,
         pub stop_signal: Signal,
         pub clear_env: bool,
-        pub stdout: String,
-        pub stderr: String,
+        pub stdout: Arc<OutputFile>,
+        pub stderr: Arc<OutputFile>,
         pub env: HashMap<String, String>,
     }
 
@@ -58,8 +59,8 @@ mod tests {
                 stop_time: 0,
                 stop_signal: Signal::SIGTERM,
                 clear_env: false,
-                stdout: "/dev/null".to_string(),
-                stderr: "/dev/null".to_string(),
+                stdout: Arc::new(OutputFile::None),
+                stderr: Arc::new(OutputFile::None),
                 env: HashMap::new(),
             })
         }
@@ -359,12 +360,15 @@ mod tests {
     #[test]
     fn parsing_with_stdout() {
         let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
-        builder.stdout = "/var/log/stdout.log".to_string();
+        builder.stdout = Arc::new(
+            OutputFile::new_stdout("stdout.log")
+                .expect("Failed to open stderr file (/var/log/stderr.log)"),
+        );
         let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
-            stdout: "/var/log/stdout.log""#,
+            stdout: "stdout.log""#,
         );
         assert_config_parses_to(&yaml_content, program);
     }
@@ -372,12 +376,15 @@ mod tests {
     #[test]
     fn parsing_with_stderr() {
         let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
-        builder.stderr = "/var/log/stderr.log".to_string();
+        builder.stderr = Arc::new(
+            OutputFile::new_stderr("stderr.log")
+                .expect("Failed to open stderr file (/var/log/stderr.log)"),
+        );
         let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
-            stderr: "/var/log/stderr.log""#,
+            stderr: "stderr.log""#,
         );
         assert_config_parses_to(&yaml_content, program);
     }
