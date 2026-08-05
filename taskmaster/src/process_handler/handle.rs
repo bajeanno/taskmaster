@@ -4,6 +4,7 @@ use tokio::task::JoinHandle as TokioJoinHandle;
 type JoinHandle = TokioJoinHandle<()>;
 
 #[allow(dead_code)] //TODO: Remove that
+#[cfg_attr(test, derive(Debug))]
 pub struct Handle {
     join_handle: JoinHandle,
     kill_command_sender: KillCommandSender,

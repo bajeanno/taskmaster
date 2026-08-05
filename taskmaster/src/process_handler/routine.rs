@@ -29,7 +29,7 @@ pub struct Routine {
     command: Command,
     process_name: String,
     kill_command_received: bool,
-    process_generation: u32,
+    instance_id: u32,
     stderr_file: Arc<OutputFile>,
     stdout_file: Arc<OutputFile>,
 }
@@ -49,7 +49,7 @@ impl Routine {
         status_sender: UnboundedSender<NominativeStatus>,
         log_sender: LogSender,
         process_name: String,
-        process_generation: u32,
+        instance_id: u32,
     ) -> Handle {
         let (kill_command_sender, kill_command_receiver) = mpsc::channel(1);
         let command = command::create_command(&config);
@@ -66,7 +66,7 @@ impl Routine {
                 command,
                 process_name,
                 kill_command_received: false,
-                process_generation,
+                instance_id,
             }
             .routine()
             .await
@@ -84,7 +84,7 @@ impl Routine {
             if self.kill_command_received || !should_try_restart {
                 self.status_sender
                     .send_new_status_to_task_manager(Status::NotRestarting {
-                        process_generation: self.process_generation,
+                        instance_id: self.instance_id,
                     });
                 break;
             }

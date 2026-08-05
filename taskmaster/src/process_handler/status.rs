@@ -25,7 +25,7 @@ pub enum Status {
     Exited(ExitStatus),
     FailedToSpawnRoutine(RoutineSpawnError),
     NotRestarting {
-        process_generation: u32,
+        instance_id: u32,
     },
 }
 

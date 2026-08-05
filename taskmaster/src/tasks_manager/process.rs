@@ -1,4 +1,10 @@
-use std::sync::Arc;
+use std::{
+    fmt::Debug,
+    sync::{
+        Arc,
+        atomic::{AtomicU32, Ordering},
+    },
+};
 
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -11,9 +17,20 @@ pub struct Process {
     program_config: Arc<ProgramConfig>,
     handle: Option<process_handler::Handle>,
     pub nominative_status: NominativeStatus,
-    process_generation: u32,
+    instance_id: u32,
     process_name: String,
 }
+
+impl Debug for Process {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Process")
+            .field("nominative_status", &self.nominative_status)
+            .field("instance_id", &self.instance_id)
+            .finish()
+    }
+}
+
+static NEXT_PROCESS_INSTANCE_ID: AtomicU32 = AtomicU32::new(0);
 
 impl Process {
     pub fn new(program: Arc<ProgramConfig>, id: usize) -> Self {
@@ -25,7 +42,7 @@ impl Process {
                 process_name: process_name.clone(),
                 status: Status::default(),
             },
-            process_generation: 0,
+            instance_id: 0,
             process_name,
         }
     }
@@ -49,20 +66,21 @@ impl Process {
         if self.handle.is_some() {
             return;
         }
+        self.instance_id = NEXT_PROCESS_INSTANCE_ID.fetch_add(1, Ordering::Relaxed);
         let handle = process_handler::Routine::spawn(
             self.program_config.clone(),
             status_sender,
             log_sender,
             self.process_name.clone(),
-            self.process_generation,
+            self.instance_id,
         );
 
         self.handle = Some(handle);
         self.nominative_status.status = Status::RoutineStarting;
     }
 
-    pub fn process_generation(&self) -> u32 {
-        self.process_generation
+    pub fn instance_id(&self) -> u32 {
+        self.instance_id
     }
 
     /// Stops a routine by sending a kill command.
@@ -70,12 +88,20 @@ impl Process {
         if let Some(handle) = self.handle.take() {
             handle.stop_and_join().await
         }
-        self.process_generation = self.process_generation.wrapping_add(1);
     }
 
     pub async fn join_if_running(&mut self) {
         if let Some(handle) = self.handle.take() {
             handle.join().await;
         }
+    }
+
+    pub fn _name(&self) -> String {
+        self.process_name.clone()
+    }
+
+    #[cfg(test)]
+    pub fn is_running(&self) -> bool {
+        self.handle.is_some()
     }
 }

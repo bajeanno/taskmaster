@@ -181,21 +181,28 @@ impl Routine {
         current_config: &Arc<crate::config::Config>,
         new_config: &Arc<crate::config::Config>,
     ) {
-        for (name, current_program) in current_config.programs.iter() {
-            //if in current config and new config is found a program with same name, check inside program
-            // if program is the same then don't change, else stop then start the new one
-            if new_config
-                .programs
-                .get(name)
-                .map(|new_program| new_program != current_program)
-                .unwrap_or(true)
-            {
-                self.stop_and_remove_program(name)
-                    .await
-                    .expect("program not found inside iterating function, should never happen");
+        for (name, new_program) in new_config.programs.iter() {
+            match current_config.programs.get(name) {
+                Some(current_program) if current_program == new_program => {}
+                Some(_) => {
+                    self.stop_and_remove_program(name)
+                        .await
+                        .expect("program should be in the processes map");
+                    self.create_program_processes(new_program).await;
+                }
+                None => {
+                    self.create_program_processes(new_program).await;
+                }
             }
         }
-        self.start_programs(&new_config.programs).await;
+
+        for name in current_config.programs.keys() {
+            if !new_config.programs.contains_key(name) {
+                self.stop_and_remove_program(name)
+                    .await
+                    .expect("program should be in the processes map");
+            }
+        }
     }
 
     async fn stop_and_remove_program(
@@ -213,5 +220,138 @@ impl Routine {
         }
         processes.remove(program_name);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    use crate::config_state::ConfigState;
+    use crate::process_handler::{LogReceiver, StatusReceiver};
+    use crate::tasks_manager::routine::Routine;
+    use tokio::sync::{Mutex, mpsc};
+
+    const CURRENT_CONFIG: &str = r#"programs:
+    unchanged:
+        cmd: "sleep 30"
+        autostart: true
+    changed:
+        cmd: "sleep 30"
+        autostart: true
+    removed:
+        cmd: "sleep 30"
+        autostart: true"#;
+
+    const NEW_CONFIG: &str = r#"programs:
+    unchanged:
+        cmd: "sleep 30"
+        autostart: true
+    changed:
+        cmd: "sleep 31"
+        autostart: true
+    added:
+        cmd: "sleep 30"
+        autostart: true"#;
+
+    fn config(content: &str) -> Arc<crate::config::Config> {
+        match ConfigState::from_content(content.to_string()) {
+            ConfigState::Active(config) => config,
+            ConfigState::Uninitialized => panic!("config should be active"),
+            ConfigState::LoadError { error } => panic!("config should parse: {error}"),
+        }
+    }
+
+    async fn test_routine(
+        current_config: &Arc<crate::config::Config>,
+    ) -> (Routine, StatusReceiver, LogReceiver) {
+        let (status_sender, status_receiver) = mpsc::unbounded_channel();
+        let (log_sender, log_receiver) = mpsc::unbounded_channel();
+        let (_command_sender, command_receiver) = mpsc::unbounded_channel();
+
+        let mut routine = Routine {
+            config_state: ConfigState::Active(Arc::clone(current_config)),
+            processes: Arc::new(Mutex::new(HashMap::new())),
+            clients: Arc::new(Mutex::new(HashMap::new())),
+            command_receiver,
+            log_sender,
+            status_sender,
+        };
+        routine.start_programs(&current_config.programs).await;
+
+        (routine, status_receiver, log_receiver)
+    }
+
+    #[tokio::test]
+    async fn reload_keeps_unchanged_programs_running() {
+        let current_config = config(CURRENT_CONFIG);
+        let new_config = config(NEW_CONFIG);
+
+        let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
+
+        let unchanged_ids_before: Vec<u32> = routine
+            .processes
+            .lock()
+            .await
+            .get("unchanged")
+            .unwrap()
+            .iter()
+            .map(|process| process.instance_id())
+            .collect();
+        let changed_ids_before: Vec<u32> = routine
+            .processes
+            .lock()
+            .await
+            .get("changed")
+            .unwrap()
+            .iter()
+            .map(|process| process.instance_id())
+            .collect();
+
+        routine.update_processes(&current_config, &new_config).await;
+
+        {
+            let processes = routine.processes.lock().await;
+
+            let unchanged = processes
+                .get("unchanged")
+                .expect("unchanged program should stay registered");
+            assert_eq!(
+                unchanged
+                    .iter()
+                    .map(|process| process.instance_id())
+                    .collect::<Vec<_>>(),
+                unchanged_ids_before,
+                "unchanged program must not be restarted on reload"
+            );
+            assert!(
+                unchanged.iter().all(|process| process.is_running()),
+                "unchanged program must keep running on reload"
+            );
+
+            let changed = processes
+                .get("changed")
+                .expect("changed program should be re-registered");
+            assert_ne!(
+                changed
+                    .iter()
+                    .map(|process| process.instance_id())
+                    .collect::<Vec<_>>(),
+                changed_ids_before,
+                "changed program must be restarted on reload"
+            );
+
+            assert!(
+                processes.contains_key("added"),
+                "new program must be started on reload"
+            );
+            assert!(
+                !processes.contains_key("removed"),
+                "removed program must be stopped on reload"
+            );
+        }
+
+        routine.stop_and_join_all_processes().await;
     }
 }

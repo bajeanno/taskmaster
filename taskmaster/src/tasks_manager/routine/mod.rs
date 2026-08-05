@@ -130,13 +130,14 @@ impl Routine {
                 Self::split_process_name(nominative_status.process_name.clone())
                     .expect("Error: process name does not contain process id");
             if let Some(processes) = processes.get_mut(&program_name) {
-                let process = &mut processes[id];
-                if let Status::NotRestarting { process_generation } = nominative_status.status
-                    && process.process_generation() == process_generation
-                {
-                    process.join_if_running().await;
+                if let Some(process) = processes.get_mut(id) {
+                    if let Status::NotRestarting { instance_id } = nominative_status.status
+                        && process.instance_id() == instance_id
+                    {
+                        process.join_if_running().await;
+                    }
+                    process.nominative_status = nominative_status;
                 }
-                process.nominative_status = nominative_status;
             }
         }
     }
