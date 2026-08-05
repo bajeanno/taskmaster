@@ -64,8 +64,9 @@ where
         ));
     }
     Ok(Arc::new(
-        OutputFile::new_stderr(file_path.as_str())
-            .map_err(|err| serde::de::Error::custom(err.to_string()))?,
+        OutputFile::new_stderr(file_path.as_str()).map_err(|err| {
+            serde::de::Error::custom(format!("Failed to open stderr file: {}", err))
+        })?,
     ))
 }
 
@@ -81,7 +82,8 @@ where
         ));
     }
     Ok(Arc::new(
-        OutputFile::new_stdout(file_path.as_str())
-            .map_err(|err| serde::de::Error::custom(err.to_string()))?,
+        OutputFile::new_stdout(file_path.as_str()).map_err(|err| {
+            serde::de::Error::custom(format!("Failed to open stdout file: {}", err.to_string()))
+        })?,
     ))
 }
