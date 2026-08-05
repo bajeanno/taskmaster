@@ -151,7 +151,12 @@ async fn task_manager_reload() {
     let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content()));
     let new_content = create_tasks_alternate_yaml_content_plus_1_proc();
     let new_file = "/tmp/taskmaster.yaml".to_string();
-    let mut file = OpenOptions::new().create(true).write(true).truncate(true).open(new_file.as_str()).expect("failed to create new taskmaster config file");
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(new_file.as_str())
+        .expect("failed to create new taskmaster config file");
     file.write_all(new_content.as_bytes())
         .expect("failed to write new taskmaster config file");
     handle

@@ -183,26 +183,26 @@ impl Routine {
         for (name, new_program) in new_config.programs.iter() {
             match current_config.programs.get(name) {
                 Some(current_program) if current_program == new_program => {}
-                Some(current_program) => {
-                    match Self::program_diff(current_program, new_program) {
-                        ProgramDiff::CmdChanged => {
-                            self.stop_and_remove_program(name)
-                                .await
-                                .expect("program should be in the processes map");
-                            self.create_program_processes(new_program).await;
-                        }
-                        ProgramDiff::NumProcsChanged { before, after } => {
-                            self.handle_num_procs_diff(new_program, before, after, name)
-                                .await;
-                        }
-                        ProgramDiff::Other => {
-                            self.stop_and_remove_program(name)
-                                .await
-                                .expect("program should be in the processes map");
-                            self.create_program_processes(new_program).await;
-                        }
+
+                Some(current_program) => match Self::program_diff(current_program, new_program) {
+                    ProgramDiff::CmdChanged => {
+                        self.stop_and_remove_program(name)
+                            .await
+                            .expect("program should be in the processes map");
+                        self.create_program_processes(new_program).await;
                     }
-                }
+                    ProgramDiff::NumProcsChanged { before, after } => {
+                        self.handle_num_procs_diff(new_program, before, after, name)
+                            .await;
+                    }
+                    ProgramDiff::Other => {
+                        self.stop_and_remove_program(name)
+                            .await
+                            .expect("program should be in the processes map");
+                        self.create_program_processes(new_program).await;
+                    }
+                },
+
                 None => {
                     self.create_program_processes(new_program).await;
                 }
@@ -463,7 +463,9 @@ mod tests {
             .update_processes(&current_config, &decrease_config)
             .await;
         let procs_lock = routine.processes.lock().await;
-        let scale_procs = procs_lock.get("scale").expect("scale should exist after decrease");
+        let scale_procs = procs_lock
+            .get("scale")
+            .expect("scale should exist after decrease");
         assert_eq!(scale_procs.len(), 1);
         assert_eq!(
             scale_procs[0].instance_id(),
