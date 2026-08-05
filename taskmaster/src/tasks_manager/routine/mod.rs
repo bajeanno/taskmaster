@@ -35,6 +35,13 @@ impl SubscribedClients {
     fn for_each(&self, _callback: impl FnMut(&Client)) {}
 }
 
+#[derive(Debug)]
+enum ProgramDiff {
+    CmdChanged,
+    NumProcsChanged { before: usize, after: usize },
+    Other,
+}
+
 #[allow(dead_code)] //TODO: Remove that
 pub struct Routine {
     config_state: ConfigState,
@@ -85,7 +92,7 @@ impl Routine {
     }
 
     async fn start_programs(&mut self, programs: &HashMap<String, Arc<ProgramConfig>>) {
-        for (_, program_config) in programs.iter() {
+        for program_config in programs.values() {
             self.create_program_processes(program_config).await;
         }
     }
@@ -129,15 +136,15 @@ impl Routine {
             let (program_name, id) =
                 Self::split_process_name(nominative_status.process_name.clone())
                     .expect("Error: process name does not contain process id");
-            if let Some(processes) = processes.get_mut(&program_name) {
-                if let Some(process) = processes.get_mut(id) {
-                    if let Status::NotRestarting { instance_id } = nominative_status.status
-                        && process.instance_id() == instance_id
-                    {
-                        process.join_if_running().await;
-                    }
-                    process.nominative_status = nominative_status;
+            if let Some(processes) = processes.get_mut(&program_name)
+                && let Some(process) = processes.get_mut(id)
+            {
+                if let Status::NotRestarting { instance_id } = nominative_status.status
+                    && process.instance_id() == instance_id
+                {
+                    process.join_if_running().await;
                 }
+                process.nominative_status = nominative_status;
             }
         }
     }
@@ -182,25 +189,22 @@ impl Routine {
         }
     }
 
-    async fn compare_programs(
-        &mut self,
-        current_program: Arc<ProgramConfig>,
-        new_program: Arc<ProgramConfig>,
-    ) {
-        if current_program.cmd == new_program.cmd {
-            todo!("restart after reload")
+    fn program_diff(
+        current_program: &Arc<ProgramConfig>,
+        new_program: &Arc<ProgramConfig>,
+    ) -> ProgramDiff {
+        if current_program.cmd != new_program.cmd {
+            return ProgramDiff::CmdChanged;
         }
-        let (current_num_procs, new_num_procs) = (
-            *current_program.num_procs() as usize,
-            *new_program.num_procs() as usize,
-        );
-        self.handle_num_procs_diff(
-            &current_program,
-            current_num_procs,
-            new_num_procs,
-            current_program.name(),
-        )
-        .await;
+
+        if current_program.num_procs() != new_program.num_procs() {
+            return ProgramDiff::NumProcsChanged {
+                before: *current_program.num_procs() as usize,
+                after: *new_program.num_procs() as usize,
+            };
+        }
+
+        ProgramDiff::Other
     }
 
     async fn handle_num_procs_diff(
@@ -211,15 +215,18 @@ impl Routine {
         program_name: &str,
     ) {
         let procs_delta = current_num_procs as isize - new_num_procs as isize;
-        if procs_delta < 0 {
-            for process in &mut self.processes.lock().await.get_mut(program_name).unwrap()
-                [current_num_procs..new_num_procs]
-            {
+        if procs_delta > 0 {
+            println!("need to delete processes");
+            // new_num_procs cannot be 0 as it's checked in the parsing
+            let mut mutex = self.processes.lock().await;
+            let arr = mutex.get_mut(program_name).unwrap();
+            for process in arr.iter_mut().rev().take(procs_delta as usize) {
                 process.stop_and_join_if_running().await;
             }
+            arr.truncate(new_num_procs);
         }
-
-        if procs_delta > 0 {
+        if procs_delta < 0 {
+            println!("need to spawn new processes");
             //TODO: check if process if currently running
             //TODO: if so, create process + .auto_start()
             //TODO: else, only create process.
@@ -227,8 +234,11 @@ impl Routine {
             let Some(process_vec) = lock.get_mut(program_name) else {
                 panic!("program is uninitialized");
             };
-            for id in current_num_procs..=new_num_procs {
-                process_vec.insert(id, Process::new(Arc::clone(program_config), id));
+            for id in current_num_procs..new_num_procs {
+                process_vec.push(
+                    Process::new(Arc::clone(program_config), id)
+                        .auto_start(self.status_sender.clone(), self.log_sender.clone()),
+                );
             }
         }
     }
@@ -236,7 +246,12 @@ impl Routine {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use crate::config_state::ConfigState;
     use crate::tasks_manager::routine::Routine;
+
+    use super::ProgramDiff;
 
     #[test]
     fn test_split_process_name() {
@@ -245,5 +260,77 @@ mod tests {
             Routine::split_process_name(process_name),
             Some(("taskmaster_test_task".to_string(), 0))
         );
+    }
+
+    fn program_from_yaml(content: &str, program_name: &str) -> Arc<crate::config::ProgramConfig> {
+        match ConfigState::from_content(content.to_string()) {
+            ConfigState::Active(config) => config.programs.get(program_name).unwrap().clone(),
+            _ => panic!("config should parse"),
+        }
+    }
+
+    #[test]
+    fn test_program_diff_cmd_changed() {
+        let current_yaml = r#"programs:
+  testprog:
+    cmd: "sleep 30"
+    numprocs: 2"#;
+        let new_yaml = r#"programs:
+  testprog:
+    cmd: "sleep 31"
+    numprocs: 2"#;
+
+        let current = program_from_yaml(current_yaml, "testprog");
+        let new = program_from_yaml(new_yaml, "testprog");
+
+        assert!(matches!(
+            Routine::program_diff(&current, &new),
+            ProgramDiff::CmdChanged
+        ));
+    }
+
+    #[test]
+    fn test_program_diff_numprocs_changed() {
+        let current_yaml = r#"programs:
+  testprog:
+    cmd: "sleep 30"
+    numprocs: 2"#;
+        let new_yaml = r#"programs:
+  testprog:
+    cmd: "sleep 30"
+    numprocs: 3"#;
+
+        let current = program_from_yaml(current_yaml, "testprog");
+        let new = program_from_yaml(new_yaml, "testprog");
+
+        match Routine::program_diff(&current, &new) {
+            ProgramDiff::NumProcsChanged { before, after } => {
+                assert_eq!(before, 2_usize);
+                assert_eq!(after, 3_usize);
+            }
+            _ => panic!("expected NumProcsChanged"),
+        }
+    }
+
+    #[test]
+    fn test_program_diff_other() {
+        let current_yaml = r#"programs:
+  testprog:
+    cmd: "sleep 30"
+    numprocs: 2
+    autostart: false"#;
+        let new_yaml = r#"programs:
+  testprog:
+    cmd: "sleep 30"
+    numprocs: 2
+    autostart: true"#;
+
+        let current = program_from_yaml(current_yaml, "testprog");
+        let new = program_from_yaml(new_yaml, "testprog");
+
+        assert!(matches!(
+            Routine::program_diff(&current, &new),
+            ProgramDiff::Other
+        ));
     }
 }

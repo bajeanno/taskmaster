@@ -1,14 +1,13 @@
-use std::sync::Arc;
-
 use crate::{
     config::ProgramConfig,
     config_state::ConfigState::{self, Active, LoadError, Uninitialized},
     process_handler::NominativeStatus,
     tasks_manager::{
         ServerCommandError, TaskManagerCommand,
-        routine::{Client, Routine},
+        routine::{Client, ProgramDiff, Routine},
     },
 };
+use std::sync::Arc;
 
 impl Routine {
     pub async fn handle_command(
@@ -184,11 +183,25 @@ impl Routine {
         for (name, new_program) in new_config.programs.iter() {
             match current_config.programs.get(name) {
                 Some(current_program) if current_program == new_program => {}
-                Some(_) => {
-                    self.stop_and_remove_program(name)
-                        .await
-                        .expect("program should be in the processes map");
-                    self.create_program_processes(new_program).await;
+                Some(current_program) => {
+                    match Self::program_diff(current_program, new_program) {
+                        ProgramDiff::CmdChanged => {
+                            self.stop_and_remove_program(name)
+                                .await
+                                .expect("program should be in the processes map");
+                            self.create_program_processes(new_program).await;
+                        }
+                        ProgramDiff::NumProcsChanged { before, after } => {
+                            self.handle_num_procs_diff(new_program, before, after, name)
+                                .await;
+                        }
+                        ProgramDiff::Other => {
+                            self.stop_and_remove_program(name)
+                                .await
+                                .expect("program should be in the processes map");
+                            self.create_program_processes(new_program).await;
+                        }
+                    }
                 }
                 None => {
                     self.create_program_processes(new_program).await;
@@ -351,6 +364,117 @@ mod tests {
                 "removed program must be stopped on reload"
             );
         }
+
+        routine.stop_and_join_all_processes().await;
+    }
+
+    #[tokio::test]
+    async fn reload_numprocs_increase_preserves_existing_processes() {
+        let current_yaml = r#"programs:
+    scale:
+        cmd: "sleep 30"
+        numprocs: 2
+        autostart: true"#;
+
+        let increase_yaml = r#"programs:
+    scale:
+        cmd: "sleep 30"
+        numprocs: 3
+        autostart: true"#;
+
+        let current_config = config(current_yaml);
+        let increase_config = config(increase_yaml);
+
+        let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
+
+        // initial state: 2 procs
+        let before_ids: Vec<u32> = routine
+            .processes
+            .lock()
+            .await
+            .get("scale")
+            .unwrap()
+            .iter()
+            .map(|p| p.instance_id())
+            .collect();
+        assert_eq!(before_ids.len(), 2);
+
+        // increase to 3: existing indices 0 and 1 should not be restarted
+        routine
+            .update_processes(&current_config, &increase_config)
+            .await;
+        let procs_lock = routine.processes.lock().await;
+        let scale_procs = procs_lock.get("scale").expect("scale should exist");
+        assert_eq!(scale_procs.len(), 3);
+        assert_eq!(
+            scale_procs[0].instance_id(),
+            before_ids[0],
+            "existing proc index 0 must not be restarted on scale up"
+        );
+        assert_eq!(
+            scale_procs[1].instance_id(),
+            before_ids[1],
+            "existing proc index 1 must not be restarted on scale up"
+        );
+        assert!(
+            scale_procs.iter().all(|p| p.is_running()),
+            "all procs should be running after scale up"
+        );
+        drop(procs_lock);
+
+        routine.stop_and_join_all_processes().await;
+    }
+
+    #[tokio::test]
+    async fn reload_numprocs_decrease_preserves_remaining_processes() {
+        let current_yaml = r#"programs:
+    scale:
+        cmd: "sleep 30"
+        numprocs: 2
+        autostart: true"#;
+
+        let decrease_yaml = r#"programs:
+    scale:
+        cmd: "sleep 30"
+        numprocs: 1
+        autostart: true"#;
+
+        let current_config = config(current_yaml);
+        let decrease_config = config(decrease_yaml);
+
+        let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
+
+        // initial state: 2 procs
+        let before_ids: Vec<u32> = routine
+            .processes
+            .lock()
+            .await
+            .get("scale")
+            .unwrap()
+            .iter()
+            .map(|p| p.instance_id())
+            .collect();
+        assert_eq!(before_ids.len(), 2);
+        println!();
+        println!("reloading");
+        println!();
+        // decrease to 1: remaining index 0 should not be restarted
+        routine
+            .update_processes(&current_config, &decrease_config)
+            .await;
+        let procs_lock = routine.processes.lock().await;
+        let scale_procs = procs_lock.get("scale").expect("scale should exist after decrease");
+        assert_eq!(scale_procs.len(), 1);
+        assert_eq!(
+            scale_procs[0].instance_id(),
+            before_ids[0],
+            "index 0 must still be the original instance after scale down"
+        );
+        assert!(
+            scale_procs.iter().all(|p| p.is_running()),
+            "remaining proc should be running after scale down"
+        );
+        drop(procs_lock);
 
         routine.stop_and_join_all_processes().await;
     }
