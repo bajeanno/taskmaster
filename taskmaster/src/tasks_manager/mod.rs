@@ -11,9 +11,10 @@ use routine::Client;
 use tokio::sync::oneshot;
 
 #[derive(Debug)]
+// TODO: use thiserror
 pub enum ServerCommandError {
     NoSuchProgram(String),
-    LoadError(String),
+    FailedToLoadNewConfig(String),
 }
 
 pub enum TaskManagerCommand {

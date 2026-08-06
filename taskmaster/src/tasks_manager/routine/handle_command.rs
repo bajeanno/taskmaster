@@ -160,7 +160,7 @@ impl Routine {
             }
 
             ConfigState::LoadError { error } => {
-                return Err(ServerCommandError::LoadError(error));
+                return Err(ServerCommandError::FailedToLoadNewConfig(error));
             }
 
             ConfigState::Uninitialized => {
