@@ -455,9 +455,6 @@ mod tests {
             .map(|p| p.instance_id())
             .collect();
         assert_eq!(before_ids.len(), 2);
-        println!();
-        println!("reloading");
-        println!();
         // decrease to 1: remaining index 0 should not be restarted
         routine
             .update_processes(&current_config, &decrease_config)
