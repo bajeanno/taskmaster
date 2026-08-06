@@ -21,8 +21,8 @@ impl Routine {
                     .expect("Receiver should never be dropped");
             }
 
-            TaskManagerCommand::Reload(file) => {
-                self.reload_config(file.as_str()).await?;
+            TaskManagerCommand::Reload { config_file_name } => {
+                self.reload_config(&config_file_name).await?;
             }
 
             TaskManagerCommand::StartProgram { program_name } => {

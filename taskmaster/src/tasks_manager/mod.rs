@@ -18,7 +18,9 @@ pub enum ServerCommandError {
 
 pub enum TaskManagerCommand {
     ListProcesses(oneshot::Sender<Vec<Vec<NominativeStatus>>>),
-    Reload(String),
+    Reload {
+        config_file_name: String,
+    },
     StartProgram {
         program_name: String,
     },
