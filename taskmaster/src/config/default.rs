@@ -18,5 +18,5 @@ pub fn default_exit_codes() -> Vec<u8> {
 }
 
 pub fn default_umask() -> mode_t {
-    0o666
+    0o022
 }

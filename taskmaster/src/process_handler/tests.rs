@@ -3,6 +3,28 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
+fn test_log_paths(prefix: &str) -> (String, String) {
+    let base = std::env::current_dir()
+        .expect("failed to get current directory")
+        .join(".tmp-tests");
+    std::fs::create_dir_all(&base).expect("failed to create local temp test directory");
+    let unique = format!(
+        "{}_{}_{}",
+        prefix,
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock is before UNIX_EPOCH")
+            .as_nanos()
+    );
+    let stdout = base.join(format!("{unique}_stdout.txt"));
+    let stderr = base.join(format!("{unique}_stderr.txt"));
+    (
+        stdout.to_string_lossy().to_string(),
+        stderr.to_string_lossy().to_string(),
+    )
+}
+
 async fn check_status(
     status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>,
     process_name: String,
@@ -62,16 +84,15 @@ async fn check_realtime_output(mut log_receiver: mpsc::UnboundedReceiver<Log>) {
 
 #[tokio::test]
 async fn create_task() {
-    use std::{
-        fs::File,
-        io::{Cursor, Read},
-    };
+    use std::io::Cursor;
 
     use tokio::{fs::remove_file, sync::Mutex};
 
     use crate::config::Config;
 
-    let yaml_content = r#"programs:
+    let (stdout_file, stderr_file) = test_log_paths("taskmaster_tests");
+    let yaml_content = format!(
+        r#"programs:
     taskmaster_test_task:
         cmd: "bash -c \"echo Hello $STARTED_BY!\""
         numprocs: 1
@@ -85,12 +106,15 @@ async fn create_task() {
         starttime: 0
         stopsignal: SIGTERM
         stoptime: 10
-        stdout: /tmp/taskmaster_tests.stdout
-        stderr: /tmp/taskmaster_tests.stderr
+        stdout: {stdout}
+        stderr: {stderr}
         clearenv: true
         env:
             STARTED_BY: taskmaster
-            ANSWER: 42"#;
+            ANSWER: 42"#,
+        stdout = stdout_file,
+        stderr = stderr_file
+    );
     let program = Config::from_reader(Cursor::new(yaml_content))
         .expect("Parse error")
         .programs
@@ -118,44 +142,38 @@ async fn create_task() {
         .expect("failed to join status handle");
     check_status_exited(Arc::clone(&status_receiver), &name).await;
 
-    let stdout_file = "/tmp/taskmaster_tests.stdout";
-    let stderr_file = "/tmp/taskmaster_tests.stderr";
-
-    let mut file = File::open(stdout_file).expect("failed to open stdout file");
-    let mut buffer_stdout: Vec<u8> = Vec::new();
-    file.read_to_end(&mut buffer_stdout)
+    let buffer_stdout = tokio::fs::read_to_string(&stdout_file)
+        .await
         .expect("failed to read stdout file");
-
-    file = File::open(stderr_file).expect("failed to open stderr file");
-    let mut buffer_stderr: Vec<u8> = Vec::new();
-    file.read_to_end(&mut buffer_stderr)
+    let buffer_stderr = tokio::fs::read_to_string(&stderr_file)
+        .await
         .expect("failed to read stderr file");
 
-    remove_file("/tmp/taskmaster_tests.stdout")
+    remove_file(&stdout_file)
         .await
         .inspect_err(|err| eprintln!("{err}"))
         .unwrap();
-    remove_file(stderr_file)
+    remove_file(&stderr_file)
         .await
         .inspect_err(|err| eprintln!("{err}"))
         .unwrap();
 
-    let buffer = String::from_utf8(buffer_stdout).expect("failed to convert stdout to string");
-    assert_eq!(buffer.trim(), "taskmaster_test_task-0: Hello taskmaster!");
-    let buffer = String::from_utf8(buffer_stderr).expect("failed to convert stderr to string");
-    assert_eq!(buffer.trim(), "");
+    assert_eq!(
+        buffer_stdout.trim(),
+        "taskmaster_test_task-0: Hello taskmaster!"
+    );
+    assert_eq!(buffer_stderr.trim(), "");
 }
 
 #[tokio::test]
 async fn create_task_then_interrupt() {
     use crate::config::Config;
-    use std::{
-        fs::File,
-        io::{Cursor, Read},
-    };
+    use std::io::Cursor;
     use tokio::fs::remove_file;
 
-    let yaml_content = r#"programs:
+    let (stdout_file, stderr_file) = test_log_paths("taskmaster_tests_interrupt");
+    let yaml_content = format!(
+        r#"programs:
     taskmaster_test_task:
         cmd: "cat"
         numprocs: 1
@@ -169,12 +187,15 @@ async fn create_task_then_interrupt() {
         starttime: 0
         stopsignal: SIGINT
         stoptime: 10
-        stdout: /tmp/taskmaster_tests_interrupt.stdout
-        stderr: /tmp/taskmaster_tests_interrupt.stderr
+        stdout: {stdout}
+        stderr: {stderr}
         clearenv: true
         env:
             STARTED_BY: taskmaster
-            ANSWER: 42"#;
+            ANSWER: 42"#,
+        stdout = stdout_file,
+        stderr = stderr_file
+    );
     let config = Config::from_reader(Cursor::new(yaml_content))
         .expect("Parse error")
         .programs
@@ -195,30 +216,22 @@ async fn create_task_then_interrupt() {
     routine_handle.stop_and_join().await;
     check_status_exited(Arc::clone(&status_receiver), &name).await; // check exited status after stop signal
 
-    let stdout_file = "/tmp/taskmaster_tests_interrupt.stdout";
-    let stderr_file = "/tmp/taskmaster_tests_interrupt.stderr";
-
-    let mut file = File::open(stdout_file).expect("failed to open stdout file");
-    let mut buffer_stdout: Vec<u8> = Vec::new();
-    file.read_to_end(&mut buffer_stdout)
+    let buffer_stdout = tokio::fs::read_to_string(&stdout_file)
+        .await
         .expect("failed to read stdout file");
-
-    file = File::open(stderr_file).expect("failed to open stderr file");
-    let mut buffer_stderr: Vec<u8> = Vec::new();
-    file.read_to_end(&mut buffer_stderr)
+    let buffer_stderr = tokio::fs::read_to_string(&stderr_file)
+        .await
         .expect("failed to read stderr file");
 
-    remove_file(stdout_file)
+    remove_file(&stdout_file)
         .await
         .inspect_err(|err| eprintln!("{err}"))
         .unwrap();
-    remove_file(stderr_file)
+    remove_file(&stderr_file)
         .await
         .inspect_err(|err| eprintln!("{err}"))
         .unwrap();
 
-    let buffer = String::from_utf8(buffer_stdout).expect("failed to convert stdout to string");
-    assert_eq!(buffer.trim(), "");
-    let buffer = String::from_utf8(buffer_stderr).expect("failed to convert stderr to string");
-    assert_eq!(buffer.trim(), "");
+    assert_eq!(buffer_stdout.trim(), "");
+    assert_eq!(buffer_stderr.trim(), "");
 }

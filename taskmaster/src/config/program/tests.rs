@@ -48,7 +48,7 @@ mod tests {
             Ok(Self {
                 command: Command::from_str(command_string)?,
                 name: "taskmaster_test_program".to_string(),
-                umask: 0o666,
+                umask: 0o022,
                 exit_codes: vec![0],
                 num_procs: 1,
                 working_dir: "/".to_string(),

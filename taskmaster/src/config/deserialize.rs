@@ -63,9 +63,14 @@ where
             "Failed to parse stderr file: cannot be empty".to_string(),
         ));
     }
+
     Ok(Arc::new(
         OutputFile::new_stderr(file_path.as_str()).map_err(|err| {
-            serde::de::Error::custom(format!("Failed to open stderr file ({}): {}", file_path.as_str(), err))
+            serde::de::Error::custom(format!(
+                "Failed to open stderr file ({}): {}",
+                file_path.as_str(),
+                err
+            ))
         })?,
     ))
 }
@@ -81,9 +86,14 @@ where
             "Failed to parse stdout file: cannot be empty".to_string(),
         ));
     }
+
     Ok(Arc::new(
         OutputFile::new_stdout(file_path.as_str()).map_err(|err| {
-            serde::de::Error::custom(format!("Failed to open stdout file ({}): {}", file_path.as_str(), err))
+            serde::de::Error::custom(format!(
+                "Failed to open stdout file ({}): {}",
+                file_path.as_str(),
+                err
+            ))
         })?,
     ))
 }
