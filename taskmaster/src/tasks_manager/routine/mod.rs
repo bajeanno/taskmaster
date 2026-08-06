@@ -216,7 +216,6 @@ impl Routine {
     ) {
         let procs_delta = current_num_procs as isize - new_num_procs as isize;
         if procs_delta > 0 {
-            println!("need to delete processes");
             // new_num_procs cannot be 0 as it's checked in the parsing
             let mut mutex = self.processes.lock().await;
             let arr = mutex.get_mut(program_name).unwrap();
@@ -226,7 +225,6 @@ impl Routine {
             arr.truncate(new_num_procs);
         }
         if procs_delta < 0 {
-            println!("need to spawn new processes");
             //TODO: check if process if currently running
             //TODO: if so, create process + .auto_start()
             //TODO: else, only create process.

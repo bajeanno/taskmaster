@@ -67,7 +67,6 @@ impl Process {
             return;
         }
         self.instance_id = NEXT_PROCESS_INSTANCE_ID.fetch_add(1, Ordering::Relaxed);
-        println!("new instance started: {:?}", self);
         let handle = process_handler::Routine::spawn(
             self.program_config.clone(),
             status_sender,

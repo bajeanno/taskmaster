@@ -65,7 +65,7 @@ where
     }
     Ok(Arc::new(
         OutputFile::new_stderr(file_path.as_str()).map_err(|err| {
-            serde::de::Error::custom(format!("Failed to open stderr file: {}", err))
+            serde::de::Error::custom(format!("Failed to open stderr file ({}): {}", file_path.as_str(), err))
         })?,
     ))
 }
@@ -83,7 +83,7 @@ where
     }
     Ok(Arc::new(
         OutputFile::new_stdout(file_path.as_str()).map_err(|err| {
-            serde::de::Error::custom(format!("Failed to open stdout file: {}", err.to_string()))
+            serde::de::Error::custom(format!("Failed to open stdout file ({}): {}", file_path.as_str(), err))
         })?,
     ))
 }

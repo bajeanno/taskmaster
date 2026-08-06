@@ -17,7 +17,7 @@ impl ConfigState {
     pub fn from_content(content: String) -> Self {
         use std::io::Cursor;
 
-        let config = Config::from_reader(Cursor::new(content)).expect("parse error");
+        let config = Config::from_reader(Cursor::new(content)).expect("Parse error");
         Self::Active(Arc::new(config))
     }
 
