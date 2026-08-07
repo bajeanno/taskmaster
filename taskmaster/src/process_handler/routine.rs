@@ -182,9 +182,9 @@ impl Routine {
                 self.kill_command_received = true;
                 Self::kill_subprocess(
                     &mut child,
-                    self.config.stop_signal()
-                );
-                Status::Exited(child.wait().await.expect("error waiting for child"))
+                    self.config.stop_signal(),
+                    self.config.stop_time(),
+                ).await
             }
         };
 
@@ -194,9 +194,23 @@ impl Routine {
         status
     }
 
-    fn kill_subprocess(child: &mut Child, stop_signal: &Signal) {
+    async fn kill_subprocess(child: &mut Child, stop_signal: &Signal, stop_time: &u32) -> Status {
         if let Some(pid) = child.id() {
             unsafe { kill(pid as i32, *stop_signal as i32) };
+        }
+        
+        tokio::select! {
+            status = child.wait() => {
+                Status::Exited(status.expect("error waiting for child after sending stop signal"))
+            }
+            _ = tokio::time::sleep(Duration::from_secs(*stop_time as u64)) => {
+                // sending SIGKILL signal to force a process to stop
+                // SIGKILL cannot be caught by the subprocess and constitutes a way to force processes to stop
+                if let Some(pid) = child.id() {
+                    unsafe { kill(pid as i32, Signal::SIGKILL as i32) };
+                }
+                Status::Exited(child.wait().await.expect("error waiting for child after sending SIGTERM"))
+            }
         }
     }
 
