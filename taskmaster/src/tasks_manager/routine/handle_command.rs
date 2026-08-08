@@ -67,10 +67,10 @@ impl Routine {
         &mut self,
         program_name: String,
     ) -> Result<(), ServerCommandError> {
-        let _program_config = self
+        let program_config = self
             .get_program_config(program_name.as_str())
             .ok_or(super::ServerCommandError::NoSuchProgram(program_name))?;
-        // self.(&program_config).await;
+        self.start_program(&program_config).await;
         Ok(())
     }
 

@@ -26,7 +26,7 @@ impl Handle {
         let result = self.kill_command_sender.send(()).await;
         let join_handle_result = self.join_handle.await;
 
-        let _ = result.inspect_err(|err| eprintln!("Receiver dropped: {}", err));
+        result.expect("receiver should never be dropped");
         
         join_handle_result.expect("failed to join handle");
     }

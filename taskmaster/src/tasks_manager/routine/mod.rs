@@ -93,18 +93,32 @@ impl Routine {
 
     async fn start_programs(&mut self, programs: &HashMap<String, Arc<ProgramConfig>>) {
         for program_config in programs.values() {
-            self.create_program_processes(program_config).await;
+            self.start_program(program_config).await;
         }
     }
 
-    async fn create_program_processes(&mut self, program_config: &Arc<ProgramConfig>) {
-        let num_procs: usize = *program_config.num_procs() as usize;
-        let vec: Vec<Process> = (0..num_procs)
+    async fn start_program(&mut self, program_config: &Arc<ProgramConfig>) {
+        self.add_processes_to_hashmap(
+            program_config,
+            self.create_program_processes(program_config).await,
+        )
+        .await;
+    }
+
+    async fn create_program_processes(&self, program_config: &Arc<ProgramConfig>) -> Vec<Process> {
+        (0..*program_config.num_procs() as usize)
             .map(|id| {
                 Process::new(program_config.clone(), id)
                     .auto_start(self.status_sender.clone(), self.log_sender.clone())
             })
-            .collect();
+            .collect()
+    }
+
+    async fn add_processes_to_hashmap(
+        &mut self,
+        program_config: &Arc<ProgramConfig>,
+        vec: Vec<Process>,
+    ) {
         self.processes
             .lock()
             .await
