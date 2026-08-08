@@ -27,7 +27,7 @@ impl Handle {
         let join_handle_result = self.join_handle.await;
 
         result.expect("receiver should never be dropped");
-        
+
         join_handle_result.expect("failed to join handle");
     }
 
