@@ -199,12 +199,12 @@ impl Routine {
                         self.stop_and_remove_program(name)
                             .await
                             .expect("program should be in the processes map");
-                        self.create_program_processes(new_program).await;
+                        self.start_program(new_program).await;
                     }
                 },
 
                 None => {
-                    self.create_program_processes(new_program).await;
+                    self.start_program(new_program).await;
                 }
             }
         }
