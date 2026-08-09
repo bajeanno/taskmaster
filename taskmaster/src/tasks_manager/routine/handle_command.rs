@@ -295,7 +295,7 @@ mod tests {
 
         (routine, status_receiver, log_receiver)
     }
-
+}
 //     #[tokio::test]
 //     async fn reload_keeps_unchanged_programs_running() {
 //         let current_config = config(CURRENT_CONFIG);

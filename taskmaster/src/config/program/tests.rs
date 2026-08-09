@@ -404,4 +404,4 @@ mod tests {
 //         );
 //         assert_config_parses_to(&yaml_content, program);
 //     }
-// }
+}
