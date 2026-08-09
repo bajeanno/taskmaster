@@ -9,7 +9,7 @@ use tokio::sync::oneshot;
 fn create_tasks_yaml_content_reload() -> String {
     r#"programs:
     taskmaster_test_task_reload:
-        cmd: "cat"
+        cmd: "sleep 30"
         numprocs: 2
         umask: 022
         workingdir: /tmp
@@ -31,7 +31,7 @@ fn create_tasks_yaml_content_reload() -> String {
 fn create_tasks_yaml_content() -> String {
     r#"programs:
     taskmaster_test_task:
-        cmd: "cat"
+        cmd: "sleep 30"
         numprocs: 2
         umask: 022
         workingdir: /tmp
@@ -53,7 +53,7 @@ fn create_tasks_yaml_content() -> String {
 fn _create_tasks_alternate_yaml_content_minus_1_proc() -> String {
     r#"programs:
     taskmaster_test_task_reload:
-        cmd: "cat"
+        cmd: "sleep 30"
         numprocs: 1
         umask: 022
         workingdir: /tmp

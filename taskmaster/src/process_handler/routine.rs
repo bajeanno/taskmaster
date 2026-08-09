@@ -149,11 +149,13 @@ impl Routine {
                 *self.config.start_time(),
                 &mut self.status_sender,
             ) => {
+                println!("{}: process exited with status: {:?}", self.process_name, status);
                 status
             }
 
             _ = self.kill_command_receiver.recv() => {
                 self.kill_command_received = true;
+                println!("{}: kill command received", self.process_name);
                 Self::kill_subprocess(
                     &mut child,
                     self.config.stop_signal()
