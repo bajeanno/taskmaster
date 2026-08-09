@@ -165,7 +165,7 @@ async fn task_manager_restart() {
 #[tokio::test]
 async fn task_manager_reload() {
     let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content_reload()));
-    let new_content = create_tasks_alternate_yaml_content_minus_1_proc();
+    let new_content = _create_tasks_alternate_yaml_content_plus_1_proc();
     let new_file = "/tmp/taskmaster_task_manager_reload.yaml".to_string();
     let mut file = OpenOptions::new()
         .create(true)
