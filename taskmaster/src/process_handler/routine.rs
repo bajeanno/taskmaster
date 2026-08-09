@@ -90,6 +90,7 @@ impl Routine {
                 break;
             }
         }
+        println!("routine stopped for process {}", self.process_name);
     }
 
     async fn run_program(&mut self) -> Status {
