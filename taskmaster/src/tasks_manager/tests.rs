@@ -75,7 +75,7 @@ fn _create_tasks_alternate_yaml_content_minus_1_proc() -> String {
 fn create_tasks_alternate_yaml_content_plus_1_proc() -> String {
     r#"programs:
     reload:
-        cmd: "cat"
+        cmd: "sleep 30"
         numprocs: 3
         umask: 022
         workingdir: /tmp
