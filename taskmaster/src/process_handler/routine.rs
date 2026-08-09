@@ -83,6 +83,7 @@ impl Routine {
 
             self.status_sender.send_new_status_to_task_manager(status);
             if self.kill_command_received || !should_try_restart {
+                println!("{}: kill_command_received: {}, should_try_restart: {}", self.process_name, self.kill_command_received, should_try_restart);
                 self.status_sender
                     .send_new_status_to_task_manager(Status::NotRestarting {
                         instance_id: self.instance_id,
