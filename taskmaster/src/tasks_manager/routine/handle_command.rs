@@ -295,186 +295,186 @@ mod tests {
 
         (routine, status_receiver, log_receiver)
     }
+
+    #[tokio::test]
+    async fn reload_keeps_unchanged_programs_running() {
+        let current_config = config(CURRENT_CONFIG);
+        let new_config = config(NEW_CONFIG);
+
+        let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
+
+        let unchanged_ids_before: Vec<u32> = routine
+            .processes
+            .lock()
+            .await
+            .get("unchanged")
+            .unwrap()
+            .iter()
+            .map(|process| process.instance_id())
+            .collect();
+        let changed_ids_before: Vec<u32> = routine
+            .processes
+            .lock()
+            .await
+            .get("changed")
+            .unwrap()
+            .iter()
+            .map(|process| process.instance_id())
+            .collect();
+
+        routine.update_processes(&current_config, &new_config).await;
+
+        {
+            let processes = routine.processes.lock().await;
+
+            let unchanged = processes
+                .get("unchanged")
+                .expect("unchanged program should stay registered");
+            assert_eq!(
+                unchanged
+                    .iter()
+                    .map(|process| process.instance_id())
+                    .collect::<Vec<_>>(),
+                unchanged_ids_before,
+                "unchanged program must not be restarted on reload"
+            );
+            assert!(
+                unchanged.iter().all(|process| process.is_running()),
+                "unchanged program must keep running on reload"
+            );
+
+            let changed = processes
+                .get("changed")
+                .expect("changed program should be re-registered");
+            assert_ne!(
+                changed
+                    .iter()
+                    .map(|process| process.instance_id())
+                    .collect::<Vec<_>>(),
+                changed_ids_before,
+                "changed program must be restarted on reload"
+            );
+
+            assert!(
+                processes.contains_key("added"),
+                "new program must be started on reload"
+            );
+            assert!(
+                !processes.contains_key("removed"),
+                "removed program must be stopped on reload"
+            );
+        }
+
+        routine.stop_and_join_all_processes().await;
+    }
+
+    #[tokio::test]
+    async fn reload_numprocs_increase_preserves_existing_processes() {
+        let current_yaml = r#"programs:
+    scale:
+        cmd: "sleep 30"
+        numprocs: 2
+        autostart: true"#;
+
+        let increase_yaml = r#"programs:
+    scale:
+        cmd: "sleep 30"
+        numprocs: 3
+        autostart: true"#;
+
+        let current_config = config(current_yaml);
+        let increase_config = config(increase_yaml);
+
+        let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
+
+        // initial state: 2 procs
+        let before_ids: Vec<u32> = routine
+            .processes
+            .lock()
+            .await
+            .get("scale")
+            .unwrap()
+            .iter()
+            .map(|p| p.instance_id())
+            .collect();
+        assert_eq!(before_ids.len(), 2);
+
+        // increase to 3: existing indices 0 and 1 should not be restarted
+        routine
+            .update_processes(&current_config, &increase_config)
+            .await;
+        let procs_lock = routine.processes.lock().await;
+        let scale_procs = procs_lock.get("scale").expect("scale should exist");
+        assert_eq!(scale_procs.len(), 3);
+        assert_eq!(
+            scale_procs[0].instance_id(),
+            before_ids[0],
+            "existing proc index 0 must not be restarted on scale up"
+        );
+        assert_eq!(
+            scale_procs[1].instance_id(),
+            before_ids[1],
+            "existing proc index 1 must not be restarted on scale up"
+        );
+        assert!(
+            scale_procs.iter().all(|p| p.is_running()),
+            "all procs should be running after scale up"
+        );
+        drop(procs_lock);
+
+        routine.stop_and_join_all_processes().await;
+    }
+
+    #[tokio::test]
+    async fn reload_numprocs_decrease_preserves_remaining_processes() {
+        let current_yaml = r#"programs:
+    scale:
+        cmd: "sleep 30"
+        numprocs: 2
+        autostart: true"#;
+
+        let decrease_yaml = r#"programs:
+    scale:
+        cmd: "sleep 30"
+        numprocs: 1
+        autostart: true"#;
+
+        let current_config = config(current_yaml);
+        let decrease_config = config(decrease_yaml);
+
+        let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
+
+        // initial state: 2 procs
+        let before_ids: Vec<u32> = routine
+            .processes
+            .lock()
+            .await
+            .get("scale")
+            .unwrap()
+            .iter()
+            .map(|p| p.instance_id())
+            .collect();
+        assert_eq!(before_ids.len(), 2);
+        // decrease to 1: remaining index 0 should not be restarted
+        routine
+            .update_processes(&current_config, &decrease_config)
+            .await;
+        let procs_lock = routine.processes.lock().await;
+        let scale_procs = procs_lock
+            .get("scale")
+            .expect("scale should exist after decrease");
+        assert_eq!(scale_procs.len(), 1);
+        assert_eq!(
+            scale_procs[0].instance_id(),
+            before_ids[0],
+            "index 0 must still be the original instance after scale down"
+        );
+        assert!(
+            scale_procs.iter().all(|p| p.is_running()),
+            "remaining proc should be running after scale down"
+        );
+        drop(procs_lock);
+
+        routine.stop_and_join_all_processes().await;
+    }
 }
-//     #[tokio::test]
-//     async fn reload_keeps_unchanged_programs_running() {
-//         let current_config = config(CURRENT_CONFIG);
-//         let new_config = config(NEW_CONFIG);
-
-//         let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
-
-//         let unchanged_ids_before: Vec<u32> = routine
-//             .processes
-//             .lock()
-//             .await
-//             .get("unchanged")
-//             .unwrap()
-//             .iter()
-//             .map(|process| process.instance_id())
-//             .collect();
-//         let changed_ids_before: Vec<u32> = routine
-//             .processes
-//             .lock()
-//             .await
-//             .get("changed")
-//             .unwrap()
-//             .iter()
-//             .map(|process| process.instance_id())
-//             .collect();
-
-//         routine.update_processes(&current_config, &new_config).await;
-
-//         {
-//             let processes = routine.processes.lock().await;
-
-//             let unchanged = processes
-//                 .get("unchanged")
-//                 .expect("unchanged program should stay registered");
-//             assert_eq!(
-//                 unchanged
-//                     .iter()
-//                     .map(|process| process.instance_id())
-//                     .collect::<Vec<_>>(),
-//                 unchanged_ids_before,
-//                 "unchanged program must not be restarted on reload"
-//             );
-//             assert!(
-//                 unchanged.iter().all(|process| process.is_running()),
-//                 "unchanged program must keep running on reload"
-//             );
-
-//             let changed = processes
-//                 .get("changed")
-//                 .expect("changed program should be re-registered");
-//             assert_ne!(
-//                 changed
-//                     .iter()
-//                     .map(|process| process.instance_id())
-//                     .collect::<Vec<_>>(),
-//                 changed_ids_before,
-//                 "changed program must be restarted on reload"
-//             );
-
-//             assert!(
-//                 processes.contains_key("added"),
-//                 "new program must be started on reload"
-//             );
-//             assert!(
-//                 !processes.contains_key("removed"),
-//                 "removed program must be stopped on reload"
-//             );
-//         }
-
-//         routine.stop_and_join_all_processes().await;
-//     }
-
-//     #[tokio::test]
-//     async fn reload_numprocs_increase_preserves_existing_processes() {
-//         let current_yaml = r#"programs:
-//     scale:
-//         cmd: "sleep 30"
-//         numprocs: 2
-//         autostart: true"#;
-
-//         let increase_yaml = r#"programs:
-//     scale:
-//         cmd: "sleep 30"
-//         numprocs: 3
-//         autostart: true"#;
-
-//         let current_config = config(current_yaml);
-//         let increase_config = config(increase_yaml);
-
-//         let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
-
-//         // initial state: 2 procs
-//         let before_ids: Vec<u32> = routine
-//             .processes
-//             .lock()
-//             .await
-//             .get("scale")
-//             .unwrap()
-//             .iter()
-//             .map(|p| p.instance_id())
-//             .collect();
-//         assert_eq!(before_ids.len(), 2);
-
-//         // increase to 3: existing indices 0 and 1 should not be restarted
-//         routine
-//             .update_processes(&current_config, &increase_config)
-//             .await;
-//         let procs_lock = routine.processes.lock().await;
-//         let scale_procs = procs_lock.get("scale").expect("scale should exist");
-//         assert_eq!(scale_procs.len(), 3);
-//         assert_eq!(
-//             scale_procs[0].instance_id(),
-//             before_ids[0],
-//             "existing proc index 0 must not be restarted on scale up"
-//         );
-//         assert_eq!(
-//             scale_procs[1].instance_id(),
-//             before_ids[1],
-//             "existing proc index 1 must not be restarted on scale up"
-//         );
-//         assert!(
-//             scale_procs.iter().all(|p| p.is_running()),
-//             "all procs should be running after scale up"
-//         );
-//         drop(procs_lock);
-
-//         routine.stop_and_join_all_processes().await;
-//     }
-
-//     #[tokio::test]
-//     async fn reload_numprocs_decrease_preserves_remaining_processes() {
-//         let current_yaml = r#"programs:
-//     scale:
-//         cmd: "sleep 30"
-//         numprocs: 2
-//         autostart: true"#;
-
-//         let decrease_yaml = r#"programs:
-//     scale:
-//         cmd: "sleep 30"
-//         numprocs: 1
-//         autostart: true"#;
-
-//         let current_config = config(current_yaml);
-//         let decrease_config = config(decrease_yaml);
-
-//         let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
-
-//         // initial state: 2 procs
-//         let before_ids: Vec<u32> = routine
-//             .processes
-//             .lock()
-//             .await
-//             .get("scale")
-//             .unwrap()
-//             .iter()
-//             .map(|p| p.instance_id())
-//             .collect();
-//         assert_eq!(before_ids.len(), 2);
-//         // decrease to 1: remaining index 0 should not be restarted
-//         routine
-//             .update_processes(&current_config, &decrease_config)
-//             .await;
-//         let procs_lock = routine.processes.lock().await;
-//         let scale_procs = procs_lock
-//             .get("scale")
-//             .expect("scale should exist after decrease");
-//         assert_eq!(scale_procs.len(), 1);
-//         assert_eq!(
-//             scale_procs[0].instance_id(),
-//             before_ids[0],
-//             "index 0 must still be the original instance after scale down"
-//         );
-//         assert!(
-//             scale_procs.iter().all(|p| p.is_running()),
-//             "remaining proc should be running after scale down"
-//         );
-//         drop(procs_lock);
-
-//         routine.stop_and_join_all_processes().await;
-//     }
-// }
