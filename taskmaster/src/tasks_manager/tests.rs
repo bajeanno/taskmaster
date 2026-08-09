@@ -8,7 +8,7 @@ use tokio::sync::oneshot;
 
 fn create_tasks_yaml_content_reload() -> String {
     r#"programs:
-    taskmaster_test_task_reload:
+    reload:
         cmd: "sleep 30"
         numprocs: 2
         umask: 022
@@ -50,9 +50,9 @@ fn create_tasks_yaml_content() -> String {
         .to_string()
 }
 
-fn _create_tasks_alternate_yaml_content_minus_1_proc() -> String {
+fn create_tasks_alternate_yaml_content_minus_1_proc() -> String {
     r#"programs:
-    taskmaster_test_task_reload:
+    reload:
         cmd: "sleep 30"
         numprocs: 1
         umask: 022
@@ -72,9 +72,9 @@ fn _create_tasks_alternate_yaml_content_minus_1_proc() -> String {
         .to_string()
 }
 
-fn create_tasks_alternate_yaml_content_plus_1_proc() -> String {
+fn _create_tasks_alternate_yaml_content_plus_1_proc() -> String {
     r#"programs:
-    taskmaster_test_task_reload:
+    reload:
         cmd: "cat"
         numprocs: 3
         umask: 022
@@ -165,7 +165,7 @@ async fn task_manager_restart() {
 #[tokio::test]
 async fn task_manager_reload() {
     let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content_reload()));
-    let new_content = create_tasks_alternate_yaml_content_plus_1_proc();
+    let new_content = create_tasks_alternate_yaml_content_minus_1_proc();
     let new_file = "/tmp/taskmaster_task_manager_reload.yaml".to_string();
     let mut file = OpenOptions::new()
         .create(true)

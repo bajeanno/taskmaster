@@ -83,7 +83,10 @@ impl Routine {
 
             self.status_sender.send_new_status_to_task_manager(status);
             if self.kill_command_received || !should_try_restart {
-                println!("{}: kill_command_received: {}, should_try_restart: {}", self.process_name, self.kill_command_received, should_try_restart);
+                println!(
+                    "{}: kill_command_received: {}, should_try_restart: {}",
+                    self.process_name, self.kill_command_received, should_try_restart
+                );
                 self.status_sender
                     .send_new_status_to_task_manager(Status::NotRestarting {
                         instance_id: self.instance_id,
@@ -149,7 +152,7 @@ impl Routine {
                 *self.config.start_time(),
                 &mut self.status_sender,
             ) => {
-                println!("{}: process exited with status: {:?}", self.process_name, status);
+                println!("{}, pid: {:?}: process exited with status: {:?}", self.process_name, child.id(), status);
                 status
             }
 
@@ -195,7 +198,6 @@ impl Routine {
         }
 
         status_sender.send_new_status_to_task_manager(Status::Running);
-
         // Wait for process to terminate or crash
         Status::Exited(child.wait().await.expect("error waiting for child"))
     }
@@ -247,6 +249,7 @@ impl Routine {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
+        println!("{} spawned, pid: {:?}", self.process_name, child.id());
         Ok(child)
     }
 
