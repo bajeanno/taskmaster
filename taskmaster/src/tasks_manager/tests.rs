@@ -6,6 +6,28 @@ use crate::config_state::ConfigState;
 use crate::tasks_manager::TaskManagerCommand;
 use tokio::sync::oneshot;
 
+fn create_tasks_yaml_content_reload() -> String {
+    r#"programs:
+    taskmaster_test_task_reload:
+        cmd: "cat"
+        numprocs: 2
+        umask: 022
+        workingdir: /tmp
+        autostart: true
+        exitcodes:
+        - 0
+        - 2
+        startretries: 5
+        starttime: 0
+        stopsignal: SIGTERM
+        stoptime: 10
+        clearenv: true
+        env:
+            STARTED_BY: taskmaster
+            ANSWER: 42"#
+        .to_string()
+}
+
 fn create_tasks_yaml_content() -> String {
     r#"programs:
     taskmaster_test_task:
@@ -30,7 +52,7 @@ fn create_tasks_yaml_content() -> String {
 
 fn _create_tasks_alternate_yaml_content_minus_1_proc() -> String {
     r#"programs:
-    taskmaster_test_task:
+    taskmaster_test_task_reload:
         cmd: "cat"
         numprocs: 1
         umask: 022
@@ -52,7 +74,7 @@ fn _create_tasks_alternate_yaml_content_minus_1_proc() -> String {
 
 fn create_tasks_alternate_yaml_content_plus_1_proc() -> String {
     r#"programs:
-    taskmaster_test_task:
+    taskmaster_test_task_reload:
         cmd: "cat"
         numprocs: 3
         umask: 022
@@ -142,7 +164,7 @@ async fn task_manager_restart() {
 
 #[tokio::test]
 async fn task_manager_reload() {
-    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content()));
+    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content_reload()));
     let new_content = create_tasks_alternate_yaml_content_plus_1_proc();
     let new_file = "/tmp/taskmaster_task_manager_reload.yaml".to_string();
     let mut file = OpenOptions::new()
@@ -153,12 +175,22 @@ async fn task_manager_reload() {
         .expect("failed to create new taskmaster config file");
     file.write_all(new_content.as_bytes())
         .expect("failed to write new taskmaster config file");
+    {
+        let (s, r) = oneshot::channel();
+        handle.send(TaskManagerCommand::ListProcesses(s)).await.unwrap();
+        println!("running tasks before reload command: {:?}", r.await.unwrap());
+    }
     handle
         .send(TaskManagerCommand::Reload {
             config_file_name: "/tmp/taskmaster_task_manager_reload.yaml".to_string(),
         })
         .await
         .unwrap();
+    {
+        let (s, r) = oneshot::channel();
+        handle.send(TaskManagerCommand::ListProcesses(s)).await.unwrap();
+        println!("running tasks after reload command: {:?}", r.await.unwrap());
+    }
     handle.stop().await;
 }
 

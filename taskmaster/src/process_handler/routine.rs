@@ -75,6 +75,7 @@ impl Routine {
     }
 
     async fn routine(mut self) {
+        println!("new routine for process {}", self.process_name);
         loop {
             let status = self.run_program().await;
 
