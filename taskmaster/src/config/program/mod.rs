@@ -62,7 +62,6 @@ pub struct ProgramConfig {
     )]
     stop_signal: Signal,
 
-    //TODO: use this
     #[serde(rename = "stoptime", default)]
     stop_time: u32,
 
