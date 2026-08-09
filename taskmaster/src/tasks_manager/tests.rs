@@ -6,10 +6,10 @@ use crate::config_state::ConfigState;
 use crate::tasks_manager::TaskManagerCommand;
 use tokio::sync::oneshot;
 
-fn create_tasks_yaml_content_reload() -> String {
+fn create_tasks_yaml_content() -> String {
     r#"programs:
-    reload:
-        cmd: "sleep 30"
+    taskmaster_test_task:
+        cmd: "cat"
         numprocs: 2
         umask: 022
         workingdir: /tmp
@@ -28,10 +28,10 @@ fn create_tasks_yaml_content_reload() -> String {
         .to_string()
 }
 
-fn create_tasks_yaml_content() -> String {
+fn create_tasks_yaml_content_reload() -> String {
     r#"programs:
-    taskmaster_test_task:
-        cmd: "cat"
+    reload:
+        cmd: "sleep 30"
         numprocs: 2
         umask: 022
         workingdir: /tmp
@@ -177,8 +177,14 @@ async fn task_manager_reload() {
         .expect("failed to write new taskmaster config file");
     {
         let (s, r) = oneshot::channel();
-        handle.send(TaskManagerCommand::ListProcesses(s)).await.unwrap();
-        println!("running tasks before reload command: {:?}", r.await.unwrap());
+        handle
+            .send(TaskManagerCommand::ListProcesses(s))
+            .await
+            .unwrap();
+        println!(
+            "running tasks before reload command: {:?}",
+            r.await.unwrap()
+        );
     }
     handle
         .send(TaskManagerCommand::Reload {
@@ -188,7 +194,10 @@ async fn task_manager_reload() {
         .unwrap();
     {
         let (s, r) = oneshot::channel();
-        handle.send(TaskManagerCommand::ListProcesses(s)).await.unwrap();
+        handle
+            .send(TaskManagerCommand::ListProcesses(s))
+            .await
+            .unwrap();
         println!("running tasks after reload command: {:?}", r.await.unwrap());
     }
     handle.stop().await;
