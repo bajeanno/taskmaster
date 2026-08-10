@@ -198,7 +198,7 @@ impl Routine {
         if let Some(pid) = child.id() {
             unsafe { kill(pid as i32, *stop_signal as i32) };
         }
-        
+
         tokio::select! {
             status = child.wait() => {
                 Status::Exited(status.expect("error waiting for child after sending stop signal"))

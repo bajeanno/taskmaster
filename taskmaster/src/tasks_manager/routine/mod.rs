@@ -86,7 +86,7 @@ impl Routine {
     }
 
     async fn start_programs(&mut self) {
-        for (_, program_config) in Arc::clone(&self.program_configs).iter() {
+        for program_config in Arc::clone(&self.program_configs).values() {
             self.start_program(program_config).await;
         }
     }
