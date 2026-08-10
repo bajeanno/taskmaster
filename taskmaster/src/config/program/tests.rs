@@ -360,15 +360,19 @@ mod tests {
     #[test]
     fn parsing_with_stdout() {
         let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
+        let stdout = "/tmp/taskmaster_tests/stdout.log";
         builder.stdout = Arc::new(
-            OutputFile::new_stdout("/tmp/stdout.log")
-                .expect("Failed to open stderr file (/tmp/stderr.log)"),
+            OutputFile::new_stdout(stdout)
+                .expect("Failed to open stderr file (/tmp/taskmaster_tests/stdout.log)"),
         );
         let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
-            r#"
-            stdout: "/tmp/stdout.log""#,
+            format!(
+                r#"
+            stdout: "{stdout}""#
+            )
+            .as_str(),
         );
         assert_config_parses_to(&yaml_content, program);
     }
@@ -376,15 +380,18 @@ mod tests {
     #[test]
     fn parsing_with_stderr() {
         let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
+        let stderr = "/tmp/taskmaster_tests/stderr.log";
         builder.stderr = Arc::new(
-            OutputFile::new_stderr("/tmp/stderr.log")
-                .expect("Failed to open stderr file (/tmp/stderr.log)"),
+            OutputFile::new_stderr(stderr).expect("Failed to open stderr file (/tmp/stderr.log)"),
         );
         let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
-            r#"
-            stderr: "/tmp/stderr.log""#,
+            format!(
+                r#"
+            stderr: "{stderr}""#
+            )
+            .as_str(),
         );
         assert_config_parses_to(&yaml_content, program);
     }
