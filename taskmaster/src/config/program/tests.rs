@@ -7,7 +7,8 @@ mod tests {
     use signal::Signal;
     use std::collections::HashMap;
     use std::io::Cursor;
-    use std::str::FromStr;
+    use std::path::PathBuf;
+use std::str::FromStr;
     use std::sync::Arc;
 
     fn yaml_from_string_command(command: &str) -> String {
@@ -359,11 +360,13 @@ mod tests {
 
     #[test]
     fn parsing_with_stdout() {
+        let base = PathBuf::from("/tmp/").join("taskmaster_tests");
+        std::fs::create_dir_all(&base).expect("failed to create local temp test directory");
         let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         let stdout = "/tmp/taskmaster_tests/stdout.log";
         builder.stdout = Arc::new(
             OutputFile::new_stdout(stdout)
-                .expect("Failed to open stderr file (/tmp/taskmaster_tests/stdout.log)"),
+                .expect(format!("Failed to open stderr file ({stdout})").as_str()),
         );
         let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
@@ -379,10 +382,13 @@ mod tests {
 
     #[test]
     fn parsing_with_stderr() {
+        let base = PathBuf::from("/tmp/").join("taskmaster_tests");
+        std::fs::create_dir_all(&base).expect("failed to create local temp test directory");
         let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
         let stderr = "/tmp/taskmaster_tests/stderr.log";
         builder.stderr = Arc::new(
-            OutputFile::new_stderr(stderr).expect("Failed to open stderr file (/tmp/stderr.log)"),
+            OutputFile::new_stderr(stderr)
+                .expect(format!("Failed to open stderr file ({stderr})").as_str()),
         );
         let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
