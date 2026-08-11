@@ -188,7 +188,8 @@ async fn task_manager_reload() {
     }
     handle
         .send(TaskManagerCommand::Reload {
-            config_file_name: "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string(),
+            config_file_name: "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml"
+                .to_string(),
         })
         .await
         .unwrap();
