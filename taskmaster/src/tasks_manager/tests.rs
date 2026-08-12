@@ -50,7 +50,7 @@ fn create_tasks_yaml_content_reload() -> String {
         .to_string()
 }
 
-fn _create_tasks_alternate_yaml_content_minus_1_proc() -> String {
+fn create_tasks_alternate_yaml_content_minus_1_proc() -> String {
     r#"programs:
     reload:
         cmd: "sleep 30"
@@ -163,9 +163,51 @@ async fn task_manager_restart() {
 }
 
 #[tokio::test]
-async fn task_manager_reload() {
+async fn task_manager_reload_minus_1_proc() {
     let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content_reload()));
     let new_content = create_tasks_alternate_yaml_content_plus_1_proc();
+    let new_file = "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string();
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(new_file.as_str())
+        .expect("failed to create new taskmaster config file");
+    file.write_all(new_content.as_bytes())
+        .expect("failed to write new taskmaster config file");
+    {
+        let (s, r) = oneshot::channel();
+        handle
+            .send(TaskManagerCommand::ListProcesses(s))
+            .await
+            .unwrap();
+        println!(
+            "running tasks before reload command: {:?}",
+            r.await.unwrap()
+        );
+    }
+    handle
+        .send(TaskManagerCommand::Reload {
+            config_file_name: "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml"
+                .to_string(),
+        })
+        .await
+        .unwrap();
+    {
+        let (s, r) = oneshot::channel();
+        handle
+            .send(TaskManagerCommand::ListProcesses(s))
+            .await
+            .unwrap();
+        println!("running tasks after reload command: {:?}", r.await.unwrap());
+    }
+    handle.stop().await;
+}
+
+#[tokio::test]
+async fn task_manager_reload_plus_1_proc() {
+    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content_reload()));
+    let new_content = create_tasks_alternate_yaml_content_minus_1_proc();
     let new_file = "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string();
     let mut file = OpenOptions::new()
         .create(true)
