@@ -23,12 +23,11 @@ impl Handle {
     }
 
     pub async fn stop_and_join(self) {
-        let result = self.kill_command_sender.send(()).await;
-        let join_handle_result = self.join_handle.await;
+        // Ignoring result as the subprocess can end between the moment
+        // we verified it's alive and the moment we sent the kill command to the sub-routine
+        let _ = self.kill_command_sender.send(()).await;
 
-        result.expect("receiver should never be dropped");
-
-        join_handle_result.expect("failed to join handle");
+        self.join().await
     }
 
     pub async fn join(self) {

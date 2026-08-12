@@ -28,7 +28,7 @@ where
     let umask = mode_t::from_str_radix(umask_str.as_str(), 8).map_err(|err| {
         serde::de::Error::custom(format!("ParseIntError on umask parsing: {err}"))
     })?;
-    if umask > 0o777 {
+    if umask > 0o777 { // TODO: Watch out condition in umask rework
         Err(serde::de::Error::custom(
             "umask is greater than 0o777 (max value accepted)",
         ))

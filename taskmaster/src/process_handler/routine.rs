@@ -4,19 +4,19 @@ use super::{Handle, NominativeStatus, Status, StatusSender, command};
 use crate::config::{AutoRestart, ProgramConfig};
 use crate::process_handler::{Log, LogType, OutputFile, Outputs};
 use libc::signal::kill;
-use libc::unistd::{mode_t, umask};
+use libc::unistd::umask;
 use signal::Signal;
 use std::io::Write;
 use std::panic;
 use std::process::Stdio;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 use thiserror::Error;
 use tokio::process::Command;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::{
     io::{AsyncBufRead, AsyncBufReadExt, Error},
     process::Child,
-    sync::{Mutex, mpsc},
+    sync::mpsc,
     time::Duration,
 };
 
@@ -98,35 +98,7 @@ impl Routine {
     }
 
     async fn run_program(&mut self) -> Status {
-        let child = {
-            // Save the current umask and restore it after the child process is spawned.
-            // We need to do this because the child process inherits the umask of the parent process.
-            // The mutex is used to ensure that only one thread can save and restore the umask at a time,
-            // preventing race conditions.
-            //
-            // Race condition scenario:
-            // Orginal umask: 022
-            // Task 1: Saves current umask (022, this is right)
-            // Task 1: Sets umask to the one from the config (077, for this example)
-            // Task 2: Saves current umask (077, saved the value of the process task 1 is starting since this is the current one, this is not right!)
-            // Task 2: Sets umask to the one from the config (007, for this example)
-            // Task 1: Starts the subprocess with 007 instead of 077 since the umask was changed by task 2!
-            // Task 1: restore the original umask (022, this is right)
-            // Task 2: Starts the subprocess with 022 instead of 007 since the umask was restored by task 1!
-            // Task 2: restore the original, but incorrect umask (077) because of the previous race condition!
-            // Meaning taskmaster ends up with the incorrect umask and the subprocesses were started with the wrong umask.
-            static UMASK_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-            let _lock = UMASK_MUTEX.lock().await;
-
-            let taskmaster_umask: mode_t = unsafe { umask(*self.config.umask()) };
-            let child = self.child_spawn().await;
-
-            unsafe { umask(taskmaster_umask) };
-
-            child
-        };
-
-        match child {
+        match self.child_spawn() {
             Ok(child) => {
                 self.status_sender
                     .send_new_status_to_task_manager(Status::Starting);
@@ -256,13 +228,19 @@ impl Routine {
     }
 
     /// Spawns the child and upgrades the start_attempts counter
-    async fn child_spawn(&mut self) -> Result<Child, Error> {
+    fn child_spawn(&mut self) -> Result<Child, Error> {
         self.start_attempts += 1;
-        let child = self
-            .command
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+        let config_umask = *self.config.umask();
+        let child = unsafe {
+            self.command
+                .pre_exec(move || {
+                    umask(config_umask);
+                    Ok(())
+                })
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()?
+        };
         println!("{} spawned, pid: {:?}", self.process_name, child.id());
         Ok(child)
     }
