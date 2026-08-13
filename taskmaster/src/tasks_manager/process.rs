@@ -86,7 +86,6 @@ impl Process {
     /// Stops a routine by sending a kill command.
     pub async fn stop_and_join_if_running(&mut self) {
         if let Some(handle) = self.handle.take() {
-            println!("stopping process {}", self.process_name);
             handle.stop_and_join().await
         }
     }

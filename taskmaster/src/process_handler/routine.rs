@@ -75,7 +75,6 @@ impl Routine {
     }
 
     async fn routine(mut self) {
-        println!("new routine for process {}", self.process_name);
         loop {
             let status = self.run_program().await;
 
@@ -83,10 +82,6 @@ impl Routine {
 
             self.status_sender.send_new_status_to_task_manager(status);
             if self.kill_command_received || !should_try_restart {
-                println!(
-                    "{}: kill_command_received: {}, should_try_restart: {}",
-                    self.process_name, self.kill_command_received, should_try_restart
-                );
                 self.status_sender
                     .send_new_status_to_task_manager(Status::NotRestarting {
                         instance_id: self.instance_id,
@@ -94,7 +89,6 @@ impl Routine {
                 break;
             }
         }
-        println!("routine stopped for process {}", self.process_name);
     }
 
     async fn run_program(&mut self) -> Status {
@@ -124,13 +118,11 @@ impl Routine {
                 *self.config.start_time(),
                 &mut self.status_sender,
             ) => {
-                println!("{}, pid: {:?}: process exited with status: {:?}", self.process_name, child.id(), status);
                 status
             }
 
             _ = self.kill_command_receiver.recv() => {
                 self.kill_command_received = true;
-                println!("{}: kill command received", self.process_name);
                 Self::kill_subprocess(
                     &mut child,
                     self.config.stop_signal(),
@@ -241,7 +233,6 @@ impl Routine {
                 .stderr(Stdio::piped())
                 .spawn()?
         };
-        println!("{} spawned, pid: {:?}", self.process_name, child.id());
         Ok(child)
     }
 

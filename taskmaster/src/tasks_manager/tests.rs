@@ -181,10 +181,7 @@ async fn task_manager_reload_minus_1_proc() {
             .send(TaskManagerCommand::ListProcesses(s))
             .await
             .unwrap();
-        println!(
-            "running tasks before reload command: {:?}",
-            r.await.unwrap()
-        );
+        r.await.unwrap();
     }
     handle
         .send(TaskManagerCommand::Reload {
@@ -199,7 +196,7 @@ async fn task_manager_reload_minus_1_proc() {
             .send(TaskManagerCommand::ListProcesses(s))
             .await
             .unwrap();
-        println!("running tasks after reload command: {:?}", r.await.unwrap());
+        r.await.unwrap();
     }
     handle.stop().await;
 }
@@ -223,10 +220,7 @@ async fn task_manager_reload_plus_1_proc() {
             .send(TaskManagerCommand::ListProcesses(s))
             .await
             .unwrap();
-        println!(
-            "running tasks before reload command: {:?}",
-            r.await.unwrap()
-        );
+        r.await.unwrap();
     }
     handle
         .send(TaskManagerCommand::Reload {
@@ -241,7 +235,7 @@ async fn task_manager_reload_plus_1_proc() {
             .send(TaskManagerCommand::ListProcesses(s))
             .await
             .unwrap();
-        println!("running tasks after reload command: {:?}", r.await.unwrap());
+        r.await.unwrap();
     }
     handle.stop().await;
 }
