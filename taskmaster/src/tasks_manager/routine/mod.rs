@@ -279,7 +279,7 @@ mod tests {
         let new = program_from_yaml(new_yaml, "testprog");
 
         assert!(matches!(
-            current.program_diff(&new),
+            current.diff(&new),
             ProgramDiff::NeedRestart
         ));
     }
@@ -298,7 +298,7 @@ mod tests {
         let current = program_from_yaml(current_yaml, "testprog");
         let new = program_from_yaml(new_yaml, "testprog");
 
-        match current.program_diff(&new) {
+        match current.diff(&new) {
             ProgramDiff::NumProcsChanged { before, after } => {
                 assert_eq!(before, 2_usize);
                 assert_eq!(after, 3_usize);
@@ -323,6 +323,6 @@ mod tests {
         let current = program_from_yaml(current_yaml, "testprog");
         let new = program_from_yaml(new_yaml, "testprog");
 
-        assert!(matches!(current.program_diff(&new), ProgramDiff::NoDiff));
+        assert!(matches!(current.diff(&new), ProgramDiff::NoDiff));
     }
 }
