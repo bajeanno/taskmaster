@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use crate::{
-    config::program::ProgramDiff,
+    config::{ProgramConfig, program::ProgramDiff},
     config_state::ConfigState::{self, Active, LoadError, Uninitialized},
-    tasks_manager::{ServerCommandError, routine::Routine},
+    tasks_manager::{ServerCommandError, process::Process, routine::Routine},
 };
 
 impl Routine {
@@ -70,6 +70,50 @@ impl Routine {
                 self.stop_and_remove_program(name)
                     .await
                     .expect("program should be in the processes map");
+            }
+        }
+    }
+
+    async fn handle_num_procs_diff(
+        &mut self,
+        program_config: &Arc<ProgramConfig>,
+        current_num_procs: usize,
+        new_num_procs: usize,
+        program_name: &str,
+    ) {
+        let procs_delta = current_num_procs as isize - new_num_procs as isize;
+        if procs_delta > 0 {
+            // new_num_procs cannot be 0 as it's checked in the parsing
+            let mut mutex = self.processes.lock().await;
+            let arr = mutex.get_mut(program_name).unwrap();
+            for process in arr.iter_mut().rev().take(procs_delta as usize) {
+                process.stop_and_join_if_running().await;
+            }
+            arr.truncate(new_num_procs);
+        }
+        if procs_delta < 0 {
+            let mut lock = self.processes.lock().await;
+            let Some(process_vec) = lock.get_mut(program_name) else {
+                panic!("program is uninitialized");
+            };
+
+            for id in current_num_procs..new_num_procs {
+                process_vec.push(
+                    Process::new(Arc::clone(program_config), id)
+                        .auto_start_on_reload(self.status_sender.clone(), self.log_sender.clone()),
+                );
+            }
+        }
+        if *program_config.auto_start_on_reload() {
+            for process in self
+                .processes
+                .lock()
+                .await
+                .get_mut(program_name)
+                .expect("program is uninithalized")
+                .iter_mut()
+            {
+                process.start(self.status_sender.clone(), self.log_sender.clone());
             }
         }
     }
