@@ -105,7 +105,7 @@ impl ProgramConfig {
         &mut self.name
     }
 
-    pub fn program_diff(self: &Arc<Self>, other: &Arc<ProgramConfig>) -> ProgramDiff {
+    pub fn diff(self: &Arc<Self>, other: &Arc<ProgramConfig>) -> ProgramDiff {
         if self.cmd != other.cmd
             || self.env() != other.env()
             || self.umask() != other.umask()
