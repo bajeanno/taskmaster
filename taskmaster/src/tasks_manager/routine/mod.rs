@@ -102,16 +102,13 @@ impl Routine {
     }
 
     async fn start_program(&mut self, program_config: &Arc<ProgramConfig>) {
-        let mut processes = self.processes.lock().await;
-        if processes.contains_key(program_config.name()) {
-            for process in processes
-                .get_mut(program_config.name())
-                .expect("program should be in processes hashmap")
-            {
+        let mut processes_hashmap = self.processes.lock().await;
+        if let Some(process_vec) = processes_hashmap.get_mut(program_config.name()) {
+            for process in process_vec {
                 process.start(self.status_sender.clone(), self.log_sender.clone());
             }
         } else {
-            processes.insert(
+            processes_hashmap.insert(
                 program_config.name().clone(),
                 self.create_program_processes(program_config).await,
             );
