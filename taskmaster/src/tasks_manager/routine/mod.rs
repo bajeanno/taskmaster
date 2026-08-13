@@ -102,22 +102,18 @@ impl Routine {
     }
 
     async fn start_program(&mut self, program_config: &Arc<ProgramConfig>) {
-        if self.is_program_created(program_config).await {
-            for process in self
-                .processes
-                .lock()
-                .await
+        let mut processes = self.processes.lock().await;
+        if processes.contains_key(program_config.name()) {
+            for process in processes
                 .get_mut(program_config.name())
                 .expect("program should be in processes hashmap")
             {
                 process.start(self.status_sender.clone(), self.log_sender.clone());
             }
         } else {
-            self.add_processes_to_hashmap(
-                program_config,
+            processes.insert(program_config.name().clone(), 
                 self.create_program_processes(program_config).await,
-            )
-            .await;
+            );
         }
     }
 
@@ -128,17 +124,6 @@ impl Routine {
                     .auto_start(self.status_sender.clone(), self.log_sender.clone())
             })
             .collect()
-    }
-
-    async fn add_processes_to_hashmap(
-        &mut self,
-        program_config: &Arc<ProgramConfig>,
-        vec: Vec<Process>,
-    ) {
-        self.processes
-            .lock()
-            .await
-            .insert(program_config.name().clone(), vec);
     }
 
     fn split_process_name(mut process_name: String) -> Option<(String, usize)> {
@@ -285,13 +270,6 @@ impl Routine {
                 process.start(self.status_sender.clone(), self.log_sender.clone());
             }
         }
-    }
-
-    async fn is_program_created(&self, program_config: &Arc<ProgramConfig>) -> bool {
-        self.processes
-            .lock()
-            .await
-            .contains_key(program_config.name())
     }
 }
 
