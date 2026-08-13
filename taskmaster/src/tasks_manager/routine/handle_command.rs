@@ -192,7 +192,8 @@ impl Routine {
                         self.start_program(new_program).await;
                     }
                     ProgramDiff::NumProcsChanged { before, after } => {
-                        let mut autostart = !*current_program.auto_start() && *new_program.auto_start();
+                        let mut autostart =
+                            !*current_program.auto_start() && *new_program.auto_start();
                         if !autostart {
                             let mut lock = self.processes.lock().await;
                             let process_vec = lock

@@ -237,7 +237,7 @@ impl Routine {
         current_num_procs: usize,
         new_num_procs: usize,
         program_name: &str,
-        auto_start: bool
+        auto_start: bool,
     ) {
         let procs_delta = current_num_procs as isize - new_num_procs as isize;
         if procs_delta > 0 {
