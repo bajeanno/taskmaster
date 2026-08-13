@@ -104,6 +104,27 @@ impl ProgramConfig {
     pub(super) fn name_mut(&mut self) -> &mut String {
         &mut self.name
     }
+
+    pub fn program_diff(self: &Arc<Self>, other: &Arc<ProgramConfig>) -> ProgramDiff {
+        if self.cmd != other.cmd
+            || self.env() != other.env()
+            || self.umask() != other.umask()
+            || self.working_dir() != other.working_dir()
+            || self.stdout() != other.stdout()
+            || self.stderr() != other.stderr()
+        {
+            return ProgramDiff::NeedRestart;
+        }
+
+        if self.num_procs() != other.num_procs() {
+            return ProgramDiff::NumProcsChanged {
+                before: *self.num_procs() as usize,
+                after: *other.num_procs() as usize,
+            };
+        }
+
+        ProgramDiff::NoDiff
+    }
 }
 
 impl<'de> Deserialize<'de> for Command {
@@ -129,28 +150,4 @@ impl FromStr for Command {
             args: parts_iter.collect(),
         })
     }
-}
-
-pub fn program_diff(
-    current_program: &Arc<ProgramConfig>,
-    new_program: &Arc<ProgramConfig>,
-) -> ProgramDiff {
-    if current_program.cmd != new_program.cmd
-        || current_program.env() != new_program.env()
-        || current_program.umask() != new_program.umask()
-        || current_program.working_dir() != new_program.working_dir()
-        || current_program.stdout() != new_program.stdout()
-        || current_program.stderr() != new_program.stderr()
-    {
-        return ProgramDiff::NeedRestart;
-    }
-
-    if current_program.num_procs() != new_program.num_procs() {
-        return ProgramDiff::NumProcsChanged {
-            before: *current_program.num_procs() as usize,
-            after: *new_program.num_procs() as usize,
-        };
-    }
-
-    ProgramDiff::NoDiff
 }

@@ -1,5 +1,4 @@
 use crate::{
-    config::program::program_diff,
     config::program::ProgramDiff,
     config::ProgramConfig,
     config_state::ConfigState::{self, Active, LoadError, Uninitialized},
@@ -184,7 +183,7 @@ impl Routine {
     ) {
         for (name, new_program) in new_config.programs.iter() {
             match current_config.programs.get(name) {
-                Some(current_program) => match program_diff(current_program, new_program) {
+                Some(current_program) => match current_program.program_diff(new_program) {
                     ProgramDiff::NeedRestart => {
                         self.stop_and_remove_program(name)
                             .await

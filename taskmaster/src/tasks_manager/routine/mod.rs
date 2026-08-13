@@ -244,8 +244,8 @@ impl Routine {
 mod tests {
     use std::sync::Arc;
 
-    use crate::config::{self, program::ProgramDiff};
-use crate::config_state::ConfigState;
+    use crate::config::program::ProgramDiff;
+    use crate::config_state::ConfigState;
     use crate::tasks_manager::routine::Routine;
 
     #[test]
@@ -279,7 +279,7 @@ use crate::config_state::ConfigState;
         let new = program_from_yaml(new_yaml, "testprog");
 
         assert!(matches!(
-            config::program::program_diff(&current, &new),
+            current.program_diff(&new),
             ProgramDiff::NeedRestart
         ));
     }
@@ -298,7 +298,7 @@ use crate::config_state::ConfigState;
         let current = program_from_yaml(current_yaml, "testprog");
         let new = program_from_yaml(new_yaml, "testprog");
 
-        match config::program::program_diff(&current, &new) {
+        match current.program_diff(&new) {
             ProgramDiff::NumProcsChanged { before, after } => {
                 assert_eq!(before, 2_usize);
                 assert_eq!(after, 3_usize);
@@ -323,9 +323,6 @@ use crate::config_state::ConfigState;
         let current = program_from_yaml(current_yaml, "testprog");
         let new = program_from_yaml(new_yaml, "testprog");
 
-        assert!(matches!(
-            config::program::program_diff(&current, &new),
-            ProgramDiff::NoDiff
-        ));
+        assert!(matches!(current.program_diff(&new), ProgramDiff::NoDiff));
     }
 }
