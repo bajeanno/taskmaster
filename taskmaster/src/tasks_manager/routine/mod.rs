@@ -278,10 +278,7 @@ mod tests {
         let current = program_from_yaml(current_yaml, "testprog");
         let new = program_from_yaml(new_yaml, "testprog");
 
-        assert!(matches!(
-            current.diff(&new),
-            ProgramDiff::NeedRestart
-        ));
+        assert!(matches!(current.diff(&new), ProgramDiff::NeedRestart));
     }
 
     #[test]
