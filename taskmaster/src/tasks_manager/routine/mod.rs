@@ -111,7 +111,8 @@ impl Routine {
                 process.start(self.status_sender.clone(), self.log_sender.clone());
             }
         } else {
-            processes.insert(program_config.name().clone(), 
+            processes.insert(
+                program_config.name().clone(),
                 self.create_program_processes(program_config).await,
             );
         }
