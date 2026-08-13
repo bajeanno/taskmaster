@@ -325,7 +325,7 @@ use crate::config_state::ConfigState;
 
         assert!(matches!(
             config::program::program_diff(&current, &new),
-            ProgramDiff::Other
+            ProgramDiff::NoDiff
         ));
     }
 }

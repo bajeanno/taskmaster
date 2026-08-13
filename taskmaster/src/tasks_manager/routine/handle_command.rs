@@ -195,7 +195,7 @@ impl Routine {
                         self.handle_num_procs_diff(new_program, before, after, name)
                             .await;
                     }
-                    ProgramDiff::Other => {}
+                    ProgramDiff::NoDiff => {}
                 },
 
                 None => {
