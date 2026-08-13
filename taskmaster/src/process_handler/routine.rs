@@ -6,7 +6,6 @@ use crate::process_handler::{Log, LogType, OutputFile, Outputs};
 use libc::signal::kill;
 use libc::unistd::umask;
 use signal::Signal;
-use std::io::Write;
 use std::panic;
 use std::process::Stdio;
 use std::sync::Arc;
@@ -329,22 +328,7 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
 ///
 async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: Arc<OutputFile>) {
     //TODO: move this to task_manager
-    match (&*output, &log.log_type) {
-        (OutputFile::Stdout { file, path: _ }, LogType::Stdout) => {
-            let _ = file.lock().await.write_all(log.message.as_bytes()).inspect_err(|err| {
-                eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.process_name);
-            });
-        }
-        (OutputFile::Stderr { file, path: _ }, LogType::Stderr) => {
-            let _ = file.lock().await.write_all(log.message.as_bytes()).inspect_err(|err| {
-                eprintln!("Taskmaster error: {}: Failed to write process stderr output to log file: {err}", log.process_name);
-            });
-        }
-        (OutputFile::None, _) => { /* Do nothing as there is no file to write output in */ }
-        _ => panic!(
-            "log function was called with different values for output and log_type, expected same values"
-        ),
-    }
+    output.write(&log).await;
     let process_name = log.process_name.clone();
     log_sender
         .send(log)

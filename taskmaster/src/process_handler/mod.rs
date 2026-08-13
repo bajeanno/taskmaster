@@ -11,6 +11,7 @@ pub use handle::Handle;
 pub use routine::{Routine, RoutineSpawnError};
 pub use status::{NominativeStatus, Status, StatusSender};
 use std::fs::{File, OpenOptions};
+use std::io::Write;
 #[allow(unused)]
 use tokio::process::Command;
 use tokio::process::{ChildStderr, ChildStdout};
@@ -116,6 +117,25 @@ impl OutputFile {
             ),
             path: file_path.to_string(),
         })
+    }
+
+    pub async fn write(&self, log: &Log) {
+        match (&*self, log.log_type) {
+            (OutputFile::Stdout { file, path: _ }, LogType::Stdout) => {
+                let _ = file.lock().await.write_all(log.message.as_bytes()).inspect_err(|err| {
+                    eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.process_name);
+                });
+            }
+            (OutputFile::Stderr { file, path: _ }, LogType::Stderr) => {
+                let _ = file.lock().await.write_all(log.message.as_bytes()).inspect_err(|err| {
+                    eprintln!("Taskmaster error: {}: Failed to write process stderr output to log file: {err}", log.process_name);
+                });
+            }
+            (OutputFile::None, _) => { /* Do nothing as there is no file to write output in */ }
+            _ => panic!(
+                "log function was called with different values for output and log_type, expected same values"
+            ),
+        }
     }
 }
 
