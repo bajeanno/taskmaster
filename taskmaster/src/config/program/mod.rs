@@ -18,6 +18,13 @@ use signal::Signal;
 use std::sync::Arc;
 use std::{collections::HashMap, fmt::Display, str::FromStr};
 
+#[derive(Debug)]
+pub enum ProgramDiff {
+    NeedRestart,
+    NumProcsChanged { before: usize, after: usize },
+    Other,
+}
+
 #[allow(dead_code)] // TODO: remove this
 #[derive(Debug, Getters, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -122,4 +129,28 @@ impl FromStr for Command {
             args: parts_iter.collect(),
         })
     }
+}
+
+pub fn program_diff(
+    current_program: &Arc<ProgramConfig>,
+    new_program: &Arc<ProgramConfig>,
+) -> ProgramDiff {
+    if current_program.cmd != new_program.cmd
+        || current_program.env() != new_program.env()
+        || current_program.umask() != new_program.umask()
+        || current_program.working_dir() != new_program.working_dir()
+        || current_program.stdout() != new_program.stdout()
+        || current_program.stderr() != new_program.stderr()
+    {
+        return ProgramDiff::NeedRestart;
+    }
+
+    if current_program.num_procs() != new_program.num_procs() {
+        return ProgramDiff::NumProcsChanged {
+            before: *current_program.num_procs() as usize,
+            after: *new_program.num_procs() as usize,
+        };
+    }
+
+    ProgramDiff::Other
 }

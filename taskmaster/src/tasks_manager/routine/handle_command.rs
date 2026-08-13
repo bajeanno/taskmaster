@@ -1,10 +1,12 @@
 use crate::{
+    config::program::program_diff,
+    config::program::ProgramDiff,
     config::ProgramConfig,
     config_state::ConfigState::{self, Active, LoadError, Uninitialized},
     process_handler::NominativeStatus,
     tasks_manager::{
         ServerCommandError, TaskManagerCommand,
-        routine::{Client, ProgramDiff, Routine},
+        routine::{Client, Routine},
     },
 };
 use std::sync::Arc;
@@ -182,7 +184,7 @@ impl Routine {
     ) {
         for (name, new_program) in new_config.programs.iter() {
             match current_config.programs.get(name) {
-                Some(current_program) => match Self::program_diff(current_program, new_program) {
+                Some(current_program) => match program_diff(current_program, new_program) {
                     ProgramDiff::NeedRestart => {
                         self.stop_and_remove_program(name)
                             .await

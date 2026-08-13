@@ -35,13 +35,6 @@ impl SubscribedClients {
     fn for_each(&self, _callback: impl FnMut(&Client)) {}
 }
 
-#[derive(Debug)]
-enum ProgramDiff {
-    NeedRestart,
-    NumProcsChanged { before: usize, after: usize },
-    Other,
-}
-
 #[allow(dead_code)] //TODO: Remove that
 pub struct Routine {
     config_state: ConfigState,
@@ -202,30 +195,6 @@ impl Routine {
         }
     }
 
-    fn program_diff(
-        current_program: &Arc<ProgramConfig>,
-        new_program: &Arc<ProgramConfig>,
-    ) -> ProgramDiff {
-        if current_program.cmd != new_program.cmd
-            || current_program.env() != new_program.env()
-            || current_program.umask() != new_program.umask()
-            || current_program.working_dir() != new_program.working_dir()
-            || current_program.stdout() != new_program.stdout()
-            || current_program.stderr() != new_program.stderr()
-        {
-            return ProgramDiff::NeedRestart;
-        }
-
-        if current_program.num_procs() != new_program.num_procs() {
-            return ProgramDiff::NumProcsChanged {
-                before: *current_program.num_procs() as usize,
-                after: *new_program.num_procs() as usize,
-            };
-        }
-
-        ProgramDiff::Other
-    }
-
     async fn handle_num_procs_diff(
         &mut self,
         program_config: &Arc<ProgramConfig>,
@@ -275,10 +244,9 @@ impl Routine {
 mod tests {
     use std::sync::Arc;
 
-    use crate::config_state::ConfigState;
+    use crate::config::{self, program::ProgramDiff};
+use crate::config_state::ConfigState;
     use crate::tasks_manager::routine::Routine;
-
-    use super::ProgramDiff;
 
     #[test]
     fn test_split_process_name() {
@@ -311,7 +279,7 @@ mod tests {
         let new = program_from_yaml(new_yaml, "testprog");
 
         assert!(matches!(
-            Routine::program_diff(&current, &new),
+            config::program::program_diff(&current, &new),
             ProgramDiff::NeedRestart
         ));
     }
@@ -330,7 +298,7 @@ mod tests {
         let current = program_from_yaml(current_yaml, "testprog");
         let new = program_from_yaml(new_yaml, "testprog");
 
-        match Routine::program_diff(&current, &new) {
+        match config::program::program_diff(&current, &new) {
             ProgramDiff::NumProcsChanged { before, after } => {
                 assert_eq!(before, 2_usize);
                 assert_eq!(after, 3_usize);
@@ -356,7 +324,7 @@ mod tests {
         let new = program_from_yaml(new_yaml, "testprog");
 
         assert!(matches!(
-            Routine::program_diff(&current, &new),
+            config::program::program_diff(&current, &new),
             ProgramDiff::Other
         ));
     }
