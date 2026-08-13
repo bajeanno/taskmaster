@@ -120,7 +120,7 @@ impl OutputFile {
     }
 
     pub async fn write(&self, log: &Log) {
-        match (&*self, log.log_type) {
+        match (self, log.log_type) {
             (OutputFile::Stdout { file, path: _ }, LogType::Stdout) => {
                 let _ = file.lock().await.write_all(log.message.as_bytes()).inspect_err(|err| {
                     eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.process_name);
