@@ -100,7 +100,6 @@ impl Process {
         self.process_name.clone()
     }
 
-    #[cfg(test)]
     pub fn is_running(&self) -> bool {
         self.handle.is_some()
     }

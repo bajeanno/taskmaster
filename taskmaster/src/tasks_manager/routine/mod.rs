@@ -37,7 +37,7 @@ impl SubscribedClients {
 
 #[derive(Debug)]
 enum ProgramDiff {
-    CmdChanged,
+    NeedRestart,
     NumProcsChanged { before: usize, after: usize },
     Other,
 }
@@ -211,8 +211,14 @@ impl Routine {
         current_program: &Arc<ProgramConfig>,
         new_program: &Arc<ProgramConfig>,
     ) -> ProgramDiff {
-        if current_program.cmd != new_program.cmd {
-            return ProgramDiff::CmdChanged;
+        if current_program.cmd != new_program.cmd
+            || current_program.env() != new_program.env()
+            || current_program.umask() != new_program.umask()
+            || current_program.working_dir() != new_program.working_dir()
+            || current_program.stdout() != new_program.stdout()
+            || current_program.stderr() != new_program.stderr()
+        {
+            return ProgramDiff::NeedRestart;
         }
 
         if current_program.num_procs() != new_program.num_procs() {
@@ -231,6 +237,7 @@ impl Routine {
         current_num_procs: usize,
         new_num_procs: usize,
         program_name: &str,
+        auto_start: bool
     ) {
         let procs_delta = current_num_procs as isize - new_num_procs as isize;
         if procs_delta > 0 {
@@ -243,18 +250,20 @@ impl Routine {
             arr.truncate(new_num_procs);
         }
         if procs_delta < 0 {
-            //TODO: check if process if currently running
-            //TODO: if so, create process + .auto_start()
-            //TODO: else, only create process.
             let mut lock = self.processes.lock().await;
             let Some(process_vec) = lock.get_mut(program_name) else {
                 panic!("program is uninitialized");
             };
+
             for id in current_num_procs..new_num_procs {
-                process_vec.push(
-                    Process::new(Arc::clone(program_config), id)
-                        .auto_start(self.status_sender.clone(), self.log_sender.clone()),
-                );
+                process_vec.push({
+                    let process = Process::new(Arc::clone(program_config), id);
+                    if auto_start {
+                        process.auto_start(self.status_sender.clone(), self.log_sender.clone())
+                    } else {
+                        process
+                    }
+                });
             }
         }
     }
@@ -301,7 +310,7 @@ mod tests {
 
         assert!(matches!(
             Routine::program_diff(&current, &new),
-            ProgramDiff::CmdChanged
+            ProgramDiff::NeedRestart
         ));
     }
 

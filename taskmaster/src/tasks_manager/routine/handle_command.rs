@@ -185,14 +185,22 @@ impl Routine {
                 Some(current_program) if current_program == new_program => {}
 
                 Some(current_program) => match Self::program_diff(current_program, new_program) {
-                    ProgramDiff::CmdChanged => {
+                    ProgramDiff::NeedRestart => {
                         self.stop_and_remove_program(name)
                             .await
                             .expect("program should be in the processes map");
                         self.start_program(new_program).await;
                     }
                     ProgramDiff::NumProcsChanged { before, after } => {
-                        self.handle_num_procs_diff(new_program, before, after, name)
+                        let mut autostart = !*current_program.auto_start() && *new_program.auto_start();
+                        if !autostart {
+                            let mut lock = self.processes.lock().await;
+                            let process_vec = lock
+                                .get_mut(name)
+                                .expect("program should be in the processes map");
+                            autostart = process_vec.iter().any(|process| process.is_running());
+                        }
+                        self.handle_num_procs_diff(new_program, before, after, name, autostart)
                             .await;
                     }
                     ProgramDiff::Other => {
