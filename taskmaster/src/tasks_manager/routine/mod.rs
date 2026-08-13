@@ -273,6 +273,18 @@ impl Routine {
                 );
             }
         }
+        if *program_config.auto_start_on_reload() {
+            for process in self
+                .processes
+                .lock()
+                .await
+                .get_mut(program_name)
+                .expect("program is uninithalized")
+                .iter_mut()
+            {
+                process.start(self.status_sender.clone(), self.log_sender.clone());
+            }
+        }
     }
 
     async fn is_program_created(&self, program_config: &Arc<ProgramConfig>) -> bool {

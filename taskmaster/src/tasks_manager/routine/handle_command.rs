@@ -243,9 +243,13 @@ mod tests {
     unchanged:
         cmd: "sleep 30"
         autostart: true
-    changed:
+    changed_increased:
         cmd: "sleep 30"
         numprocs: 1
+        autostart: true
+    changed_decreased:
+        cmd: "sleep 30"
+        numprocs: 2
         autostart: true
     changed_autostart:
         cmd: "sleep 30"
@@ -259,10 +263,16 @@ mod tests {
     unchanged:
         cmd: "sleep 30"
         autostart: true
-    changed:
+    changed_increased:
         cmd: "sleep 30"
         numprocs: 2
         autostart: true
+        autostart-on-reload: true
+    changed_decreased:
+        cmd: "sleep 30"
+        numprocs: 1
+        autostart: true
+        autostart-on-reload: true
     changed_autostart:
         cmd: "sleep 30"
         numprocs: 2
@@ -319,17 +329,17 @@ mod tests {
             .processes
             .lock()
             .await
-            .get("changed")
+            .get("changed_increased")
             .unwrap()
             .iter()
             .map(|process| process.instance_id())
             .collect();
 
-        routine.stop_program("changed").await.unwrap();
+        routine.stop_program("changed_decreased").await.unwrap();
+        routine.stop_program("changed_increased").await.unwrap();
         routine.stop_program("changed_autostart").await.unwrap();
 
         routine.update_processes(&current_config, &new_config).await;
-
         {
             let processes = routine.processes.lock().await;
 
@@ -350,7 +360,19 @@ mod tests {
             );
 
             let changed = processes
-                .get("changed")
+                .get("changed_increased")
+                .expect("changed program should be re-registered");
+            assert_ne!(
+                changed
+                    .iter()
+                    .map(|process| process.instance_id())
+                    .collect::<Vec<_>>(),
+                changed_ids_before,
+                "changed program must be restarted on reload"
+            );
+
+            let changed = processes
+                .get("changed_decreased")
                 .expect("changed program should be re-registered");
             assert_ne!(
                 changed
@@ -369,12 +391,20 @@ mod tests {
                 "changed_autostart program must not be running on reload"
             );
             assert!(
-                !processes
-                    .get("changed")
+                processes
+                    .get("changed_increased")
                     .unwrap()
                     .iter()
-                    .any(|p| p.is_running()),
-                "changed program must not be running on reload"
+                    .all(|p| p.is_running()),
+                "changed_increased program must be running on reload"
+            );
+            assert!(
+                processes
+                    .get("changed_decreased")
+                    .unwrap()
+                    .iter()
+                    .all(|p| p.is_running()),
+                "changed_decreased program must be running on reload"
             );
 
             assert!(
