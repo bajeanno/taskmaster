@@ -182,8 +182,6 @@ impl Routine {
     ) {
         for (name, new_program) in new_config.programs.iter() {
             match current_config.programs.get(name) {
-                Some(current_program) if current_program == new_program => {}
-
                 Some(current_program) => match Self::program_diff(current_program, new_program) {
                     ProgramDiff::NeedRestart => {
                         self.stop_and_remove_program(name)
@@ -192,24 +190,10 @@ impl Routine {
                         self.start_program(new_program).await;
                     }
                     ProgramDiff::NumProcsChanged { before, after } => {
-                        let mut autostart =
-                            !*current_program.auto_start() && *new_program.auto_start();
-                        if !autostart {
-                            let mut lock = self.processes.lock().await;
-                            let process_vec = lock
-                                .get_mut(name)
-                                .expect("program should be in the processes map");
-                            autostart = process_vec.iter().any(|process| process.is_running());
-                        }
-                        self.handle_num_procs_diff(new_program, before, after, name, autostart)
+                        self.handle_num_procs_diff(new_program, before, after, name)
                             .await;
                     }
-                    ProgramDiff::Other => {
-                        self.stop_and_remove_program(name)
-                            .await
-                            .expect("program should be in the processes map");
-                        self.start_program(new_program).await;
-                    }
+                    ProgramDiff::Other => {}
                 },
 
                 None => {
@@ -261,7 +245,12 @@ mod tests {
         autostart: true
     changed:
         cmd: "sleep 30"
+        numprocs: 1
         autostart: true
+    changed_autostart:
+        cmd: "sleep 30"
+        numprocs: 1
+        autostart: false
     removed:
         cmd: "sleep 30"
         autostart: true"#;
@@ -271,7 +260,12 @@ mod tests {
         cmd: "sleep 30"
         autostart: true
     changed:
-        cmd: "sleep 31"
+        cmd: "sleep 30"
+        numprocs: 2
+        autostart: true
+    changed_autostart:
+        cmd: "sleep 30"
+        numprocs: 2
         autostart: true
     added:
         cmd: "sleep 30"
@@ -331,6 +325,9 @@ mod tests {
             .map(|process| process.instance_id())
             .collect();
 
+        routine.stop_program("changed").await.unwrap();
+        routine.stop_program("changed_autostart").await.unwrap();
+
         routine.update_processes(&current_config, &new_config).await;
 
         {
@@ -363,6 +360,22 @@ mod tests {
                 changed_ids_before,
                 "changed program must be restarted on reload"
             );
+            assert!(
+                !processes
+                    .get("changed_autostart")
+                    .unwrap()
+                    .iter()
+                    .any(|p| p.is_running()),
+                "changed_autostart program must not be running on reload"
+            );
+            assert!(
+                !processes
+                    .get("changed")
+                    .unwrap()
+                    .iter()
+                    .any(|p| p.is_running()),
+                "changed program must not be running on reload"
+            );
 
             assert!(
                 processes.contains_key("added"),
@@ -383,13 +396,15 @@ mod tests {
     scale:
         cmd: "sleep 30"
         numprocs: 2
-        autostart: true"#;
+        autostart: true
+        autostart-on-reload: true"#;
 
         let increase_yaml = r#"programs:
     scale:
         cmd: "sleep 30"
         numprocs: 3
-        autostart: true"#;
+        autostart: true
+        autostart-on-reload: true"#;
 
         let current_config = config(current_yaml);
         let increase_config = config(increase_yaml);

@@ -6,6 +6,7 @@ use crate::process_handler::RoutineSpawnError;
 
 #[allow(dead_code)] //TODO: remove that
 #[derive(Debug, Clone)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct NominativeStatus {
     pub process_name: String,
     pub status: Status,

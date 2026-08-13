@@ -1,10 +1,12 @@
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::time::Duration;
 
 use super::routine::Routine;
 use crate::config_state::ConfigState;
 use crate::tasks_manager::TaskManagerCommand;
 use tokio::sync::oneshot;
+use tokio::time::sleep;
 
 fn create_tasks_yaml_content() -> String {
     r#"programs:
@@ -121,13 +123,27 @@ async fn task_manager_stop() {
 #[tokio::test]
 async fn task_manager_start_already_started() {
     let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content()));
+    sleep(Duration::from_millis(5)).await;
 
+    let (sender, receiver) = oneshot::channel();
+    handle
+        .send(TaskManagerCommand::ListProcesses(sender))
+        .await
+        .unwrap();
+    let before = receiver.await.expect("Receiver failed");
     handle
         .send(TaskManagerCommand::StartProgram {
             program_name: String::from("taskmaster_test_task"),
         })
         .await
         .unwrap();
+    let (sender, receiver) = oneshot::channel();
+    handle
+        .send(TaskManagerCommand::ListProcesses(sender))
+        .await
+        .unwrap();
+    let after = receiver.await.expect("Receiver failed");
+    assert_eq!(before, after);
     handle.stop().await;
 }
 

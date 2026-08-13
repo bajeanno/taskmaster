@@ -102,11 +102,23 @@ impl Routine {
     }
 
     async fn start_program(&mut self, program_config: &Arc<ProgramConfig>) {
-        self.add_processes_to_hashmap(
-            program_config,
-            self.create_program_processes(program_config).await,
-        )
-        .await;
+        if self.is_program_created(program_config).await {
+            for process in self
+                .processes
+                .lock()
+                .await
+                .get_mut(program_config.name())
+                .expect("program should be in processes hashmap")
+            {
+                process.start(self.status_sender.clone(), self.log_sender.clone());
+            }
+        } else {
+            self.add_processes_to_hashmap(
+                program_config,
+                self.create_program_processes(program_config).await,
+            )
+            .await;
+        }
     }
 
     async fn create_program_processes(&self, program_config: &Arc<ProgramConfig>) -> Vec<Process> {
@@ -237,7 +249,6 @@ impl Routine {
         current_num_procs: usize,
         new_num_procs: usize,
         program_name: &str,
-        auto_start: bool,
     ) {
         let procs_delta = current_num_procs as isize - new_num_procs as isize;
         if procs_delta > 0 {
@@ -256,16 +267,19 @@ impl Routine {
             };
 
             for id in current_num_procs..new_num_procs {
-                process_vec.push({
-                    let process = Process::new(Arc::clone(program_config), id);
-                    if auto_start {
-                        process.auto_start(self.status_sender.clone(), self.log_sender.clone())
-                    } else {
-                        process
-                    }
-                });
+                process_vec.push(
+                    Process::new(Arc::clone(program_config), id)
+                        .auto_start_on_reload(self.status_sender.clone(), self.log_sender.clone()),
+                );
             }
         }
+    }
+
+    async fn is_program_created(&self, program_config: &Arc<ProgramConfig>) -> bool {
+        self.processes
+            .lock()
+            .await
+            .contains_key(program_config.name())
     }
 }
 

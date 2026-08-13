@@ -58,6 +58,17 @@ impl Process {
         self
     }
 
+    pub fn auto_start_on_reload(
+        mut self,
+        status_sender: UnboundedSender<NominativeStatus>,
+        log_sender: LogSender,
+    ) -> Self {
+        if *self.program_config.auto_start_on_reload() {
+            self.start(status_sender, log_sender);
+        }
+        self
+    }
+
     pub fn start(
         &mut self,
         status_sender: UnboundedSender<NominativeStatus>,
@@ -100,6 +111,7 @@ impl Process {
         self.process_name.clone()
     }
 
+    #[cfg(test)]
     pub fn is_running(&self) -> bool {
         self.handle.is_some()
     }

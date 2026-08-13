@@ -43,6 +43,9 @@ pub struct ProgramConfig {
     #[serde(rename = "autostart", default)]
     auto_start: bool,
 
+    #[serde(rename = "autostart-on-reload", default)]
+    auto_start_on_reload: bool,
+
     #[serde(rename = "autorestart", default)]
     auto_restart: AutoRestart,
 
