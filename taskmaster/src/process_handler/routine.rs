@@ -106,8 +106,8 @@ impl Routine {
         let outputs = Outputs::new(&mut child);
         let listen_task = tokio::spawn(Self::listen(
             outputs,
-            Arc::clone(&self.config.stdout()),
-            Arc::clone(&self.config.stderr()),
+            Arc::clone(self.config.stdout()),
+            Arc::clone(self.config.stderr()),
             self.log_sender.clone(),
             self.process_name.clone(),
         ));
