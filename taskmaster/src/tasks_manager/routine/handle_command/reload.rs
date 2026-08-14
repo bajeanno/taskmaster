@@ -20,17 +20,17 @@ impl Routine {
                         self.start_programs(&new_config.programs).await
                     }
                 }
+                Ok(())
             }
 
             ConfigState::LoadError { error } => {
-                return Err(ServerCommandError::FailedToLoadNewConfig(error));
+                Err(ServerCommandError::FailedToLoadNewConfig(error))
             }
 
             ConfigState::Uninitialized => {
                 unreachable!("ConfigState::from_config cannot return Uninitialized")
             }
         }
-        Ok(())
     }
 
     // Even though we don't lock anything between the moment we stop the program
