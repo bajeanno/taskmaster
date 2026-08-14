@@ -74,20 +74,20 @@ async fn create_task() {
     let yaml_content = r#"programs:
     taskmaster_test_task:
         cmd: "bash -c \"echo Hello $STARTED_BY!\""
-        numprocs: 1
+        num-procs: 1
         umask: 022
-        workingdir: /tmp
-        autostart: true
-        exitcodes:
+        working-dir: /tmp
+        auto-start: true
+        exit-codes:
         - 0
         - 2
-        startretries: 5
-        starttime: 0
-        stopsignal: SIGTERM
-        stoptime: 10
+        start-retries: 5
+        start-time: 0
+        stop-signal: SIGTERM
+        stop-time: 10
         stdout: /tmp/taskmaster_tests.stdout
         stderr: /tmp/taskmaster_tests.stderr
-        clearenv: true
+        clear-env: true
         env:
             STARTED_BY: taskmaster
             ANSWER: 42"#;
@@ -159,20 +159,20 @@ async fn create_task_then_interrupt() {
     let yaml_content = r#"programs:
     taskmaster_test_task:
         cmd: "cat"
-        numprocs: 1
+        num-procs: 1
         umask: 022
-        workingdir: /tmp
-        autostart: true
-        exitcodes:
+        working-dir: /tmp
+        auto-start: true
+        exit-codes:
         - 0
         - 2
-        startretries: 5
-        starttime: 0
-        stopsignal: SIGINT
-        stoptime: 10
+        start-retries: 5
+        start-time: 0
+        stop-signal: SIGINT
+        stop-time: 10
         stdout: /tmp/taskmaster_tests_interrupt.stdout
         stderr: /tmp/taskmaster_tests_interrupt.stderr
-        clearenv: true
+        clear-env: true
         env:
             STARTED_BY: taskmaster
             ANSWER: 42"#;

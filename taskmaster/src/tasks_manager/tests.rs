@@ -8,20 +8,20 @@ fn create_tasks() -> String {
     r#"programs:
     taskmaster_test_task:
         cmd: "sleep 100000"
-        numprocs: 2
+        num-procs: 2
         umask: 022
-        workingdir: /tmp
-        autostart: true
-        exitcodes:
+        working-dir: /tmp
+        auto-start: true
+        exit-codes:
         - 0
         - 2
-        startretries: 5
-        starttime: 0
-        stopsignal: SIGTERM
-        stoptime: 10
+        start-retries: 5
+        start-time: 0
+        stop-signal: SIGTERM
+        stop-time: 10
         stdout: /tmp/taskmaster_taskmanager_tests.stdout
         stderr: /tmp/taskmaster_taskmanager_tests.stderr
-        clearenv: true
+        clear-env: true
         env:
             STARTED_BY: taskmaster
             ANSWER: 42"#

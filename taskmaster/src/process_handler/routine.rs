@@ -248,7 +248,7 @@ impl Routine {
     ///
     /// - The program started properly:
     ///   - `config.auto_restart` is `false`: Return false (we don't want to restart)
-    ///   - `config.auto_restart` is `unexpected` and the exit status is in `config.exitcodes`: Return false (we don't want to restart)
+    ///   - `config.auto_restart` is `unexpected` and the exit status is in `config.exit-codes`: Return false (we don't want to restart)
     ///   - otherwise return true (we want to restart)
     fn should_try_restart(&mut self, status: &Status) -> bool {
         match status {

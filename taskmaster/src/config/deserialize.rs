@@ -40,10 +40,10 @@ where
     D: Deserializer<'de>,
 {
     let num_procs = u8::deserialize(deserializer)
-        .map_err(|err| serde::de::Error::custom(format!("Failed to parse numprocs: {err}")))?;
+        .map_err(|err| serde::de::Error::custom(format!("Failed to parse num-procs: {err}")))?;
     if num_procs == 0 {
         Err(serde::de::Error::custom(
-            "Failed to parse numprocs: cannot be 0".to_string(),
+            "Failed to parse num-procs: cannot be 0".to_string(),
         ))
     } else {
         Ok(num_procs)

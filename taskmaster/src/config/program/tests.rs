@@ -224,8 +224,8 @@ mod tests {
             "echo test",
             r#"
             umask: "644"
-            workingdir: "/tmp"
-            autostart: true"#,
+            working-dir: "/tmp"
+            auto-start: true"#,
         );
         assert_config_parses_to(&yaml_content, program);
     }
@@ -235,7 +235,7 @@ mod tests {
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
-            exitcodes: [257]"#,
+            exit-codes: [257]"#,
         );
         assert_config_parsing_error(&yaml_content);
     }
@@ -248,7 +248,7 @@ mod tests {
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
-            exitcodes: [0, 1, 2]"#,
+            exit-codes: [0, 1, 2]"#,
         );
         assert_config_parses_to(&yaml_content, program);
     }
@@ -261,7 +261,7 @@ mod tests {
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
-            numprocs: 3"#,
+            num-procs: 3"#,
         );
         assert_config_parses_to(&yaml_content, program);
     }
@@ -274,7 +274,7 @@ mod tests {
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
-            startretries: 5"#,
+            start-retries: 5"#,
         );
         assert_config_parses_to(&yaml_content, program);
     }
@@ -287,7 +287,7 @@ mod tests {
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
-            starttime: 10"#,
+            start-time: 10"#,
         );
         assert_config_parses_to(&yaml_content, program);
     }
@@ -300,7 +300,7 @@ mod tests {
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
-            stoptime: 15"#,
+            stop-time: 15"#,
         );
         assert_config_parses_to(&yaml_content, program);
     }
@@ -313,7 +313,7 @@ mod tests {
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
-            stopsignal: "TERM""#,
+            stop-signal: "TERM""#,
         );
         assert_config_parses_to(&yaml_content, program);
     }
@@ -326,7 +326,7 @@ mod tests {
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
-            stopsignal: "SIGTERM""#,
+            stop-signal: "SIGTERM""#,
         );
         assert_config_parses_to(&yaml_content, program);
     }
@@ -339,7 +339,7 @@ mod tests {
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
-            autorestart: true"#,
+            auto-restart: true"#,
         );
         assert_config_parses_to(&yaml_content, program);
     }
@@ -352,7 +352,7 @@ mod tests {
         let yaml_content = yaml_with_fields(
             "echo test",
             r#"
-            clearenv: true"#,
+            clear-env: true"#,
         );
         assert_config_parses_to(&yaml_content, program);
     }

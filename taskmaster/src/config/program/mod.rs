@@ -17,7 +17,7 @@ use std::{collections::HashMap, fmt::Display, str::FromStr};
 #[allow(dead_code)] // TODO: remove this
 #[derive(Debug, Getters, Deserialize)]
 #[cfg_attr(test, derive(PartialEq))]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct ProgramConfig {
     #[serde(skip)]
     name: String,
@@ -31,38 +31,36 @@ pub struct ProgramConfig {
     pub cmd: Command,
 
     #[serde(
-        rename = "numprocs",
         default = "default_num_procs",
         deserialize_with = "deserialize_num_procs"
     )]
     num_procs: u8,
 
-    #[serde(rename = "workingdir", default = "default_work_dir")]
+    #[serde(default = "default_work_dir")]
     working_dir: String,
 
-    #[serde(rename = "autostart", default)]
+    #[serde(default)]
     auto_start: bool,
 
-    #[serde(rename = "autorestart", default)]
+    #[serde(default)]
     auto_restart: AutoRestart,
 
-    #[serde(rename = "exitcodes", default = "default_exit_codes")]
+    #[serde(default = "default_exit_codes")]
     exit_codes: Vec<u8>,
 
-    #[serde(rename = "startretries", default)]
+    #[serde(default)]
     start_retries: u32,
 
-    #[serde(rename = "starttime", default)]
+    #[serde(default)]
     start_time: u32,
 
     #[serde(
-        rename = "stopsignal",
         default = "default_signal",
         deserialize_with = "deserialize_signal"
     )]
     stop_signal: Signal,
 
-    #[serde(rename = "stoptime", default)]
+    #[serde(default)]
     stop_time: u32,
 
     #[serde(default = "default_output")]
@@ -71,7 +69,7 @@ pub struct ProgramConfig {
     #[serde(default = "default_output")]
     stderr: String,
 
-    #[serde(rename = "clearenv", default)]
+    #[serde(default)]
     clear_env: bool,
 
     #[serde(default)]
