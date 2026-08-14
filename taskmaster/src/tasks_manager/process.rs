@@ -2,7 +2,7 @@ use std::{
     fmt::Debug,
     sync::{
         Arc,
-        atomic::{AtomicU32, Ordering},
+        atomic::{AtomicU64, Ordering},
     },
 };
 
@@ -17,7 +17,7 @@ pub struct Process {
     program_config: Arc<ProgramConfig>,
     handle: Option<process_handler::Handle>,
     pub nominative_status: NominativeStatus,
-    instance_id: u32,
+    instance_id: u64,
     process_name: String,
 }
 
@@ -30,7 +30,7 @@ impl Debug for Process {
     }
 }
 
-static NEXT_PROCESS_INSTANCE_ID: AtomicU32 = AtomicU32::new(0);
+static NEXT_PROCESS_INSTANCE_ID: AtomicU64 = AtomicU64::new(1);
 
 impl Process {
     pub fn new(program: Arc<ProgramConfig>, id: usize) -> Self {
@@ -90,7 +90,7 @@ impl Process {
         self.nominative_status.status = Status::RoutineStarting;
     }
 
-    pub fn instance_id(&self) -> u32 {
+    pub fn instance_id(&self) -> u64 {
         self.instance_id
     }
 

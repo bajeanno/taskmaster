@@ -206,7 +206,7 @@ mod tests {
 
         let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
 
-        let unchanged_ids_before: Vec<u32> = routine
+        let unchanged_ids_before: Vec<u64> = routine
             .processes
             .lock()
             .await
@@ -215,7 +215,7 @@ mod tests {
             .iter()
             .map(|process| process.instance_id())
             .collect();
-        let changed_ids_before: Vec<u32> = routine
+        let changed_ids_before: Vec<u64> = routine
             .processes
             .lock()
             .await
@@ -332,7 +332,7 @@ mod tests {
         let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
 
         // initial state: 2 procs
-        let before_ids: Vec<u32> = routine
+        let before_ids: Vec<u64> = routine
             .processes
             .lock()
             .await
@@ -389,7 +389,7 @@ mod tests {
         let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
 
         // initial state: 2 procs
-        let before_ids: Vec<u32> = routine
+        let before_ids: Vec<u64> = routine
             .processes
             .lock()
             .await

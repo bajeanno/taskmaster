@@ -29,7 +29,7 @@ pub struct Routine {
     command: Command,
     process_name: String,
     kill_command_received: bool,
-    instance_id: u32,
+    instance_id: u64,
     stderr_file: Arc<OutputFile>,
     stdout_file: Arc<OutputFile>,
 }
@@ -49,7 +49,7 @@ impl Routine {
         status_sender: UnboundedSender<NominativeStatus>,
         log_sender: LogSender,
         process_name: String,
-        instance_id: u32,
+        instance_id: u64,
     ) -> Handle {
         let (kill_command_sender, kill_command_receiver) = mpsc::channel(1);
         let command = command::create_command(&config);
