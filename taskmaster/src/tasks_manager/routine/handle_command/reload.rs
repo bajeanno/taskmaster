@@ -27,7 +27,7 @@ impl Routine {
             }
 
             ConfigState::Uninitialized => {
-                panic!("Programmatic error: config_state is Uninitialized after reload")
+                unreachable!("ConfigState::from_config cannot return Uninitialized")
             }
         }
         Ok(())
