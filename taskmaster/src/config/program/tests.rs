@@ -2,7 +2,7 @@
 mod tests {
     use crate::config::program::{AutoRestart, CommandError};
     use crate::config::{Config, program::Command, program::ProgramConfig};
-    use crate::process_handler::OutputFile;
+    use crate::output_file::OutputFile;
     use libc::unistd::mode_t;
     use signal::Signal;
     use std::collections::HashMap;

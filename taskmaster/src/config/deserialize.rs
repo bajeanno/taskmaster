@@ -3,7 +3,7 @@ use serde::{Deserialize, Deserializer, de};
 use signal::Signal;
 use std::{str::FromStr, sync::Arc};
 
-use crate::process_handler::OutputFile;
+use crate::output_file::OutputFile;
 
 pub fn deserialize_signal<'de, D>(deserializer: D) -> Result<Signal, D::Error>
 where

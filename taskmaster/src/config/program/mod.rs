@@ -10,7 +10,7 @@ use super::deserialize::{
 };
 use super::{AutoRestart, Command};
 pub use crate::config::error::CommandError;
-use crate::process_handler::OutputFile;
+use crate::output_file::OutputFile;
 use derive_getters::Getters;
 use libc::unistd::mode_t;
 use serde::{Deserialize, Deserializer};
