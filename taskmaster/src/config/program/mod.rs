@@ -22,7 +22,7 @@ use std::{collections::HashMap, fmt::Display, str::FromStr};
 pub enum ProgramDiff {
     NeedRestart,
     NumProcsChanged { before: usize, after: usize },
-    NoDiff,
+    Other,
 }
 
 #[allow(dead_code)] // TODO: remove this
@@ -123,7 +123,7 @@ impl ProgramConfig {
             };
         }
 
-        ProgramDiff::NoDiff
+        ProgramDiff::Other
     }
 }
 

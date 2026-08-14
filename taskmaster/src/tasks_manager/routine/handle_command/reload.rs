@@ -43,24 +43,29 @@ impl Routine {
         current_config: &Arc<crate::config::Config>,
         new_config: &Arc<crate::config::Config>,
     ) {
-        for (name, new_program) in new_config.programs.iter() {
+        for (name, new_program_config) in new_config.programs.iter() {
             match current_config.programs.get(name) {
-                Some(current_program) => match current_program.diff(new_program) {
-                    ProgramDiff::NeedRestart => {
-                        self.stop_and_remove_program(name)
-                            .await
-                            .expect("program should be in the processes map");
-                        self.start_program(new_program).await;
+                Some(current_program_config) => {
+                    match current_program_config.diff(new_program_config) {
+                        ProgramDiff::NeedRestart => {
+                            self.stop_and_remove_program(name)
+                                .await
+                                .expect("program should be in the processes map");
+                            self.start_program(new_program_config).await;
+                        }
+                        ProgramDiff::NumProcsChanged { before, after } => {
+                            self.handle_num_procs_diff(new_program_config, before, after, name)
+                                .await;
+                        }
+                        ProgramDiff::Other => {
+                            self.update_processes_program_data(name, new_program_config)
+                                .await;
+                        }
                     }
-                    ProgramDiff::NumProcsChanged { before, after } => {
-                        self.handle_num_procs_diff(new_program, before, after, name)
-                            .await;
-                    }
-                    ProgramDiff::NoDiff => {}
-                },
+                }
 
                 None => {
-                    self.start_program(new_program).await;
+                    self.start_program(new_program_config).await;
                 }
             }
         }
@@ -76,12 +81,13 @@ impl Routine {
 
     async fn handle_num_procs_diff(
         &mut self,
-        program_config: &Arc<ProgramConfig>,
+        new_program_config: &Arc<ProgramConfig>,
         current_num_procs: usize,
         new_num_procs: usize,
         program_name: &str,
     ) {
         let procs_delta = current_num_procs as isize - new_num_procs as isize;
+
         if procs_delta > 0 {
             // new_num_procs cannot be 0 as it's checked in the parsing
             let mut processes_hashmap = self.processes.lock().await;
@@ -90,31 +96,46 @@ impl Routine {
                 process.stop_and_join_if_running().await;
             }
             process_vec.truncate(new_num_procs);
-        }
-        if procs_delta < 0 {
+
+            for process in process_vec.iter_mut() {
+                process
+                    .update_program_config(Arc::clone(new_program_config))
+                    .await;
+                process.auto_start_on_reload(&self.status_sender, &self.log_sender);
+            }
+        } else if procs_delta < 0 {
             let mut lock = self.processes.lock().await;
             let Some(process_vec) = lock.get_mut(program_name) else {
                 panic!("program is uninitialized");
             };
 
             for id in current_num_procs..new_num_procs {
-                process_vec.push(
-                    Process::new(Arc::clone(program_config), id)
-                        .auto_start_on_reload(self.status_sender.clone(), self.log_sender.clone()),
-                );
+                process_vec.push(Process::new(Arc::clone(new_program_config), id));
+            }
+
+            for process in process_vec.iter_mut() {
+                process
+                    .update_program_config(Arc::clone(new_program_config))
+                    .await;
+                process.auto_start_on_reload(&self.status_sender, &self.log_sender);
             }
         }
-        if *program_config.auto_start_on_reload() {
-            for process in self
-                .processes
-                .lock()
-                .await
-                .get_mut(program_name)
-                .expect("program is uninithalized")
-                .iter_mut()
-            {
-                process.start(self.status_sender.clone(), self.log_sender.clone());
-            }
+    }
+
+    async fn update_processes_program_data(
+        &self,
+        program_name: &str,
+        new_config: &Arc<ProgramConfig>,
+    ) {
+        for process in self
+            .processes
+            .lock()
+            .await
+            .get_mut(program_name)
+            .expect("program is absent from processes")
+            .iter_mut()
+        {
+            process.update_program_config(Arc::clone(new_config)).await;
         }
     }
 }

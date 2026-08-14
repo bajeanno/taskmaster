@@ -5,6 +5,8 @@ mod status;
 #[cfg(test)]
 mod tests;
 
+use std::sync::Arc;
+
 pub use handle::Handle;
 
 #[allow(unused)]
@@ -14,6 +16,8 @@ pub use status::{NominativeStatus, Status, StatusSender};
 use tokio::process::Command;
 use tokio::process::{ChildStderr, ChildStdout};
 use tokio::{io::BufReader, process::Child, sync::mpsc};
+
+use crate::config::ProgramConfig;
 
 #[derive(Debug, Clone, Copy)]
 pub enum LogType {
@@ -52,6 +56,9 @@ pub type StatusReceiver = mpsc::UnboundedReceiver<NominativeStatus>;
 
 pub type KillCommandReceiver = mpsc::Receiver<()>;
 pub type KillCommandSender = mpsc::Sender<()>;
+
+pub type ReloadEventReceiver = mpsc::Receiver<Arc<ProgramConfig>>;
+pub type ReloadEventSender = mpsc::Sender<Arc<ProgramConfig>>;
 
 pub struct Outputs {
     stdout: BufReader<ChildStdout>,

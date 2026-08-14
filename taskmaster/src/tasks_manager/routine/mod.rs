@@ -98,7 +98,7 @@ impl Routine {
         let mut processes_hashmap = self.processes.lock().await;
         if let Some(process_vec) = processes_hashmap.get_mut(program_config.name()) {
             for process in process_vec {
-                process.start(self.status_sender.clone(), self.log_sender.clone());
+                process.start(&self.status_sender, &self.log_sender);
             }
         } else {
             processes_hashmap.insert(
@@ -112,7 +112,7 @@ impl Routine {
         (0..*program_config.num_procs() as usize)
             .map(|id| {
                 Process::new(program_config.clone(), id)
-                    .auto_start(self.status_sender.clone(), self.log_sender.clone())
+                    .auto_start(&self.status_sender, &self.log_sender)
             })
             .collect()
     }
@@ -276,6 +276,6 @@ mod tests {
         let current = program_from_yaml(current_yaml, "testprog");
         let new = program_from_yaml(new_yaml, "testprog");
 
-        assert!(matches!(current.diff(&new), ProgramDiff::NoDiff));
+        assert!(matches!(current.diff(&new), ProgramDiff::Other));
     }
 }

@@ -1,5 +1,6 @@
 use super::KillCommandReceiver;
 use super::LogSender;
+use super::ReloadEventReceiver;
 use super::{Handle, NominativeStatus, Status, StatusSender, command};
 use crate::config::{AutoRestart, ProgramConfig};
 use crate::output_file::OutputFile;
@@ -24,14 +25,13 @@ pub struct Routine {
     status_sender: StatusSender,
     log_sender: LogSender,
     kill_command_receiver: KillCommandReceiver,
+    reload_event_receiver: ReloadEventReceiver,
     config: Arc<ProgramConfig>,
     start_attempts: u32,
     command: Command,
     process_name: String,
     kill_command_received: bool,
     instance_id: u64,
-    stderr_file: Arc<OutputFile>,
-    stdout_file: Arc<OutputFile>,
 }
 
 #[derive(Error, Debug, Clone)]
@@ -52,16 +52,16 @@ impl Routine {
         instance_id: u64,
     ) -> Handle {
         let (kill_command_sender, kill_command_receiver) = mpsc::channel(1);
+        let (reload_event_sender, reload_event_receiver) = mpsc::channel(1);
         let command = command::create_command(&config);
 
         let join_handle = tokio::spawn(async move {
             Self {
-                stdout_file: Arc::clone(config.stdout()),
-                stderr_file: Arc::clone(config.stderr()),
                 config,
                 log_sender,
                 status_sender: StatusSender::new(status_sender, process_name.clone()),
                 kill_command_receiver,
+                reload_event_receiver,
                 start_attempts: 0,
                 command,
                 process_name,
@@ -71,7 +71,7 @@ impl Routine {
             .routine()
             .await
         });
-        Handle::new(join_handle, kill_command_sender)
+        Handle::new(join_handle, kill_command_sender, reload_event_sender)
     }
 
     async fn routine(mut self) {
@@ -106,30 +106,44 @@ impl Routine {
         let outputs = Outputs::new(&mut child);
         let listen_task = tokio::spawn(Self::listen(
             outputs,
-            Arc::clone(&self.stdout_file),
-            Arc::clone(&self.stderr_file),
+            Arc::clone(&self.config.stdout()),
+            Arc::clone(&self.config.stderr()),
             self.log_sender.clone(),
             self.process_name.clone(),
         ));
 
-        let status = tokio::select! {
-            status = Self::wait_for_child(
-                &mut child,
-                *self.config.start_time(),
-                &mut self.status_sender,
-            ) => {
-                status
-            }
+        let status;
 
-            _ = self.kill_command_receiver.recv() => {
-                self.kill_command_received = true;
-                Self::kill_subprocess(
+        loop {
+            let select_status = tokio::select! {
+                wait_status = Self::wait_for_child(
                     &mut child,
-                    self.config.stop_signal(),
-                    self.config.stop_time(),
-                ).await
+                    *self.config.start_time(),
+                    &mut self.status_sender,
+                ) => {
+                     Some(wait_status)
+                }
+
+                new_config = self.reload_event_receiver.recv() => {
+                    self.config = new_config.expect("reload_event_receiver channel closed");
+                    None
+                }
+
+                _ = self.kill_command_receiver.recv() => {
+                    self.kill_command_received = true;
+                    Some(Self::kill_subprocess(
+                        &mut child,
+                        self.config.stop_signal(),
+                        self.config.stop_time(),
+                    ).await)
+                }
+            };
+
+            if let Some(some_status) = select_status {
+                status = some_status;
+                break;
             }
-        };
+        }
 
         listen_task
             .await

@@ -49,8 +49,8 @@ impl Process {
 
     pub fn auto_start(
         mut self,
-        status_sender: UnboundedSender<NominativeStatus>,
-        log_sender: LogSender,
+        status_sender: &UnboundedSender<NominativeStatus>,
+        log_sender: &LogSender,
     ) -> Self {
         if *self.program_config.auto_start() {
             self.start(status_sender, log_sender);
@@ -59,20 +59,19 @@ impl Process {
     }
 
     pub fn auto_start_on_reload(
-        mut self,
-        status_sender: UnboundedSender<NominativeStatus>,
-        log_sender: LogSender,
-    ) -> Self {
+        &mut self,
+        status_sender: &UnboundedSender<NominativeStatus>,
+        log_sender: &LogSender,
+    ) {
         if *self.program_config.auto_start_on_reload() {
             self.start(status_sender, log_sender);
         }
-        self
     }
 
     pub fn start(
         &mut self,
-        status_sender: UnboundedSender<NominativeStatus>,
-        log_sender: LogSender,
+        status_sender: &UnboundedSender<NominativeStatus>,
+        log_sender: &LogSender,
     ) {
         if self.handle.is_some() {
             return;
@@ -80,14 +79,24 @@ impl Process {
         self.instance_id = NEXT_PROCESS_INSTANCE_ID.fetch_add(1, Ordering::Relaxed);
         let handle = process_handler::Routine::spawn(
             self.program_config.clone(),
-            status_sender,
-            log_sender,
+            status_sender.clone(),
+            log_sender.clone(),
             self.process_name.clone(),
             self.instance_id,
         );
 
         self.handle = Some(handle);
         self.nominative_status.status = Status::RoutineStarting;
+    }
+
+    pub async fn update_program_config(&mut self, new_config: Arc<ProgramConfig>) {
+        self.program_config = new_config;
+
+        if let Some(handle) = &self.handle {
+            handle
+                .send_reloaded_config(Arc::clone(&self.program_config))
+                .await;
+        };
     }
 
     pub fn instance_id(&self) -> u64 {
