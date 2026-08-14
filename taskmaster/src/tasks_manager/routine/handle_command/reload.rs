@@ -84,12 +84,12 @@ impl Routine {
         let procs_delta = current_num_procs as isize - new_num_procs as isize;
         if procs_delta > 0 {
             // new_num_procs cannot be 0 as it's checked in the parsing
-            let mut mutex = self.processes.lock().await;
-            let arr = mutex.get_mut(program_name).unwrap();
-            for process in arr.iter_mut().rev().take(procs_delta as usize) {
+            let mut processes_hashmap = self.processes.lock().await;
+            let process_vec = processes_hashmap.get_mut(program_name).unwrap();
+            for process in process_vec.iter_mut().rev().take(procs_delta as usize) {
                 process.stop_and_join_if_running().await;
             }
-            arr.truncate(new_num_procs);
+            process_vec.truncate(new_num_procs);
         }
         if procs_delta < 0 {
             let mut lock = self.processes.lock().await;
