@@ -1,23 +1,23 @@
 use super::KillCommandReceiver;
 use super::LogSender;
+use super::ReloadEventReceiver;
 use super::{Handle, NominativeStatus, Status, StatusSender, command};
 use crate::config::{AutoRestart, ProgramConfig};
-use crate::process_handler::{Log, LogType, OutputFile, Outputs};
+use crate::output_file::OutputFile;
+use crate::process_handler::{Log, LogType, Outputs};
 use libc::signal::kill;
-use libc::unistd::{mode_t, umask};
+use libc::unistd::umask;
 use signal::Signal;
 use std::panic;
 use std::process::Stdio;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 use thiserror::Error;
-use tokio::fs::OpenOptions;
-use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::{
     io::{AsyncBufRead, AsyncBufReadExt, Error},
     process::Child,
-    sync::{Mutex, mpsc},
+    sync::mpsc,
     time::Duration,
 };
 
@@ -25,12 +25,13 @@ pub struct Routine {
     status_sender: StatusSender,
     log_sender: LogSender,
     kill_command_receiver: KillCommandReceiver,
+    reload_event_receiver: ReloadEventReceiver,
     config: Arc<ProgramConfig>,
     start_attempts: u32,
     command: Command,
     process_name: String,
     kill_command_received: bool,
-    process_generation: u32,
+    instance_id: u64,
 }
 
 #[derive(Error, Debug, Clone)]
@@ -43,30 +44,15 @@ pub enum RoutineSpawnError {
 }
 
 impl Routine {
-    pub async fn spawn(
+    pub fn spawn(
         config: Arc<ProgramConfig>,
         status_sender: UnboundedSender<NominativeStatus>,
         log_sender: LogSender,
         process_name: String,
-        process_generation: u32,
-    ) -> Result<Handle, RoutineSpawnError> {
+        instance_id: u64,
+    ) -> Handle {
         let (kill_command_sender, kill_command_receiver) = mpsc::channel(1);
-        let stdout_file = Arc::new(Mutex::new(OutputFile::Stdout(
-            OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(config.stdout())
-                .await
-                .map_err(|err| RoutineSpawnError::OpeningStdoutFile(err.to_string()))?,
-        )));
-        let stderr_file = Arc::new(Mutex::new(OutputFile::Stderr(
-            OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(config.stderr())
-                .await
-                .map_err(|err| RoutineSpawnError::OpeningStderrFile(err.to_string()))?,
-        )));
+        let (reload_event_sender, reload_event_receiver) = mpsc::channel(1);
         let command = command::create_command(&config);
 
         let join_handle = tokio::spawn(async move {
@@ -75,27 +61,22 @@ impl Routine {
                 log_sender,
                 status_sender: StatusSender::new(status_sender, process_name.clone()),
                 kill_command_receiver,
+                reload_event_receiver,
                 start_attempts: 0,
                 command,
                 process_name,
                 kill_command_received: false,
-                process_generation,
+                instance_id,
             }
-            .routine(stdout_file, stderr_file)
+            .routine()
             .await
         });
-        Ok(Handle::new(join_handle, kill_command_sender))
+        Handle::new(join_handle, kill_command_sender, reload_event_sender)
     }
 
-    async fn routine(
-        mut self,
-        stdout_file: Arc<Mutex<OutputFile>>,
-        stderr_file: Arc<Mutex<OutputFile>>,
-    ) {
+    async fn routine(mut self) {
         loop {
-            let status = self
-                .run_program(Arc::clone(&stdout_file), Arc::clone(&stderr_file))
-                .await;
+            let status = self.run_program().await;
 
             let should_try_restart = self.should_try_restart(&status);
 
@@ -103,95 +84,66 @@ impl Routine {
             if self.kill_command_received || !should_try_restart {
                 self.status_sender
                     .send_new_status_to_task_manager(Status::NotRestarting {
-                        process_generation: self.process_generation,
+                        instance_id: self.instance_id,
                     });
                 break;
             }
         }
     }
 
-    async fn run_program(
-        &mut self,
-        stdout_file: Arc<Mutex<OutputFile>>,
-        stderr_file: Arc<Mutex<OutputFile>>,
-    ) -> Status {
-        let child = {
-            // Save the current umask and restore it after the child process is spawned.
-            // We need to do this because the child process inherits the umask of the parent process.
-            // The mutex is used to ensure that only one thread can save and restore the umask at a time,
-            // preventing race conditions.
-            //
-            // Race condition scenario:
-            // Orginal umask: 022
-            // Task 1: Saves current umask (022, this is right)
-            // Task 1: Sets umask to the one from the config (077, for this example)
-            // Task 2: Saves current umask (077, saved the value of the process task 1 is starting since this is the current one, this is not right!)
-            // Task 2: Sets umask to the one from the config (007, for this example)
-            // Task 1: Starts the subprocess with 007 instead of 077 since the umask was changed by task 2!
-            // Task 1: restore the original umask (022, this is right)
-            // Task 2: Starts the subprocess with 022 instead of 007 since the umask was restored by task 1!
-            // Task 2: restore the original, but incorrect umask (077) because of the previous race condition!
-            // Meaning taskmaster ends up with the incorrect umask and the subprocesses were started with the wrong umask.
-            static UMASK_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-            let _lock = UMASK_MUTEX.lock().await;
-
-            let taskmaster_umask: mode_t = unsafe { umask(*self.config.umask()) };
-            let child = self.child_spawn().await;
-
-            unsafe { umask(taskmaster_umask) };
-
-            child
-        };
-
-        match child {
+    async fn run_program(&mut self) -> Status {
+        match self.child_spawn() {
             Ok(child) => {
                 self.status_sender
                     .send_new_status_to_task_manager(Status::Starting);
-                self.handle_running_child(child, stdout_file, stderr_file)
-                    .await
+                self.handle_running_child(child).await
             }
             Err(err) => Status::FailedToStartProcess(err.to_string()),
         }
     }
 
-    async fn handle_running_child(
-        &mut self,
-        mut child: Child,
-        stdout_file: Arc<Mutex<OutputFile>>,
-        stderr_file: Arc<Mutex<OutputFile>>,
-    ) -> Status {
+    async fn handle_running_child(&mut self, mut child: Child) -> Status {
         let outputs = Outputs::new(&mut child);
         let listen_task = tokio::spawn(Self::listen(
             outputs,
-            stdout_file,
-            stderr_file,
+            Arc::clone(self.config.stdout()),
+            Arc::clone(self.config.stderr()),
             self.log_sender.clone(),
             self.process_name.clone(),
         ));
 
-        let status = tokio::select! {
-            status = Self::wait_for_child(
-                &mut child,
-                *self.config.start_time(),
-                &mut self.status_sender,
-            ) => {
-                status
-            }
-
-            _ = self.kill_command_receiver.recv() => {
-                self.kill_command_received = true;
-                Self::kill_subprocess(
+        loop {
+            let maybe_status = tokio::select! {
+                wait_status = Self::wait_for_child(
                     &mut child,
-                    self.config.stop_signal(),
-                    self.config.stop_time(),
-                ).await
-            }
-        };
+                    *self.config.start_time(),
+                    &mut self.status_sender,
+                ) => {
+                     Some(wait_status)
+                }
 
-        listen_task
-            .await
-            .expect("error while listening task's output");
-        status
+                new_config = self.reload_event_receiver.recv() => {
+                    self.config = new_config.expect("reload_event_receiver channel closed");
+                    None
+                }
+
+                _ = self.kill_command_receiver.recv() => {
+                    self.kill_command_received = true;
+                    Some(Self::kill_subprocess(
+                        &mut child,
+                        self.config.stop_signal(),
+                        self.config.stop_time(),
+                    ).await)
+                }
+            };
+
+            if let Some(status) = maybe_status {
+                listen_task
+                    .await
+                    .expect("error while listening task's output");
+                return status;
+            }
+        }
     }
 
     async fn kill_subprocess(child: &mut Child, stop_signal: &Signal, stop_time: &u32) -> Status {
@@ -233,7 +185,6 @@ impl Routine {
         }
 
         status_sender.send_new_status_to_task_manager(Status::Running);
-
         // Wait for process to terminate or crash
         Status::Exited(child.wait().await.expect("error waiting for child"))
     }
@@ -278,13 +229,19 @@ impl Routine {
     }
 
     /// Spawns the child and upgrades the start_attempts counter
-    async fn child_spawn(&mut self) -> Result<Child, Error> {
+    fn child_spawn(&mut self) -> Result<Child, Error> {
         self.start_attempts += 1;
-        let child = self
-            .command
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+        let config_umask = *self.config.umask();
+        let child = unsafe {
+            self.command
+                .pre_exec(move || {
+                    umask(config_umask);
+                    Ok(())
+                })
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()?
+        };
         Ok(child)
     }
 
@@ -309,28 +266,27 @@ impl Routine {
     ///  critical failure in the channel communication.
     async fn listen(
         outputs: Outputs,
-        stdout_file: Arc<Mutex<OutputFile>>,
-        stderr_file: Arc<Mutex<OutputFile>>,
+        stdout_file: Arc<OutputFile>,
+        stderr_file: Arc<OutputFile>,
         log_sender: LogSender,
         process_name: String,
     ) {
         let stdout = outputs.stdout;
         let stderr = outputs.stderr;
 
-        let mut stdout_file_mutex_guard = stdout_file.lock().await;
-        let mut stderr_file_mutex_guard = stderr_file.lock().await;
-
         tokio::join!(
             listen_and_log(
                 stdout,
                 log_sender.clone(),
-                &mut stdout_file_mutex_guard,
+                stdout_file,
+                LogType::Stdout,
                 &process_name
             ),
             listen_and_log(
                 stderr,
                 log_sender,
-                &mut stderr_file_mutex_guard,
+                stderr_file,
+                LogType::Stderr,
                 &process_name
             ),
         );
@@ -340,7 +296,8 @@ impl Routine {
 async fn listen_and_log<R: AsyncBufRead + Unpin>(
     mut output: R,
     mut sender: LogSender,
-    output_file: &mut OutputFile,
+    output_file: Arc<OutputFile>,
+    log_type: LogType,
     name: &str,
 ) {
     loop {
@@ -350,8 +307,8 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
         match bytes_read {
             Ok(0) => break,
             Ok(_) => {
-                let log = Log::new(output_file, &buffer, name);
-                dispatch_log(log, &mut sender, output_file).await;
+                let log = Log::new(log_type, &buffer, name);
+                dispatch_log(log, &mut sender, Arc::clone(&output_file)).await;
             }
             Err(err) => {
                 eprintln!(
@@ -379,22 +336,9 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
 /// Will panic if the `OutputFile` and the `LogType` enums are not accorded.
 /// That should never happen because those structs are both constructed side by side.
 ///
-async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: &mut OutputFile) {
-    match (output, &log.log_type) {
-        (OutputFile::Stdout(file), LogType::Stdout) => {
-            let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
-                eprintln!("Taskmaster error: {}: Failed to write process stdout output to log file: {err}", log.process_name);
-            });
-        }
-        (OutputFile::Stderr(file), LogType::Stderr) => {
-            let _ = file.write_all(log.message.as_bytes()).await.inspect_err(|err| {
-                eprintln!("Taskmaster error: {}: Failed to write process stderr output to log file: {err}", log.process_name);
-            });
-        }
-        _ => panic!(
-            "log function was called with different values for output and log_type, expected same values"
-        ),
-    }
+async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: Arc<OutputFile>) {
+    //TODO: move this to task_manager
+    output.write(&log).await;
     let process_name = log.process_name.clone();
     log_sender
         .send(log)

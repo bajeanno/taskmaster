@@ -2,33 +2,40 @@
 mod tests;
 
 use super::default::{
-    default_exit_codes, default_num_procs, default_output, default_signal, default_umask,
-    default_work_dir,
+    default_exit_codes, default_num_procs, default_signal, default_umask, default_work_dir,
 };
-use super::deserialize::{deserialize_num_procs, deserialize_signal, deserialize_umask};
+use super::deserialize::{
+    deserialize_num_procs, deserialize_signal, deserialize_stderr_file, deserialize_stdout_file,
+    deserialize_umask,
+};
 use super::{AutoRestart, Command};
 pub use crate::config::error::CommandError;
+use crate::output_file::OutputFile;
 use derive_getters::Getters;
-use libc::{sys::types::Pid, unistd::mode_t};
+use libc::unistd::mode_t;
 use serde::{Deserialize, Deserializer};
 use signal::Signal;
+use std::sync::Arc;
 use std::{collections::HashMap, fmt::Display, str::FromStr};
 
+#[derive(Debug)]
+pub enum ProgramDiff {
+    NeedRestart,
+    NumProcsChanged { before: usize, after: usize },
+    Other,
+}
+
 #[allow(dead_code)] // TODO: remove this
-#[derive(Debug, Getters, Deserialize)]
-#[cfg_attr(test, derive(PartialEq))]
+#[derive(Debug, Getters, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct ProgramConfig {
     #[serde(skip)]
     name: String,
 
-    #[serde(default)]
-    pids: Vec<Pid>,
-
     #[serde(default = "default_umask", deserialize_with = "deserialize_umask")]
-    umask: mode_t,
+    umask: mode_t, //restart
 
-    pub cmd: Command,
+    pub cmd: Command, //restart
 
     #[serde(
         rename = "numprocs",
@@ -38,10 +45,13 @@ pub struct ProgramConfig {
     num_procs: u8,
 
     #[serde(rename = "workingdir", default = "default_work_dir")]
-    working_dir: String,
+    working_dir: String, //restart
 
     #[serde(rename = "autostart", default)]
     auto_start: bool,
+
+    #[serde(rename = "autostart-on-reload", default)]
+    auto_start_on_reload: bool,
 
     #[serde(rename = "autorestart", default)]
     auto_restart: AutoRestart,
@@ -65,26 +75,22 @@ pub struct ProgramConfig {
     #[serde(rename = "stoptime", default)]
     stop_time: u32,
 
-    #[serde(default = "default_output")]
-    stdout: String,
+    #[serde(default, deserialize_with = "deserialize_stdout_file")]
+    stdout: Arc<OutputFile>,
 
-    #[serde(default = "default_output")]
-    stderr: String,
+    #[serde(default, deserialize_with = "deserialize_stderr_file")]
+    stderr: Arc<OutputFile>,
 
     #[serde(rename = "clearenv", default)]
     clear_env: bool,
 
     #[serde(default)]
-    env: HashMap<String, String>,
+    env: HashMap<String, String>, //restart
 }
 
 impl Display for ProgramConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:<15}{:50}{: ^15?}{:>10o}",
-            self.name, self.cmd, self.pids, self.umask,
-        )
+        write!(f, "{:<15}{:50}", self.name, self.cmd,)
     }
 }
 
@@ -97,6 +103,27 @@ impl Display for Command {
 impl ProgramConfig {
     pub(super) fn name_mut(&mut self) -> &mut String {
         &mut self.name
+    }
+
+    pub fn diff(self: &Arc<Self>, other: &Arc<ProgramConfig>) -> ProgramDiff {
+        if self.cmd != other.cmd
+            || self.env() != other.env()
+            || self.umask() != other.umask()
+            || self.working_dir() != other.working_dir()
+            || self.stdout() != other.stdout()
+            || self.stderr() != other.stderr()
+        {
+            return ProgramDiff::NeedRestart;
+        }
+
+        if self.num_procs() != other.num_procs() {
+            return ProgramDiff::NumProcsChanged {
+                before: *self.num_procs() as usize,
+                after: *other.num_procs() as usize,
+            };
+        }
+
+        ProgramDiff::Other
     }
 }
 

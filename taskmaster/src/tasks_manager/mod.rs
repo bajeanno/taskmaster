@@ -11,12 +11,17 @@ use routine::Client;
 use tokio::sync::oneshot;
 
 #[derive(Debug)]
+// TODO: use thiserror
 pub enum ServerCommandError {
     NoSuchProgram(String),
+    FailedToLoadNewConfig(String),
 }
 
 pub enum TaskManagerCommand {
     ListProcesses(oneshot::Sender<Vec<Vec<NominativeStatus>>>),
+    Reload {
+        config_file_name: String,
+    },
     StartProgram {
         program_name: String,
     },

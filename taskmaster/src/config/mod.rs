@@ -12,8 +12,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::sync::Arc;
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, PartialEq)]
 pub enum AutoRestart {
     #[serde(rename = "true")]
     True,
@@ -24,8 +23,7 @@ pub enum AutoRestart {
     OnFailure,
 }
 
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Command {
     pub exec: String,
     pub args: Vec<String>,

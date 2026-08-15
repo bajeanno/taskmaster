@@ -1,7 +1,9 @@
 use libc::unistd::mode_t;
 use serde::{Deserialize, Deserializer, de};
 use signal::Signal;
-use std::str::FromStr;
+use std::{str::FromStr, sync::Arc};
+
+use crate::output_file::OutputFile;
 
 pub fn deserialize_signal<'de, D>(deserializer: D) -> Result<Signal, D::Error>
 where
@@ -27,6 +29,7 @@ where
         serde::de::Error::custom(format!("ParseIntError on umask parsing: {err}"))
     })?;
     if umask > 0o777 {
+        // TODO: Watch out condition in umask rework
         Err(serde::de::Error::custom(
             "umask is greater than 0o777 (max value accepted)",
         ))
@@ -48,4 +51,50 @@ where
     } else {
         Ok(num_procs)
     }
+}
+
+pub fn deserialize_stderr_file<'de, D>(deserializer: D) -> Result<Arc<OutputFile>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let file_path = String::deserialize(deserializer)
+        .map_err(|err| serde::de::Error::custom(format!("Failed to parse stderr file: {err}")))?;
+    if file_path.is_empty() {
+        return Err(serde::de::Error::custom(
+            "Failed to parse stderr file: cannot be empty".to_string(),
+        ));
+    }
+
+    Ok(Arc::new(
+        OutputFile::new_stderr(file_path.as_str()).map_err(|err| {
+            serde::de::Error::custom(format!(
+                "Failed to open stderr file ({}): {}",
+                file_path.as_str(),
+                err
+            ))
+        })?,
+    ))
+}
+
+pub fn deserialize_stdout_file<'de, D>(deserializer: D) -> Result<Arc<OutputFile>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let file_path = String::deserialize(deserializer)
+        .map_err(|err| serde::de::Error::custom(format!("Failed to parse stdout file: {err}")))?;
+    if file_path.is_empty() {
+        return Err(serde::de::Error::custom(
+            "Failed to parse stdout file: cannot be empty".to_string(),
+        ));
+    }
+
+    Ok(Arc::new(
+        OutputFile::new_stdout(file_path.as_str()).map_err(|err| {
+            serde::de::Error::custom(format!(
+                "Failed to open stdout file ({}): {}",
+                file_path.as_str(),
+                err
+            ))
+        })?,
+    ))
 }

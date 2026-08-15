@@ -4,13 +4,14 @@ use super::Process;
 use super::TaskManagerCommand;
 use super::handle::Handle;
 use crate::CommandReceiver;
+use crate::config_state::ConfigState;
 use crate::process_handler::NominativeStatus;
 use crate::tasks_manager::ServerCommandError;
 use crate::{
     config::ProgramConfig,
-    process_handler::{self, LogReceiver, LogSender, Status, StatusReceiver},
+    process_handler::{LogReceiver, LogSender, Status, StatusReceiver},
 };
-use std::collections::{HashMap, hash_map};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{
     Mutex,
@@ -36,7 +37,7 @@ impl SubscribedClients {
 
 #[allow(dead_code)] //TODO: Remove that
 pub struct Routine {
-    program_configs: Arc<HashMap<String, Arc<ProgramConfig>>>,
+    config_state: ConfigState,
     clients: ClientMap,
     processes: Arc<Mutex<HashMap<String, Vec<Process>>>>,
     command_receiver: CommandReceiver,
@@ -46,14 +47,14 @@ pub struct Routine {
 
 #[allow(dead_code)] //TODO: remove that
 impl Routine {
-    pub fn spawn(program_configs: HashMap<String, Arc<ProgramConfig>>) -> Handle {
+    pub fn spawn(config_state: ConfigState) -> Handle {
         let (log_sender, log_receiver) = mpsc::unbounded_channel();
         let (status_sender, status_receiver) = mpsc::unbounded_channel();
         let (command_sender, command_receiver) = mpsc::unbounded_channel();
 
         let handle = tokio::spawn(async move {
             Self {
-                program_configs: Arc::new(program_configs),
+                config_state,
                 processes: Arc::new(Mutex::new(HashMap::new())),
                 clients: Arc::new(Mutex::new(HashMap::new())),
                 command_receiver,
@@ -68,7 +69,9 @@ impl Routine {
     }
 
     async fn routine(mut self, status_receiver: StatusReceiver, log_receiver: LogReceiver) {
-        self.start_programs().await;
+        if let ConfigState::Active(config) = &self.config_state {
+            self.start_programs(&Arc::clone(config).programs).await;
+        }
 
         let logs_handle = tokio::spawn(Self::listen_for_logs(log_receiver, self.clients.clone()));
         let status_handle = tokio::spawn(Self::listen_for_status(
@@ -85,74 +88,33 @@ impl Routine {
             .expect("listen_for_status task panicked");
     }
 
-    async fn start_programs(&mut self) {
-        for program_config in Arc::clone(&self.program_configs).values() {
+    async fn start_programs(&mut self, programs: &HashMap<String, Arc<ProgramConfig>>) {
+        for program_config in programs.values() {
             self.start_program(program_config).await;
         }
     }
 
     async fn start_program(&mut self, program_config: &Arc<ProgramConfig>) {
-        let num_procs: u8 = *program_config.num_procs();
-
-        for id in 0..num_procs {
-            self.start_process(id as usize, Arc::clone(program_config))
-                .await;
+        let mut processes_hashmap = self.processes.lock().await;
+        if let Some(process_vec) = processes_hashmap.get_mut(program_config.name()) {
+            for process in process_vec {
+                process.start(&self.status_sender, &self.log_sender);
+            }
+        } else {
+            processes_hashmap.insert(
+                program_config.name().clone(),
+                self.create_program_processes(program_config).await,
+            );
         }
     }
 
-    async fn start_process(&mut self, process_id: usize, program_config: Arc<ProgramConfig>) {
-        let process_name = format!("{}-{}", program_config.name(), process_id);
-
-        match self
-            .processes
-            .lock()
-            .await
-            .entry(program_config.name().clone())
-        {
-            hash_map::Entry::Occupied(mut entry) => {
-                if !entry.get()[process_id].is_async_task_running() {
-                    let process_generation =
-                        entry.get()[process_id].process_generation().wrapping_add(1);
-
-                    (*entry.get_mut())[process_id] = self
-                        .start_process_handler_routine(
-                            program_config,
-                            process_name,
-                            process_generation,
-                        )
-                        .await;
-                }
-            }
-            hash_map::Entry::Vacant(entry) => {
-                let mut processes: Vec<Process> = (0..*program_config.num_procs())
-                    .map(|_| Process::default())
-                    .collect();
-                processes[process_id] = self
-                    .start_process_handler_routine(program_config, process_name, 0)
-                    .await;
-                entry.insert(processes);
-            }
-        };
-    }
-
-    async fn start_process_handler_routine(
-        &self,
-        program_config: Arc<ProgramConfig>,
-        process_name: String,
-        process_generation: u32,
-    ) -> Process {
-        match process_handler::Routine::spawn(
-            program_config,
-            self.status_sender.clone(),
-            self.log_sender.clone(),
-            process_name,
-            process_generation,
-        )
-        .await
-        {
-            Ok(handle) => Process::new(Some(handle), Status::RoutineStarting, process_generation),
-            Err(err) => Process::new(None, Status::FailedToSpawnRoutine(err), process_generation),
-        }
+    async fn create_program_processes(&self, program_config: &Arc<ProgramConfig>) -> Vec<Process> {
+        (0..*program_config.num_procs() as usize)
+            .map(|id| {
+                Process::new(program_config.clone(), id)
+                    .auto_start(&self.status_sender, &self.log_sender)
+            })
+            .collect()
     }
 
     fn split_process_name(mut process_name: String) -> Option<(String, usize)> {
@@ -180,14 +142,15 @@ impl Routine {
             let (program_name, id) =
                 Self::split_process_name(nominative_status.process_name.clone())
                     .expect("Error: process name does not contain process id");
-            if let Some(processes) = processes.get_mut(&program_name) {
-                let process = &mut processes[id];
-                if let Status::NotRestarting { process_generation } = nominative_status.status
-                    && process.process_generation() == process_generation
+            if let Some(processes) = processes.get_mut(&program_name)
+                && let Some(process) = processes.get_mut(id)
+            {
+                if let Status::NotRestarting { instance_id } = nominative_status.status
+                    && process.instance_id() == instance_id
                 {
                     process.join_if_running().await;
                 }
-                process.status = nominative_status.status;
+                process.nominative_status = nominative_status;
             }
         }
     }
@@ -208,7 +171,7 @@ impl Routine {
     async fn event_listener(&mut self) {
         while let Some((command, sender)) = self.command_receiver.recv().await {
             if matches!(command, TaskManagerCommand::Exit) {
-                self.stop_all_processes().await;
+                self.stop_and_join_all_processes().await;
                 sender
                     .send(Ok(()))
                     .expect("Receiver should never be dropped");
@@ -221,7 +184,7 @@ impl Routine {
         }
     }
 
-    async fn stop_all_processes(&mut self) {
+    async fn stop_and_join_all_processes(&mut self) {
         let mut processes = self.processes.lock().await;
 
         for process in processes
@@ -235,6 +198,10 @@ impl Routine {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use crate::config::program::ProgramDiff;
+    use crate::config_state::ConfigState;
     use crate::tasks_manager::routine::Routine;
 
     #[test]
@@ -244,5 +211,71 @@ mod tests {
             Routine::split_process_name(process_name),
             Some(("taskmaster_test_task".to_string(), 0))
         );
+    }
+
+    fn program_from_yaml(content: &str, program_name: &str) -> Arc<crate::config::ProgramConfig> {
+        match ConfigState::from_content(content.to_string()) {
+            ConfigState::Active(config) => config.programs.get(program_name).unwrap().clone(),
+            _ => panic!("config should parse"),
+        }
+    }
+
+    #[test]
+    fn test_program_diff_cmd_changed() {
+        let current_yaml = r#"programs:
+  testprog:
+    cmd: "sleep 30"
+    numprocs: 2"#;
+        let new_yaml = r#"programs:
+  testprog:
+    cmd: "sleep 31"
+    numprocs: 2"#;
+
+        let current = program_from_yaml(current_yaml, "testprog");
+        let new = program_from_yaml(new_yaml, "testprog");
+
+        assert!(matches!(current.diff(&new), ProgramDiff::NeedRestart));
+    }
+
+    #[test]
+    fn test_program_diff_numprocs_changed() {
+        let current_yaml = r#"programs:
+  testprog:
+    cmd: "sleep 30"
+    numprocs: 2"#;
+        let new_yaml = r#"programs:
+  testprog:
+    cmd: "sleep 30"
+    numprocs: 3"#;
+
+        let current = program_from_yaml(current_yaml, "testprog");
+        let new = program_from_yaml(new_yaml, "testprog");
+
+        match current.diff(&new) {
+            ProgramDiff::NumProcsChanged { before, after } => {
+                assert_eq!(before, 2_usize);
+                assert_eq!(after, 3_usize);
+            }
+            _ => panic!("expected NumProcsChanged"),
+        }
+    }
+
+    #[test]
+    fn test_program_diff_other() {
+        let current_yaml = r#"programs:
+  testprog:
+    cmd: "sleep 30"
+    numprocs: 2
+    autostart: false"#;
+        let new_yaml = r#"programs:
+  testprog:
+    cmd: "sleep 30"
+    numprocs: 2
+    autostart: true"#;
+
+        let current = program_from_yaml(current_yaml, "testprog");
+        let new = program_from_yaml(new_yaml, "testprog");
+
+        assert!(matches!(current.diff(&new), ProgramDiff::Other));
     }
 }

@@ -5,9 +5,9 @@ mod status;
 #[cfg(test)]
 mod tests;
 
-pub use handle::Handle;
+use std::sync::Arc;
 
-use tokio::{fs::File, io::BufReader, process::Child, sync::mpsc};
+pub use handle::Handle;
 
 #[allow(unused)]
 pub use routine::{Routine, RoutineSpawnError};
@@ -15,8 +15,11 @@ pub use status::{NominativeStatus, Status, StatusSender};
 #[allow(unused)]
 use tokio::process::Command;
 use tokio::process::{ChildStderr, ChildStdout};
+use tokio::{io::BufReader, process::Child, sync::mpsc};
 
-#[derive(Clone, Debug)]
+use crate::config::ProgramConfig;
+
+#[derive(Debug, Clone, Copy)]
 pub enum LogType {
     Stdout,
     Stderr,
@@ -30,17 +33,17 @@ pub struct Log {
 }
 
 impl Log {
-    fn new(output_file: &OutputFile, buffer: &[u8], name: &str) -> Self {
-        match output_file {
-            OutputFile::Stdout(_) => Log {
+    fn new(log_type: LogType, buffer: &[u8], name: &str) -> Self {
+        match log_type {
+            LogType::Stdout => Log {
                 message: format!("{}: {}", name, String::from_utf8_lossy(buffer)),
                 process_name: name.to_string(),
-                log_type: LogType::Stdout,
+                log_type,
             },
-            OutputFile::Stderr(_) => Log {
+            LogType::Stderr => Log {
                 message: format!("{}: {}", name, String::from_utf8_lossy(buffer)),
                 process_name: name.to_string(),
-                log_type: LogType::Stderr,
+                log_type,
             },
         }
     }
@@ -53,6 +56,9 @@ pub type StatusReceiver = mpsc::UnboundedReceiver<NominativeStatus>;
 
 pub type KillCommandReceiver = mpsc::Receiver<()>;
 pub type KillCommandSender = mpsc::Sender<()>;
+
+pub type ReloadEventReceiver = mpsc::Receiver<Arc<ProgramConfig>>;
+pub type ReloadEventSender = mpsc::Sender<Arc<ProgramConfig>>;
 
 pub struct Outputs {
     stdout: BufReader<ChildStdout>,
@@ -76,8 +82,4 @@ impl Outputs {
             ),
         }
     }
-}
-enum OutputFile {
-    Stdout(File),
-    Stderr(File),
 }

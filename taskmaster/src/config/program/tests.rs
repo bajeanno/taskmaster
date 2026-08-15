@@ -2,10 +2,12 @@
 mod tests {
     use crate::config::program::{AutoRestart, CommandError};
     use crate::config::{Config, program::Command, program::ProgramConfig};
+    use crate::output_file::OutputFile;
     use libc::unistd::mode_t;
     use signal::Signal;
     use std::collections::HashMap;
     use std::io::Cursor;
+    use std::path::PathBuf;
     use std::str::FromStr;
     use std::sync::Arc;
 
@@ -32,13 +34,14 @@ mod tests {
         pub working_dir: String,
         pub auto_restart: AutoRestart,
         pub auto_start: bool,
+        pub auto_start_on_reload: bool,
         pub start_retries: u32,
         pub start_time: u32,
         pub stop_time: u32,
         pub stop_signal: Signal,
         pub clear_env: bool,
-        pub stdout: String,
-        pub stderr: String,
+        pub stdout: Arc<OutputFile>,
+        pub stderr: Arc<OutputFile>,
         pub env: HashMap<String, String>,
     }
 
@@ -47,19 +50,20 @@ mod tests {
             Ok(Self {
                 command: Command::from_str(command_string)?,
                 name: "taskmaster_test_program".to_string(),
-                umask: 0o666,
+                umask: 0o022,
                 exit_codes: vec![0],
                 num_procs: 1,
                 working_dir: "/".to_string(),
                 auto_restart: AutoRestart::False,
                 auto_start: false,
+                auto_start_on_reload: false,
                 start_retries: 0,
                 start_time: 0,
                 stop_time: 0,
-                stop_signal: Signal::SIGINT,
+                stop_signal: Signal::SIGTERM,
                 clear_env: false,
-                stdout: "/dev/null".to_string(),
-                stderr: "/dev/null".to_string(),
+                stdout: Arc::new(OutputFile::None),
+                stderr: Arc::new(OutputFile::None),
                 env: HashMap::new(),
             })
         }
@@ -72,7 +76,6 @@ mod tests {
             let program = ProgramConfig {
                 name: self.name,
                 cmd: self.command,
-                pids: vec![],
                 umask: self.umask,
                 env: self.env,
                 exit_codes: self.exit_codes,
@@ -80,6 +83,7 @@ mod tests {
                 working_dir: self.working_dir,
                 auto_restart: self.auto_restart,
                 auto_start: self.auto_start,
+                auto_start_on_reload: self.auto_start_on_reload,
                 start_retries: self.start_retries,
                 start_time: self.start_time,
                 stop_time: self.stop_time,
@@ -359,26 +363,44 @@ mod tests {
 
     #[test]
     fn parsing_with_stdout() {
+        let base = PathBuf::from("/tmp/").join("taskmaster_tests");
+        std::fs::create_dir_all(&base).expect("failed to create local temp test directory");
         let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
-        builder.stdout = "/var/log/stdout.log".to_string();
+        let stdout = "/tmp/taskmaster_tests/stdout.log";
+        builder.stdout = Arc::new(
+            OutputFile::new_stdout(stdout)
+                .expect(format!("Failed to open stderr file ({stdout})").as_str()),
+        );
         let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
-            r#"
-            stdout: "/var/log/stdout.log""#,
+            format!(
+                r#"
+            stdout: "{stdout}""#
+            )
+            .as_str(),
         );
         assert_config_parses_to(&yaml_content, program);
     }
 
     #[test]
     fn parsing_with_stderr() {
+        let base = PathBuf::from("/tmp/").join("taskmaster_tests");
+        std::fs::create_dir_all(&base).expect("failed to create local temp test directory");
         let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
-        builder.stderr = "/var/log/stderr.log".to_string();
+        let stderr = "/tmp/taskmaster_tests/stderr.log";
+        builder.stderr = Arc::new(
+            OutputFile::new_stderr(stderr)
+                .expect(format!("Failed to open stderr file ({stderr})").as_str()),
+        );
         let program = builder.build().expect("Failed to build program");
         let yaml_content = yaml_with_fields(
             "echo test",
-            r#"
-            stderr: "/var/log/stderr.log""#,
+            format!(
+                r#"
+            stderr: "{stderr}""#
+            )
+            .as_str(),
         );
         assert_config_parses_to(&yaml_content, program);
     }
