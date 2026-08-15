@@ -186,8 +186,8 @@ mod tests {
         autostart-on-reload: true
     changed_autostart:
         cmd: "sleep 30"
-        numprocs: 2
-        autostart: true
+        numprocs: 1
+        autostart: false
     added:
         cmd: "sleep 30"
         autostart: true"#;
@@ -248,7 +248,6 @@ mod tests {
 
         routine.stop_program("changed_decreased").await.unwrap();
         routine.stop_program("changed_increased").await.unwrap();
-        routine.stop_program("changed_autostart").await.unwrap();
 
         routine.update_processes(&current_config, &new_config).await;
         {
@@ -299,7 +298,7 @@ mod tests {
                     .unwrap()
                     .iter()
                     .any(|p| p.is_running()),
-                "changed_autostart program must not be running on reload"
+                "changed_increased program must not be running on reload"
             );
             assert!(
                 processes
