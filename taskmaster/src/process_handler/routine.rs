@@ -112,10 +112,8 @@ impl Routine {
             self.process_name.clone(),
         ));
 
-        let status;
-
         loop {
-            let select_status = tokio::select! {
+            let maybe_status = tokio::select! {
                 wait_status = Self::wait_for_child(
                     &mut child,
                     *self.config.start_time(),
@@ -139,16 +137,13 @@ impl Routine {
                 }
             };
 
-            if let Some(some_status) = select_status {
-                status = some_status;
-                break;
+            if let Some(status) = maybe_status {
+                listen_task
+                    .await
+                    .expect("error while listening task's output");
+                return status;
             }
         }
-
-        listen_task
-            .await
-            .expect("error while listening task's output");
-        status
     }
 
     async fn kill_subprocess(child: &mut Child, stop_signal: &Signal, stop_time: &u32) -> Status {
