@@ -143,10 +143,14 @@ impl Routine {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::str::FromStr;
     use std::sync::Arc;
 
+    use signal::Signal;
+
+    use crate::config::{AutoRestart, Command};
     use crate::config_state::ConfigState;
-    use crate::process_handler::{LogReceiver, StatusReceiver};
+    use crate::process_handler::{LogReceiver, Status, StatusReceiver};
     use crate::tasks_manager::routine::Routine;
     use tokio::sync::{Mutex, mpsc};
 
@@ -438,6 +442,257 @@ mod tests {
             "remaining proc should be running after scale down"
         );
         drop(procs_lock);
+
+        routine.stop_and_join_all_processes().await;
+    }
+
+    #[tokio::test]
+    async fn reload_updates_config_on_non_destructive_changes() {
+        let current_yaml = r#"programs:
+  app:
+    cmd: "sleep 30"
+    numprocs: 1
+    autostart: true
+    exitcodes: [0]
+    startretries: 1
+    stoptime: 2
+    stopsignal: "SIGTERM"
+    autorestart: false
+    clearenv: false"#;
+
+        let new_yaml = r#"programs:
+  app:
+    cmd: "sleep 30"
+    numprocs: 1
+    autostart: true
+    exitcodes: [0, 2]
+    startretries: 5
+    stoptime: 10
+    stopsignal: "SIGINT"
+    autorestart: true
+    clearenv: true"#;
+
+        let current_config = config(current_yaml);
+        let new_config = config(new_yaml);
+
+        let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
+
+        let before_id = routine
+            .processes
+            .lock()
+            .await
+            .get("app")
+            .unwrap()
+            .first()
+            .unwrap()
+            .instance_id();
+        assert!(
+            routine
+                .processes
+                .lock()
+                .await
+                .get("app")
+                .unwrap()
+                .first()
+                .unwrap()
+                .is_running()
+        );
+
+        routine.update_processes(&current_config, &new_config).await;
+
+        {
+            let processes = routine.processes.lock().await;
+            let process = processes.get("app").unwrap().first().unwrap();
+            assert_eq!(
+                process.instance_id(),
+                before_id,
+                "process must not be restarted on a non-destructive reload"
+            );
+            assert!(
+                process.is_running(),
+                "process must keep running on a non-destructive reload"
+            );
+
+            let updated_config = process.program_config();
+            assert_eq!(*updated_config.exit_codes(), vec![0, 2]);
+            assert_eq!(*updated_config.start_retries(), 5);
+            assert_eq!(*updated_config.stop_time(), 10);
+            assert_eq!(updated_config.stop_signal(), &Signal::SIGINT);
+            assert_eq!(*updated_config.auto_restart(), AutoRestart::True);
+            assert!(updated_config.clear_env());
+        }
+
+        routine.stop_and_join_all_processes().await;
+    }
+
+    #[tokio::test]
+    async fn reload_restarts_program_on_destructive_changes() {
+        let current_yaml = r#"programs:
+  app:
+    cmd: "sleep 30"
+    autostart: true"#;
+
+        let new_yaml = r#"programs:
+  app:
+    cmd: "sleep 31"
+    autostart: true"#;
+
+        let current_config = config(current_yaml);
+        let new_config = config(new_yaml);
+
+        let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
+
+        let before_id = routine
+            .processes
+            .lock()
+            .await
+            .get("app")
+            .unwrap()
+            .first()
+            .unwrap()
+            .instance_id();
+
+        routine.update_processes(&current_config, &new_config).await;
+
+        {
+            let processes = routine.processes.lock().await;
+            let process = processes.get("app").unwrap().first().unwrap();
+            assert_ne!(
+                process.instance_id(),
+                before_id,
+                "process must be restarted on a destructive reload"
+            );
+            assert!(
+                process.is_running(),
+                "restarted process must be running after reload"
+            );
+            assert_eq!(
+                process.program_config().cmd(),
+                &Command::from_str("sleep 31").unwrap(),
+                "process must run with the reloaded command"
+            );
+        }
+
+        routine.stop_and_join_all_processes().await;
+    }
+
+    #[tokio::test]
+    async fn reload_updates_config_of_stopped_process_without_starting_it() {
+        let current_yaml = r#"programs:
+  app:
+    cmd: "sleep 30"
+    numprocs: 1
+    autostart: true
+    startretries: 1"#;
+
+        let new_yaml = r#"programs:
+  app:
+    cmd: "sleep 30"
+    numprocs: 1
+    autostart: true
+    autostart-on-reload: false
+    startretries: 5"#;
+
+        let current_config = config(current_yaml);
+        let new_config = config(new_yaml);
+
+        let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
+
+        routine.stop_program("app").await.unwrap();
+        assert!(
+            !routine
+                .processes
+                .lock()
+                .await
+                .get("app")
+                .unwrap()
+                .first()
+                .unwrap()
+                .is_running()
+        );
+
+        routine.update_processes(&current_config, &new_config).await;
+
+        {
+            let processes = routine.processes.lock().await;
+            let process = processes.get("app").unwrap().first().unwrap();
+            assert_eq!(
+                *process.program_config().start_retries(),
+                5,
+                "stopped process must still receive the reloaded config"
+            );
+            assert!(
+                !process.is_running(),
+                "stopped process must not be started by a non-destructive reload"
+            );
+        }
+
+        routine.stop_and_join_all_processes().await;
+    }
+
+    #[tokio::test]
+    async fn reload_non_destructive_change_is_propagated_to_running_subroutine() {
+        let current_yaml = r#"programs:
+  app:
+    cmd: "sh -c 'sleep 1; exit 1'"
+    numprocs: 1
+    autostart: true
+    autorestart: unexpected
+    exitcodes: [1]"#;
+
+        let new_yaml = r#"programs:
+  app:
+    cmd: "sh -c 'sleep 1; exit 1'"
+    numprocs: 1
+    autostart: true
+    autorestart: unexpected
+    exitcodes: [0]"#;
+
+        let current_config = config(current_yaml);
+        let new_config = config(new_yaml);
+
+        let (mut routine, mut status_receiver, _log_receiver) = test_routine(&current_config).await;
+
+        assert!(
+            matches!(
+                status_receiver.recv().await.unwrap().status,
+                Status::Starting
+            ),
+            "expected the initial program to start"
+        );
+        assert!(
+            matches!(
+                status_receiver.recv().await.unwrap().status,
+                Status::Running
+            ),
+            "expected the initial program to be running"
+        );
+
+        routine.update_processes(&current_config, &new_config).await;
+
+        // The reloaded config makes exit code 1 unexpected, so once the
+        // program exits the subroutine must restart it instead of giving up.
+        // Skip any statuses (e.g. the extra Running emitted when the config is
+        // received) until the program exits.
+        let mut status = status_receiver.recv().await.unwrap().status;
+        while !matches!(status, Status::Exited(_)) {
+            status = status_receiver.recv().await.unwrap().status;
+        }
+
+        assert!(
+            matches!(
+                status_receiver.recv().await.unwrap().status,
+                Status::Starting
+            ),
+            "subroutine must restart the process using the reloaded config"
+        );
+        assert!(
+            matches!(
+                status_receiver.recv().await.unwrap().status,
+                Status::Running
+            ),
+            "restarted process must be running"
+        );
 
         routine.stop_and_join_all_processes().await;
     }

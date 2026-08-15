@@ -234,3 +234,79 @@ async fn create_task_then_interrupt() {
     assert_eq!(buffer_stdout.trim(), "");
     assert_eq!(buffer_stderr.trim(), "");
 }
+
+#[tokio::test]
+async fn send_reloaded_config_updates_running_routine_behavior() {
+    use crate::config::Config;
+    use std::io::Cursor;
+
+    fn program_from_yaml(content: &str) -> Arc<crate::config::ProgramConfig> {
+        Config::from_reader(Cursor::new(content.to_string()))
+            .expect("failed to parse config")
+            .programs
+            .into_values()
+            .next()
+            .expect("config has no program")
+    }
+
+    let initial_yaml = r#"programs:
+  reload_test:
+    cmd: "sh -c 'sleep 1; exit 1'"
+    numprocs: 1
+    autostart: true
+    autorestart: unexpected
+    exitcodes: [1]"#;
+
+    let reloaded_yaml = r#"programs:
+  reload_test:
+    cmd: "sh -c 'sleep 1; exit 1'"
+    numprocs: 1
+    autostart: true
+    autorestart: unexpected
+    exitcodes: [0]"#;
+
+    let (status_sender, status_receiver) = mpsc::unbounded_channel();
+    let (log_sender, _log_receiver) = mpsc::unbounded_channel();
+    let name = "reload_test-0".to_string();
+
+    let routine_handle = Routine::spawn(
+        program_from_yaml(initial_yaml),
+        status_sender,
+        log_sender,
+        name.clone(),
+        0,
+    );
+    let status_receiver = Arc::new(Mutex::new(status_receiver));
+
+    check_status(Arc::clone(&status_receiver), name.clone()).await;
+
+    routine_handle
+        .send_reloaded_config(program_from_yaml(reloaded_yaml))
+        .await;
+
+    // The reloaded config makes exit code 1 unexpected, so once the program
+    // exits the subroutine must restart it instead of giving up. Skip any
+    // statuses (e.g. the extra Running emitted when the config is received)
+    // until the program exits.
+    let mut status = status_receiver.lock().await.recv().await.unwrap().status;
+    while !matches!(status, Status::Exited(_)) {
+        status = status_receiver.lock().await.recv().await.unwrap().status;
+    }
+
+    assert!(
+        matches!(
+            status_receiver.lock().await.recv().await.unwrap().status,
+            Status::Starting
+        ),
+        "subroutine must restart the program using the reloaded config"
+    );
+    assert!(
+        matches!(
+            status_receiver.lock().await.recv().await.unwrap().status,
+            Status::Running
+        ),
+        "restarted program must be running"
+    );
+
+    routine_handle.stop_and_join().await;
+}

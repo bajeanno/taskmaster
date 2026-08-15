@@ -120,4 +120,9 @@ impl Process {
     pub fn is_running(&self) -> bool {
         self.handle.is_some()
     }
+
+    #[cfg(test)]
+    pub fn program_config(&self) -> Arc<ProgramConfig> {
+        Arc::clone(&self.program_config)
+    }
 }
