@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use crate::{
-    config::{ProgramConfig, program::ProgramDiff},
+    config::program::ProgramDiff,
     config_state::ConfigState::{self, Active, LoadError, Uninitialized},
-    tasks_manager::{ServerCommandError, process::Process, routine::Routine},
+    tasks_manager::{ServerCommandError, routine::Routine},
 };
 
 impl Routine {
@@ -48,94 +48,53 @@ impl Routine {
                 Some(current_program_config) => {
                     match current_program_config.diff(new_program_config) {
                         ProgramDiff::NeedRestart => {
-                            self.stop_and_remove_program(name)
+                            self.pool
+                                .stop_and_remove_program(name)
                                 .await
                                 .expect("program should be in the processes map");
-                            self.start_program(new_program_config).await;
+                            self.pool
+                                .start_program(
+                                    new_program_config,
+                                    &self.status_sender,
+                                    &self.log_sender,
+                                )
+                                .await;
                         }
                         ProgramDiff::NumProcsChanged { before, after } => {
-                            self.handle_num_procs_diff(new_program_config, before, after, name)
+                            self.pool
+                                .handle_num_procs_diff(
+                                    new_program_config,
+                                    before,
+                                    after,
+                                    name,
+                                    &self.status_sender,
+                                    &self.log_sender,
+                                )
                                 .await;
                         }
                         ProgramDiff::Other => {
-                            self.update_processes_program_data(name, new_program_config)
+                            self.pool
+                                .update_processes_program_data(name, new_program_config)
                                 .await;
                         }
                     }
                 }
 
                 None => {
-                    self.start_program(new_program_config).await;
+                    self.pool
+                        .start_program(new_program_config, &self.status_sender, &self.log_sender)
+                        .await;
                 }
             }
         }
 
         for name in current_config.programs.keys() {
             if !new_config.programs.contains_key(name) {
-                self.stop_and_remove_program(name)
+                self.pool
+                    .stop_and_remove_program(name)
                     .await
                     .expect("program should be in the processes map");
             }
-        }
-    }
-
-    async fn handle_num_procs_diff(
-        &mut self,
-        new_program_config: &Arc<ProgramConfig>,
-        current_num_procs: usize,
-        new_num_procs: usize,
-        program_name: &str,
-    ) {
-        let procs_delta = current_num_procs as isize - new_num_procs as isize;
-
-        if procs_delta > 0 {
-            // new_num_procs cannot be 0 as it's checked in the parsing
-            let mut processes_hashmap = self.processes.lock().await;
-            let process_vec = processes_hashmap.get_mut(program_name).unwrap();
-            for process in process_vec.iter_mut().rev().take(procs_delta as usize) {
-                process.stop_and_join_if_running().await;
-            }
-            process_vec.truncate(new_num_procs);
-
-            for process in process_vec.iter_mut() {
-                process
-                    .update_program_config(Arc::clone(new_program_config))
-                    .await;
-                process.auto_start_on_reload(&self.status_sender, &self.log_sender);
-            }
-        } else if procs_delta < 0 {
-            let mut lock = self.processes.lock().await;
-            let Some(process_vec) = lock.get_mut(program_name) else {
-                panic!("program is uninitialized");
-            };
-
-            for id in current_num_procs..new_num_procs {
-                process_vec.push(Process::new(Arc::clone(new_program_config), id));
-            }
-
-            for process in process_vec.iter_mut() {
-                process
-                    .update_program_config(Arc::clone(new_program_config))
-                    .await;
-                process.auto_start_on_reload(&self.status_sender, &self.log_sender);
-            }
-        }
-    }
-
-    async fn update_processes_program_data(
-        &self,
-        program_name: &str,
-        new_config: &Arc<ProgramConfig>,
-    ) {
-        for process in self
-            .processes
-            .lock()
-            .await
-            .get_mut(program_name)
-            .expect("program is absent from processes")
-            .iter_mut()
-        {
-            process.update_program_config(Arc::clone(new_config)).await;
         }
     }
 }
@@ -151,6 +110,7 @@ mod tests {
     use crate::config::{AutoRestart, Command};
     use crate::config_state::ConfigState;
     use crate::process_handler::{LogReceiver, Status, StatusReceiver};
+    use crate::tasks_manager::process_pool::ProcessPool;
     use crate::tasks_manager::routine::Routine;
     use tokio::sync::{Mutex, mpsc};
 
@@ -213,7 +173,7 @@ mod tests {
 
         let mut routine = Routine {
             config_state: ConfigState::Active(Arc::clone(current_config)),
-            processes: Arc::new(Mutex::new(HashMap::new())),
+            pool: Arc::new(ProcessPool::new()),
             clients: Arc::new(Mutex::new(HashMap::new())),
             command_receiver,
             log_sender,
@@ -232,7 +192,8 @@ mod tests {
         let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
 
         let unchanged_ids_before: Vec<u64> = routine
-            .processes
+            .pool
+            .pool()
             .lock()
             .await
             .get("unchanged")
@@ -241,7 +202,8 @@ mod tests {
             .map(|process| process.instance_id())
             .collect();
         let changed_ids_before: Vec<u64> = routine
-            .processes
+            .pool
+            .pool()
             .lock()
             .await
             .get("changed_increased")
@@ -250,12 +212,21 @@ mod tests {
             .map(|process| process.instance_id())
             .collect();
 
-        routine.stop_program("changed_decreased").await.unwrap();
-        routine.stop_program("changed_increased").await.unwrap();
+        routine
+            .pool
+            .stop_program("changed_decreased")
+            .await
+            .unwrap();
+        routine
+            .pool
+            .stop_program("changed_increased")
+            .await
+            .unwrap();
 
         routine.update_processes(&current_config, &new_config).await;
         {
-            let processes = routine.processes.lock().await;
+            let pool = routine.pool.pool();
+            let processes = pool.lock().await;
 
             let unchanged = processes
                 .get("unchanged")
@@ -331,7 +302,7 @@ mod tests {
             );
         }
 
-        routine.stop_and_join_all_processes().await;
+        routine.pool.stop_and_join_all_processes().await;
     }
 
     #[tokio::test]
@@ -357,7 +328,8 @@ mod tests {
 
         // initial state: 2 procs
         let before_ids: Vec<u64> = routine
-            .processes
+            .pool
+            .pool()
             .lock()
             .await
             .get("scale")
@@ -371,7 +343,9 @@ mod tests {
         routine
             .update_processes(&current_config, &increase_config)
             .await;
-        let procs_lock = routine.processes.lock().await;
+
+        let pool = routine.pool.pool();
+        let procs_lock = pool.lock().await;
         let scale_procs = procs_lock.get("scale").expect("scale should exist");
         assert_eq!(scale_procs.len(), 3);
         assert_eq!(
@@ -390,7 +364,7 @@ mod tests {
         );
         drop(procs_lock);
 
-        routine.stop_and_join_all_processes().await;
+        routine.pool.stop_and_join_all_processes().await;
     }
 
     #[tokio::test]
@@ -414,7 +388,8 @@ mod tests {
 
         // initial state: 2 procs
         let before_ids: Vec<u64> = routine
-            .processes
+            .pool
+            .pool()
             .lock()
             .await
             .get("scale")
@@ -427,7 +402,9 @@ mod tests {
         routine
             .update_processes(&current_config, &decrease_config)
             .await;
-        let procs_lock = routine.processes.lock().await;
+
+        let pool = routine.pool.pool();
+        let procs_lock = pool.lock().await;
         let scale_procs = procs_lock
             .get("scale")
             .expect("scale should exist after decrease");
@@ -443,7 +420,7 @@ mod tests {
         );
         drop(procs_lock);
 
-        routine.stop_and_join_all_processes().await;
+        routine.pool.stop_and_join_all_processes().await;
     }
 
     #[tokio::test]
@@ -478,7 +455,8 @@ mod tests {
         let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
 
         let before_id = routine
-            .processes
+            .pool
+            .pool()
             .lock()
             .await
             .get("app")
@@ -488,7 +466,8 @@ mod tests {
             .instance_id();
         assert!(
             routine
-                .processes
+                .pool
+                .pool()
                 .lock()
                 .await
                 .get("app")
@@ -501,7 +480,8 @@ mod tests {
         routine.update_processes(&current_config, &new_config).await;
 
         {
-            let processes = routine.processes.lock().await;
+            let pool = routine.pool.pool();
+            let processes = pool.lock().await;
             let process = processes.get("app").unwrap().first().unwrap();
             assert_eq!(
                 process.instance_id(),
@@ -522,7 +502,7 @@ mod tests {
             assert!(updated_config.clear_env());
         }
 
-        routine.stop_and_join_all_processes().await;
+        routine.pool.stop_and_join_all_processes().await;
     }
 
     #[tokio::test]
@@ -543,7 +523,8 @@ mod tests {
         let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
 
         let before_id = routine
-            .processes
+            .pool
+            .pool()
             .lock()
             .await
             .get("app")
@@ -555,7 +536,8 @@ mod tests {
         routine.update_processes(&current_config, &new_config).await;
 
         {
-            let processes = routine.processes.lock().await;
+            let pool = routine.pool.pool();
+            let processes = pool.lock().await;
             let process = processes.get("app").unwrap().first().unwrap();
             assert_ne!(
                 process.instance_id(),
@@ -573,7 +555,7 @@ mod tests {
             );
         }
 
-        routine.stop_and_join_all_processes().await;
+        routine.pool.stop_and_join_all_processes().await;
     }
 
     #[tokio::test]
@@ -598,10 +580,11 @@ mod tests {
 
         let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
 
-        routine.stop_program("app").await.unwrap();
+        routine.pool.stop_program("app").await.unwrap();
         assert!(
             !routine
-                .processes
+                .pool
+                .pool()
                 .lock()
                 .await
                 .get("app")
@@ -614,7 +597,8 @@ mod tests {
         routine.update_processes(&current_config, &new_config).await;
 
         {
-            let processes = routine.processes.lock().await;
+            let pool = routine.pool.pool();
+            let processes = pool.lock().await;
             let process = processes.get("app").unwrap().first().unwrap();
             assert_eq!(
                 *process.program_config().start_retries(),
@@ -627,7 +611,7 @@ mod tests {
             );
         }
 
-        routine.stop_and_join_all_processes().await;
+        routine.pool.stop_and_join_all_processes().await;
     }
 
     #[tokio::test]
@@ -694,6 +678,6 @@ mod tests {
             "restarted process must be running"
         );
 
-        routine.stop_and_join_all_processes().await;
+        routine.pool.stop_and_join_all_processes().await;
     }
 }

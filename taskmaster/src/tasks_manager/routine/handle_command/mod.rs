@@ -3,7 +3,6 @@ mod reload;
 use crate::{
     config::ProgramConfig,
     config_state::ConfigState::Active,
-    process_handler::NominativeStatus,
     tasks_manager::{
         ServerCommandError, TaskManagerCommand,
         routine::{Client, Routine},
@@ -19,7 +18,7 @@ impl Routine {
         match command {
             TaskManagerCommand::ListProcesses(list_sender) => {
                 list_sender
-                    .send(self.list_processes().await)
+                    .send(self.pool.list_processes().await)
                     .expect("Receiver should never be dropped");
             }
 
@@ -32,12 +31,12 @@ impl Routine {
             }
 
             TaskManagerCommand::RestartProgram { program_name } => {
-                self.stop_program(&program_name).await?;
+                self.pool.stop_program(&program_name).await?;
                 self.handle_start_program_command(program_name).await?
             }
 
             TaskManagerCommand::StopProgram { program_name } => {
-                self.stop_program(program_name).await?
+                self.pool.stop_program(program_name).await?
             }
 
             TaskManagerCommand::SubscribeToProgramEvents {
@@ -56,7 +55,7 @@ impl Routine {
                     .await?
             }
 
-            TaskManagerCommand::StopAllProcesses => self.stop_and_join_all_processes().await,
+            TaskManagerCommand::StopAllProcesses => self.pool.stop_and_join_all_processes().await,
 
             TaskManagerCommand::Exit => {
                 panic!("Exit command should be handled by Routine::event_listener")
@@ -72,7 +71,9 @@ impl Routine {
         let program_config = self
             .get_program_config(program_name.as_str())
             .ok_or(super::ServerCommandError::NoSuchProgram(program_name))?;
-        self.start_program(&program_config).await;
+        self.pool
+            .start_program(&program_config, &self.status_sender, &self.log_sender)
+            .await;
         Ok(())
     }
 
@@ -104,62 +105,11 @@ impl Routine {
         Ok(())
     }
 
-    async fn list_processes(&self) -> Vec<Vec<NominativeStatus>> {
-        self.processes
-            .lock()
-            .await
-            .iter()
-            .map(|(name, processes)| {
-                processes
-                    .iter()
-                    .enumerate()
-                    .map(|(id, process)| NominativeStatus {
-                        process_name: format!("{}-{}", name, id),
-                        status: process.nominative_status.status.clone(),
-                    })
-                    .collect()
-            })
-            .collect()
-    }
-
-    async fn stop_program(
-        &mut self,
-        program_name: impl AsRef<str> + Into<String>,
-    ) -> Result<(), ServerCommandError> {
-        let mut processes = self.processes.lock().await;
-
-        for process in processes
-            .get_mut(program_name.as_ref())
-            .ok_or_else(|| ServerCommandError::NoSuchProgram(program_name.into()))?
-            .iter_mut()
-        {
-            process.stop_and_join_if_running().await;
-        }
-        Ok(())
-    }
-
     fn get_program_config(&self, program_name: &str) -> Option<Arc<ProgramConfig>> {
         if let Active(config) = &self.config_state {
             config.programs.get(program_name).map(Arc::clone)
         } else {
             None
         }
-    }
-
-    async fn stop_and_remove_program(
-        &mut self,
-        program_name: &str,
-    ) -> Result<(), ServerCommandError> {
-        let mut processes = self.processes.lock().await;
-
-        for process in processes
-            .get_mut(program_name)
-            .ok_or_else(|| ServerCommandError::NoSuchProgram(program_name.into()))?
-            .iter_mut()
-        {
-            process.stop_and_join_if_running().await;
-        }
-        processes.remove(program_name);
-        Ok(())
     }
 }
