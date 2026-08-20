@@ -23,7 +23,8 @@ struct Args {
 }
 
 fn main() {
-    let _ = entrypoint().inspect_err(|err| eprintln!("{err}"));
+    let _ = entrypoint().inspect_err(|err| eprintln!("{err}")); // TODO: maybe exit with error code
+    let _ = erase_taskmaster_pids().inspect_err(|err| eprintln!("{err}")); // TODO: maybe exit with error code
 }
 
 fn entrypoint() -> Result<()> {
@@ -60,8 +61,7 @@ fn get_taskmaster_pids() -> Result<Vec<u64>> {
         .open(PID_FILE)
         .map_err(Error::FailedToOpenPidFile)?
         .read_to_end(&mut buf)?;
-    file
-        .to_string()
+    file.to_string()
         .split("\n")
         .map(|line| Ok(line.parse()?))
         .collect::<Result<Vec<u64>>>()
@@ -129,5 +129,5 @@ fn start_server(_port: i32, config_file: Option<String>) -> Result<()> {
 
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
-        .block_on(async { Result::<()>::Ok(()) })
+        .block_on(async { Ok(()) })
 }
