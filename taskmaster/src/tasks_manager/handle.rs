@@ -1,6 +1,9 @@
 use tokio::{sync::oneshot, task::JoinHandle as TokioJoinHandle};
 
-use crate::{TaskManagerCommand, tasks_manager::{CommandSender, ServerCommandError}};
+use crate::{
+    TaskManagerCommand,
+    tasks_manager::{CommandSender, ServerCommandError},
+};
 
 type JoinHandle = TokioJoinHandle<()>;
 
