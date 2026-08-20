@@ -10,7 +10,7 @@ use std::sync::Arc;
 pub use handle::Handle;
 
 #[allow(unused)]
-pub use routine::{Routine, RoutineSpawnError};
+pub use routine::Routine;
 pub use status::{NominativeStatus, Status, StatusSender};
 #[allow(unused)]
 use tokio::process::Command;

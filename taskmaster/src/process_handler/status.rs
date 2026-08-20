@@ -1,8 +1,5 @@
 use std::{fmt::Debug, process::ExitStatus};
-
 use tokio::sync::mpsc::UnboundedSender;
-
-use crate::process_handler::RoutineSpawnError;
 
 #[allow(dead_code)] //TODO: remove that
 #[derive(Debug, Clone)]
@@ -24,16 +21,9 @@ pub enum Status {
     FailedToStartProcess(String),
     ErrorDuringStartup(ExitStatus),
     Exited(ExitStatus),
-    FailedToSpawnRoutine(RoutineSpawnError),
     NotRestarting {
         instance_id: u64,
     },
-}
-
-impl Status {
-    pub fn is_running(&self) -> bool {
-        matches!(self, Status::Starting | Status::Running)
-    }
 }
 
 pub struct StatusSender {

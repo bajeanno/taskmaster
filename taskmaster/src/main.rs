@@ -41,11 +41,11 @@ fn entrypoint() -> Result<()> {
 
 fn check_already_running() -> Result<()> {
     let pids = get_taskmaster_pids()?;
-    if pids.len() != 0 {
-        todo!("taskmaster is already running: need to write exit routine for this case");
+    if pids.is_empty() {
+        let buf = std::process::id().to_string();
+        File::create(PID_FILE)?.write_all(buf.as_bytes())?;
     } else {
-        let buf = std::process::id().to_string(); //pid goes here
-        File::create(PID_FILE)?.write(buf.as_bytes())?;
+        todo!("taskmaster is already running: need to write exit routine for this case");
     }
     Ok(())
 }
@@ -56,15 +56,15 @@ fn get_taskmaster_pids() -> Result<Vec<u64>> {
         .read(true)
         .write(true)
         .create(true)
+        .truncate(false)
         .open(PID_FILE)
-        .map_err(Error::OpenError)?
+        .map_err(Error::FailedToOpenPidFile)?
         .read_to_end(&mut buf)?;
-    let result = Ok(file
+    file
         .to_string()
         .split("\n")
         .map(|line| Ok(line.parse()?))
-        .collect::<Result<Vec<u64>>>()?);
-    result
+        .collect::<Result<Vec<u64>>>()
 }
 
 #[allow(dead_code)]
@@ -74,7 +74,7 @@ fn erase_taskmaster_pids() -> Result<()> {
         .create(true)
         .truncate(true)
         .open("/var/run/taskmaster.pid")
-        .map_err(Error::OpenError)?;
+        .map_err(Error::FailedToOpenPidFile)?;
     Ok(())
 }
 
