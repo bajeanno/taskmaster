@@ -14,11 +14,11 @@ pub enum Error {
 
     #[allow(dead_code)] //TODO: remove that
     #[error("")] // TODO: write error message
-    OpenError(#[from] std::io::Error),
+    FailedToOpenPidFile(#[from] std::io::Error),
 
     #[allow(dead_code)] //TODO: remove that
     #[error("Failed to parse pid from PID file: {0}")]
-    PidParseError(#[from] ParseIntError),
+    FailedToParsePids(#[from] ParseIntError),
 
     #[allow(dead_code)] //TODO: remove that
     #[error("")] // TODO: write error message

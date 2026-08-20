@@ -11,7 +11,6 @@ use signal::Signal;
 use std::panic;
 use std::process::Stdio;
 use std::sync::Arc;
-use thiserror::Error;
 use tokio::process::Command;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::{
@@ -32,15 +31,6 @@ pub struct Routine {
     process_name: String,
     kill_command_received: bool,
     instance_id: u64,
-}
-
-#[derive(Error, Debug, Clone)]
-#[cfg_attr(test, derive(PartialEq, Eq))]
-pub enum RoutineSpawnError {
-    #[error("Failed to open stdout file: {0}")]
-    OpeningStdoutFile(String),
-    #[error("Failed to open stderr file: {0}")]
-    OpeningStderrFile(String),
 }
 
 impl Routine {
