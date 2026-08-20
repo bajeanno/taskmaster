@@ -110,7 +110,7 @@ mod tests {
     use crate::config::{AutoRestart, Command};
     use crate::config_state::ConfigState;
     use crate::process_handler::{LogReceiver, Status, StatusReceiver};
-    use crate::tasks_manager::process_pool::ProcessPool;
+    use crate::tasks_manager::process_registry::ProcessRegistry;
     use crate::tasks_manager::routine::Routine;
     use tokio::sync::{Mutex, mpsc};
 
@@ -173,7 +173,7 @@ mod tests {
 
         let mut routine = Routine {
             config_state: ConfigState::Active(Arc::clone(current_config)),
-            pool: Arc::new(ProcessPool::new()),
+            pool: Arc::new(ProcessRegistry::new()),
             clients: Arc::new(Mutex::new(HashMap::new())),
             command_receiver,
             log_sender,

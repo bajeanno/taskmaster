@@ -1,6 +1,6 @@
 mod handle;
 mod process;
-mod process_pool;
+mod process_registry;
 mod routine;
 
 #[cfg(test)]

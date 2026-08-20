@@ -10,13 +10,13 @@ use crate::{
 
 // TODO: remove that
 #[allow(dead_code)]
-pub struct ProcessPool {
+pub struct ProcessRegistry {
     pool: Arc<Mutex<HashMap<String, Vec<Process>>>>,
 }
 
 // TODO: remove that
 #[allow(dead_code)]
-impl ProcessPool {
+impl ProcessRegistry {
     pub fn new() -> Self {
         Self {
             pool: Arc::new(Mutex::new(HashMap::new())),

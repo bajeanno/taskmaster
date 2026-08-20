@@ -6,7 +6,7 @@ use crate::CommandReceiver;
 use crate::config_state::ConfigState;
 use crate::process_handler::NominativeStatus;
 use crate::tasks_manager::ServerCommandError;
-use crate::tasks_manager::process_pool::ProcessPool;
+use crate::tasks_manager::process_registry::ProcessRegistry;
 use crate::tasks_manager::split_process_name;
 use crate::{
     config::ProgramConfig,
@@ -40,7 +40,7 @@ impl SubscribedClients {
 pub struct Routine {
     config_state: ConfigState,
     clients: ClientMap,
-    pool: Arc<ProcessPool>,
+    pool: Arc<ProcessRegistry>,
     command_receiver: CommandReceiver,
     log_sender: LogSender,
     status_sender: UnboundedSender<NominativeStatus>,
@@ -56,7 +56,7 @@ impl Routine {
         let handle = tokio::spawn(async move {
             Self {
                 config_state,
-                pool: Arc::new(ProcessPool::new()),
+                pool: Arc::new(ProcessRegistry::new()),
                 clients: Arc::new(Mutex::new(HashMap::new())),
                 command_receiver,
                 log_sender,
@@ -107,7 +107,7 @@ impl Routine {
 
     async fn listen_for_status(
         mut status_receiver: StatusReceiver,
-        process_pool: Arc<ProcessPool>,
+        process_pool: Arc<ProcessRegistry>,
     ) {
         while let Some(nominative_status) = status_receiver.recv().await {
             process_pool.store_status(nominative_status).await;
