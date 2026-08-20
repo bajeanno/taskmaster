@@ -8,8 +8,9 @@ mod tests;
 
 use crate::process_handler::NominativeStatus;
 use routine::Client;
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 
+#[allow(dead_code)]
 #[derive(Debug)]
 // TODO: use thiserror
 pub enum ServerCommandError {
@@ -17,6 +18,7 @@ pub enum ServerCommandError {
     FailedToLoadNewConfig(String),
 }
 
+#[allow(dead_code)]
 pub enum TaskManagerCommand {
     ListProcesses(oneshot::Sender<Vec<Vec<NominativeStatus>>>),
     Reload {
@@ -42,6 +44,15 @@ pub enum TaskManagerCommand {
     StopAllProcesses,
     Exit,
 }
+
+pub type CommandReceiver = mpsc::UnboundedReceiver<(
+    TaskManagerCommand,
+    oneshot::Sender<core::result::Result<(), ServerCommandError>>,
+)>;
+pub type CommandSender = mpsc::UnboundedSender<(
+    TaskManagerCommand,
+    oneshot::Sender<core::result::Result<(), ServerCommandError>>,
+)>;
 
 fn split_process_name(mut process_name: String) -> Option<(String, usize)> {
     let dash_index = process_name.rfind('-')?;

@@ -2,9 +2,9 @@ mod handle_command;
 
 use super::TaskManagerCommand;
 use super::handle::Handle;
-use crate::CommandReceiver;
 use crate::config_state::ConfigState;
 use crate::process_handler::NominativeStatus;
+use crate::tasks_manager::CommandReceiver;
 use crate::tasks_manager::ServerCommandError;
 use crate::tasks_manager::process_registry::ProcessRegistry;
 use crate::tasks_manager::split_process_name;
