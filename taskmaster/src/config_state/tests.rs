@@ -84,15 +84,6 @@ fn test_register_new_config_file_defaults_to_default_tasks_file() {
 }
 
 #[test]
-fn test_register_new_config_file_fails_when_conf_already_exists() {
-    let tmp = TempDir::new("register_exists");
-    let conf_path = tmp.write("conf.toml", "config_file_path = \"/tmp/old.yaml\"\n");
-    let state = ConfigState::default();
-    let result = state.register_new_config_file(conf_path.to_str().unwrap(), Some("/tmp/new.yaml"));
-    assert!(matches!(result, Err(ConfigFileError::Open(_))));
-}
-
-#[test]
 fn test_fetch_tasks_file_path_reads_stored_path() {
     let tmp = TempDir::new("fetch_ok");
     let conf_path = tmp.write("conf.toml", "config_file_path = \"/tmp/tasks.yaml\"\n");

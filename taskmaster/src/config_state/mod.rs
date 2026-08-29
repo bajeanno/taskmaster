@@ -6,8 +6,8 @@ use crate::config::Config;
 use std::io;
 use std::io::Write;
 use std::{fs::OpenOptions, io::Read, sync::Arc};
-const CONF_FILE: &str = "/etc/taskmaster.conf";
-const DEFAULT_TASKS_FILE: &str = "/etc/taskmaster.yaml";
+const CONF_FILE: &str = "/etc/taskmaster.d/taskmaster.conf";
+const DEFAULT_TASKS_FILE: &str = "/etc/taskmaster.d/taskmaster.yaml";
 
 #[cfg(test)]
 mod tests;
@@ -116,7 +116,7 @@ impl ConfigState {
         let file_content = toml::to_string(&conf_file)
             .expect("error serializing ConfFile struct, see toml docs on Serialization failure");
         let mut file = OpenOptions::new()
-            .create_new(true)
+            .create(true)
             .write(true)
             .open(conf_file_path)
             .map_err(ConfigFileError::Open)?;
