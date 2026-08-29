@@ -618,7 +618,7 @@ mod tests {
     async fn reload_non_destructive_change_is_propagated_to_running_subroutine() {
         let current_yaml = r#"programs:
   app:
-    cmd: "sh -c 'sleep 1; exit 1'"
+    cmd: "sh -c 'sleep 0.1; exit 1'"
     numprocs: 1
     autostart: true
     autorestart: unexpected
@@ -626,7 +626,7 @@ mod tests {
 
         let new_yaml = r#"programs:
   app:
-    cmd: "sh -c 'sleep 1; exit 1'"
+    cmd: "sh -c 'sleep 0.1; exit 1'"
     numprocs: 1
     autostart: true
     autorestart: unexpected
