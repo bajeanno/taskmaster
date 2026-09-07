@@ -107,10 +107,10 @@ impl Routine {
 
     async fn listen_for_status(
         mut status_receiver: StatusReceiver,
-        process_pool: Arc<ProcessRegistry>,
+        processes: Arc<ProcessRegistry>,
     ) {
         while let Some(nominative_status) = status_receiver.recv().await {
-            process_pool.store_status(nominative_status).await;
+            processes.store_status(nominative_status).await;
         }
     }
 
