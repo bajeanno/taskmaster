@@ -5,22 +5,17 @@ mod output_file;
 mod process_handler;
 mod tasks_manager;
 
-use crate::{config_state::ConfigState, tasks_manager::ServerCommandError};
+use crate::config_state::ConfigState;
 use config::ProgramConfig;
 use error::Error;
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Write};
 use tasks_manager::TaskManagerCommand;
-use tokio::sync::{mpsc, oneshot};
 
 const DEFAULT_PORT: i32 = 4444;
+const PID_FILE: &str = "/var/run/taskmaster.pid";
 
-pub type CommandReceiver = mpsc::UnboundedReceiver<(
-    TaskManagerCommand,
-    oneshot::Sender<Result<(), ServerCommandError>>,
-)>;
-pub type CommandSender = mpsc::UnboundedSender<(
-    TaskManagerCommand,
-    oneshot::Sender<Result<(), ServerCommandError>>,
-)>;
+type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
 struct Args {
@@ -28,10 +23,12 @@ struct Args {
 }
 
 fn main() {
-    let _ = entrypoint().inspect_err(|err| eprintln!("{err}"));
+    let _ = entrypoint().inspect_err(|err| eprintln!("{err}")); // TODO: maybe exit with error code
+    let _ = erase_taskmaster_pids().inspect_err(|err| eprintln!("{err}")); // TODO: maybe exit with error code
 }
 
-fn entrypoint() -> Result<(), Error> {
+fn entrypoint() -> Result<()> {
+    check_already_running()?;
     let Args { port } = parse_args(std::env::args().nth(1))?;
 
     if !cfg!(debug_assertions) {
@@ -43,7 +40,45 @@ fn entrypoint() -> Result<(), Error> {
     start_server(port, None)
 }
 
-fn parse_args(port: Option<String>) -> Result<Args, Error> {
+fn check_already_running() -> Result<()> {
+    let pids = get_taskmaster_pids()?;
+    if pids.is_empty() {
+        let buf = std::process::id().to_string();
+        File::create(PID_FILE)?.write_all(buf.as_bytes())?;
+    } else {
+        todo!("taskmaster is already running: need to write exit routine for this case");
+    }
+    Ok(())
+}
+
+fn get_taskmaster_pids() -> Result<Vec<u64>> {
+    let mut buf = Vec::new();
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(PID_FILE)
+        .map_err(Error::FailedToOpenPidFile)?
+        .read_to_end(&mut buf)?;
+    file.to_string()
+        .split("\n")
+        .map(|line| Ok(line.parse()?))
+        .collect::<Result<Vec<u64>>>()
+}
+
+#[allow(dead_code)]
+// TODO: use this function on exit
+fn erase_taskmaster_pids() -> Result<()> {
+    OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .open("/var/run/taskmaster.pid")
+        .map_err(Error::FailedToOpenPidFile)?;
+    Ok(())
+}
+
+fn parse_args(port: Option<String>) -> Result<Args> {
     let port = port
         .map(|port| {
             port.parse()
@@ -79,7 +114,7 @@ mod taskmaster {
     }
 }
 
-fn daemonize() -> Result<(), Error> {
+fn daemonize() -> Result<()> {
     unsafe {
         daemonize::Daemonize::new()
             .stdout("./server_output")
@@ -89,10 +124,10 @@ fn daemonize() -> Result<(), Error> {
     Ok(())
 }
 
-fn start_server(_port: i32, config_file: Option<String>) -> Result<(), Error> {
+fn start_server(_port: i32, config_file: Option<String>) -> Result<()> {
     let _config_manager = ConfigState::from_config(config_file.as_deref());
 
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
-        .block_on(async { Result::<(), Error>::Ok(()) })
+        .block_on(async { Ok(()) })
 }

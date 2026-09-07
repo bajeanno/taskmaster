@@ -1,37 +1,26 @@
-use std::fmt::Display;
+use std::num::ParseIntError;
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("Failed to parse port number from input: '{input}': {error}")]
     PortArgumentIsNotAnInteger {
         input: String,
         error: std::num::ParseIntError,
     },
 
     #[allow(dead_code)] //TODO: remove that
-    FailedToDaemonize(daemonize::Error),
+    #[error("")] // TODO: write error message
+    FailedToDaemonize(#[from] daemonize::Error),
 
     #[allow(dead_code)] //TODO: remove that
+    #[error("")] // TODO: write error message
+    FailedToOpenPidFile(#[from] std::io::Error),
+
+    #[allow(dead_code)] //TODO: remove that
+    #[error("Failed to parse pid from PID file: {0}")]
+    FailedToParsePids(#[from] ParseIntError),
+
+    #[allow(dead_code)] //TODO: remove that
+    #[error("")] // TODO: write error message
     TaskServerFailure,
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::PortArgumentIsNotAnInteger { input, error } => {
-                write!(
-                    f,
-                    "Failed to parse port number from input: '{input}': {error}"
-                )
-            }
-            _ => write!(f, "{self:#?}"),
-        }
-    }
-}
-
-impl core::error::Error for Error {}
-
-impl From<daemonize::Error> for Error {
-    fn from(error: daemonize::Error) -> Self {
-        Self::FailedToDaemonize(error)
-    }
 }
