@@ -25,15 +25,15 @@ impl ProcessRegistry {
         status_sender: &UnboundedSender<NominativeStatus>,
         log_sender: &LogSender,
     ) {
-        let mut pool = self.0.lock().await;
-        match pool.get_mut(program_config.name()) {
+        let mut process_registry = self.0.lock().await;
+        match process_registry.get_mut(program_config.name()) {
             Some(process_vec) => {
                 process_vec
                     .iter_mut()
                     .for_each(|p| p.start(status_sender, log_sender));
             }
             None => {
-                pool.insert(
+                process_registry.insert(
                     program_config.name().clone(),
                     self.create_processes_vec(program_config, status_sender, log_sender)
                         .await,

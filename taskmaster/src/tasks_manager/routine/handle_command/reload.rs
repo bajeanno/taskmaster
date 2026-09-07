@@ -225,8 +225,8 @@ mod tests {
 
         routine.update_processes(&current_config, &new_config).await;
         {
-            let pool = routine.processes.as_inner();
-            let processes = pool.lock().await;
+            let process_registry = routine.processes.as_inner();
+            let processes = process_registry.lock().await;
 
             let unchanged = processes
                 .get("unchanged")
@@ -344,8 +344,8 @@ mod tests {
             .update_processes(&current_config, &increase_config)
             .await;
 
-        let pool = routine.processes.as_inner();
-        let procs_lock = pool.lock().await;
+        let process_registry = routine.processes.as_inner();
+        let procs_lock = process_registry.lock().await;
         let scale_procs = procs_lock.get("scale").expect("scale should exist");
         assert_eq!(scale_procs.len(), 3);
         assert_eq!(
@@ -403,8 +403,8 @@ mod tests {
             .update_processes(&current_config, &decrease_config)
             .await;
 
-        let pool = routine.processes.as_inner();
-        let procs_lock = pool.lock().await;
+        let process_registry = routine.processes.as_inner();
+        let procs_lock = process_registry.lock().await;
         let scale_procs = procs_lock
             .get("scale")
             .expect("scale should exist after decrease");
@@ -480,8 +480,8 @@ mod tests {
         routine.update_processes(&current_config, &new_config).await;
 
         {
-            let pool = routine.processes.as_inner();
-            let processes = pool.lock().await;
+            let process_registry = routine.processes.as_inner();
+            let processes = process_registry.lock().await;
             let process = processes.get("app").unwrap().first().unwrap();
             assert_eq!(
                 process.instance_id(),
@@ -536,8 +536,8 @@ mod tests {
         routine.update_processes(&current_config, &new_config).await;
 
         {
-            let pool = routine.processes.as_inner();
-            let processes = pool.lock().await;
+            let process_registry = routine.processes.as_inner();
+            let processes = process_registry.lock().await;
             let process = processes.get("app").unwrap().first().unwrap();
             assert_ne!(
                 process.instance_id(),
@@ -597,8 +597,8 @@ mod tests {
         routine.update_processes(&current_config, &new_config).await;
 
         {
-            let pool = routine.processes.as_inner();
-            let processes = pool.lock().await;
+            let process_registry = routine.processes.as_inner();
+            let processes = process_registry.lock().await;
             let process = processes.get("app").unwrap().first().unwrap();
             assert_eq!(
                 *process.program_config().start_retries(),
