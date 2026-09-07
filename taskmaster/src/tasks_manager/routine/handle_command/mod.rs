@@ -55,7 +55,9 @@ impl Routine {
                     .await?
             }
 
-            TaskManagerCommand::StopAllProcesses => self.registry.stop_and_join_all_processes().await,
+            TaskManagerCommand::StopAllProcesses => {
+                self.registry.stop_and_join_all_processes().await
+            }
 
             TaskManagerCommand::Exit => {
                 panic!("Exit command should be handled by Routine::event_listener")
