@@ -150,16 +150,6 @@ mod tests {
 
     use crate::config::program::ProgramDiff;
     use crate::config_state::ConfigState;
-    use crate::tasks_manager::split_process_name;
-
-    #[test]
-    fn test_split_process_name() {
-        let process_name = "taskmaster_test_task-0".to_string();
-        assert_eq!(
-            split_process_name(process_name),
-            Some(("taskmaster_test_task".to_string(), 0))
-        );
-    }
 
     fn program_from_yaml(content: &str, program_name: &str) -> Arc<crate::config::ProgramConfig> {
         match ConfigState::from_content(content.to_string()) {

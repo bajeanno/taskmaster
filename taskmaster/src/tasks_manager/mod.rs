@@ -50,3 +50,12 @@ fn split_process_name(mut process_name: String) -> Option<(String, usize)> {
     let program_name = process_name;
     Some((program_name, id))
 }
+
+#[test]
+fn test_split_process_name() {
+    let process_name = "taskmaster_test_task-0".to_string();
+    assert_eq!(
+        split_process_name(process_name),
+        Some(("taskmaster_test_task".to_string(), 0))
+    );
+}
