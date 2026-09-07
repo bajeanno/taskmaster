@@ -251,7 +251,7 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
 
     let initial_yaml = r#"programs:
   reload_test:
-    cmd: "sh -c 'sleep 1; exit 1'"
+    cmd: "sh -c 'sleep 0.1; exit 1'"
     numprocs: 1
     autostart: true
     autorestart: unexpected
@@ -259,7 +259,7 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
 
     let reloaded_yaml = r#"programs:
   reload_test:
-    cmd: "sh -c 'sleep 1; exit 1'"
+    cmd: "sh -c 'sleep 0.1; exit 1'"
     numprocs: 1
     autostart: true
     autorestart: unexpected
