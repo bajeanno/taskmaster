@@ -40,7 +40,7 @@ impl SubscribedClients {
 pub struct Routine {
     config_state: ConfigState,
     clients: ClientMap,
-    pool: Arc<ProcessRegistry>,
+    registry: Arc<ProcessRegistry>,
     command_receiver: CommandReceiver,
     log_sender: LogSender,
     status_sender: UnboundedSender<NominativeStatus>,
@@ -56,7 +56,7 @@ impl Routine {
         let handle = tokio::spawn(async move {
             Self {
                 config_state,
-                pool: Arc::new(ProcessRegistry::new()),
+                registry: ProcessRegistry::new(),
                 clients: Arc::new(Mutex::new(HashMap::new())),
                 command_receiver,
                 log_sender,
@@ -77,7 +77,7 @@ impl Routine {
         let logs_handle = tokio::spawn(Self::listen_for_logs(log_receiver, self.clients.clone()));
         let status_handle = tokio::spawn(Self::listen_for_status(
             status_receiver,
-            Arc::clone(&self.pool),
+            Arc::clone(&self.registry),
         ));
         self.event_listener().await;
 
@@ -91,7 +91,7 @@ impl Routine {
 
     async fn start_programs(&mut self, programs: &HashMap<String, Arc<ProgramConfig>>) {
         for program_config in programs.values() {
-            self.pool
+            self.registry
                 .start_program(program_config, &self.status_sender, &self.log_sender)
                 .await;
         }
@@ -130,7 +130,7 @@ impl Routine {
     async fn event_listener(&mut self) {
         while let Some((command, sender)) = self.command_receiver.recv().await {
             if matches!(command, TaskManagerCommand::Exit) {
-                self.pool.stop_and_join_all_processes().await;
+                self.registry.stop_and_join_all_processes().await;
                 sender
                     .send(Ok(()))
                     .expect("Receiver should never be dropped");

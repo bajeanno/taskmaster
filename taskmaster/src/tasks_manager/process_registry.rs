@@ -10,17 +10,15 @@ use crate::{
 
 // TODO: remove that
 #[allow(dead_code)]
-pub struct ProcessRegistry {
-    pool: Arc<Mutex<HashMap<String, Vec<Process>>>>,
-}
+pub struct ProcessRegistry(
+    Mutex<HashMap<String, Vec<Process>>>,
+);
 
 // TODO: remove that
 #[allow(dead_code)]
 impl ProcessRegistry {
-    pub fn new() -> Self {
-        Self {
-            pool: Arc::new(Mutex::new(HashMap::new())),
-        }
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self (Mutex::new(HashMap::new())))
     }
 
     pub async fn start_program(
@@ -29,7 +27,7 @@ impl ProcessRegistry {
         status_sender: &UnboundedSender<NominativeStatus>,
         log_sender: &LogSender,
     ) {
-        let mut pool = self.pool.lock().await;
+        let mut pool = self.0.lock().await;
         match pool.get_mut(program_config.name()) {
             Some(process_vec) => {
                 process_vec
@@ -63,7 +61,7 @@ impl ProcessRegistry {
         &self,
         program_name: impl AsRef<str> + Into<String>,
     ) -> Result<(), ServerCommandError> {
-        let mut processes = self.pool.lock().await;
+        let mut processes = self.0.lock().await;
 
         for process in processes
             .get_mut(program_name.as_ref())
@@ -79,7 +77,7 @@ impl ProcessRegistry {
         &self,
         program_name: &str,
     ) -> Result<(), ServerCommandError> {
-        let mut processes = self.pool.lock().await;
+        let mut processes = self.0.lock().await;
 
         for process in processes
             .get_mut(program_name)
@@ -93,7 +91,7 @@ impl ProcessRegistry {
     }
 
     pub async fn stop_and_join_all_processes(&self) {
-        let mut processes = self.pool.lock().await;
+        let mut processes = self.0.lock().await;
 
         for process in processes
             .iter_mut()
@@ -104,7 +102,7 @@ impl ProcessRegistry {
     }
 
     pub async fn list_processes(&self) -> Vec<Vec<NominativeStatus>> {
-        self.pool
+        self.0
             .lock()
             .await
             .iter()
@@ -127,7 +125,7 @@ impl ProcessRegistry {
         new_config: &Arc<ProgramConfig>,
     ) {
         for process in self
-            .pool
+            .0
             .lock()
             .await
             .get_mut(program_name)
@@ -151,7 +149,7 @@ impl ProcessRegistry {
 
         if procs_delta > 0 {
             // new_num_procs cannot be 0 as it's checked in the parsing
-            let mut processes_hashmap = self.pool.lock().await;
+            let mut processes_hashmap = self.0.lock().await;
             let process_vec = processes_hashmap.get_mut(program_name).unwrap();
             for process in process_vec.iter_mut().rev().take(procs_delta as usize) {
                 process.stop_and_join_if_running().await;
@@ -165,7 +163,7 @@ impl ProcessRegistry {
                 process.auto_start_on_reload(status_sender, log_sender);
             }
         } else if procs_delta < 0 {
-            let mut lock = self.pool.lock().await;
+            let mut lock = self.0.lock().await;
             let Some(process_vec) = lock.get_mut(program_name) else {
                 panic!("program is uninitialized");
             };
@@ -184,7 +182,7 @@ impl ProcessRegistry {
     }
 
     pub async fn store_status(&self, nominative_status: NominativeStatus) {
-        let mut processes = self.pool.lock().await;
+        let mut processes = self.0.lock().await;
         let (program_name, id) = split_process_name(nominative_status.process_name.clone())
             .expect("Error: process name does not contain process id");
         if let Some(processes) = processes.get_mut(&program_name)
@@ -200,7 +198,7 @@ impl ProcessRegistry {
     }
 
     #[cfg(test)]
-    pub fn pool(&self) -> Arc<Mutex<HashMap<String, Vec<Process>>>> {
-        Arc::clone(&self.pool)
+    pub fn registry(&self) -> &Mutex<HashMap<String, Vec<Process>>> {
+        &self.0
     }
 }

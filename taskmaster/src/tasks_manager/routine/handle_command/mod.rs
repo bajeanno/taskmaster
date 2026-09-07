@@ -18,7 +18,7 @@ impl Routine {
         match command {
             TaskManagerCommand::ListProcesses(list_sender) => {
                 list_sender
-                    .send(self.pool.list_processes().await)
+                    .send(self.registry.list_processes().await)
                     .expect("Receiver should never be dropped");
             }
 
@@ -31,12 +31,12 @@ impl Routine {
             }
 
             TaskManagerCommand::RestartProgram { program_name } => {
-                self.pool.stop_program(&program_name).await?;
+                self.registry.stop_program(&program_name).await?;
                 self.handle_start_program_command(program_name).await?
             }
 
             TaskManagerCommand::StopProgram { program_name } => {
-                self.pool.stop_program(program_name).await?
+                self.registry.stop_program(program_name).await?
             }
 
             TaskManagerCommand::SubscribeToProgramEvents {
@@ -55,7 +55,7 @@ impl Routine {
                     .await?
             }
 
-            TaskManagerCommand::StopAllProcesses => self.pool.stop_and_join_all_processes().await,
+            TaskManagerCommand::StopAllProcesses => self.registry.stop_and_join_all_processes().await,
 
             TaskManagerCommand::Exit => {
                 panic!("Exit command should be handled by Routine::event_listener")
@@ -71,7 +71,7 @@ impl Routine {
         let program_config = self
             .get_program_config(program_name.as_str())
             .ok_or(super::ServerCommandError::NoSuchProgram(program_name))?;
-        self.pool
+        self.registry
             .start_program(&program_config, &self.status_sender, &self.log_sender)
             .await;
         Ok(())
