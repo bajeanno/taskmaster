@@ -10,13 +10,15 @@ use crate::{
 
 // TODO: remove that
 #[allow(dead_code)]
-pub struct ProcessRegistry(Mutex<HashMap<String, Vec<Process>>>);
+pub struct ProcessRegistry(
+    Mutex<HashMap<String, Vec<Process>>>,
+);
 
 // TODO: remove that
 #[allow(dead_code)]
 impl ProcessRegistry {
     pub fn new() -> Arc<Self> {
-        Arc::new(Self(Mutex::new(HashMap::new())))
+        Arc::new(Self (Mutex::new(HashMap::new())))
     }
 
     pub async fn start_program(
@@ -196,7 +198,7 @@ impl ProcessRegistry {
     }
 
     #[cfg(test)]
-    pub fn registry(&self) -> &Mutex<HashMap<String, Vec<Process>>> {
+    pub fn as_inner(&self) -> &Mutex<HashMap<String, Vec<Process>>> {
         &self.0
     }
 }
