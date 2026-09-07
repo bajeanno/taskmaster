@@ -179,7 +179,10 @@ impl ProcessRegistry {
         }
     }
 
-    pub async fn store_status(&self, nominative_status: NominativeStatus) {
+    pub async fn store_status_and_join_task_if_terminated(
+        &self,
+        nominative_status: NominativeStatus,
+    ) {
         let mut processes = self.0.lock().await;
         let (program_name, id) = split_process_name(nominative_status.process_name.clone())
             .expect("Error: process name does not contain process id");
