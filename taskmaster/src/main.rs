@@ -40,7 +40,7 @@ fn entrypoint() -> Result<(), Error> {
 
     // TODO: replace None with an Optional arguments that specifies the config
     // file name
-    start_server(port, None)
+    start_server(port)
 }
 
 fn parse_args(port: Option<String>) -> Result<Args, Error> {
@@ -89,8 +89,8 @@ fn daemonize() -> Result<(), Error> {
     Ok(())
 }
 
-fn start_server(_port: i32, config_file: Option<String>) -> Result<(), Error> {
-    let _config_manager = ConfigState::from_config(config_file.as_deref());
+fn start_server(_port: i32) -> Result<(), Error> {
+    let _config_manager = ConfigState::from_default_config_file();
 
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")

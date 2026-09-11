@@ -6,22 +6,27 @@ mod routine;
 #[cfg(test)]
 mod tests;
 
-use crate::process_handler::NominativeStatus;
+use crate::{
+    config_state::{InitFileError, ReloadArgs},
+    process_handler::NominativeStatus,
+};
 use routine::Client;
+use thiserror::Error;
 use tokio::sync::oneshot;
 
-#[derive(Debug)]
-// TODO: use thiserror
+#[derive(Debug, Error)]
 pub enum ServerCommandError {
+    #[error("{0}")]
     NoSuchProgram(String),
+    #[error("{0}")]
     FailedToLoadNewConfig(String),
+    #[error("{0}")]
+    InitFileError(#[from] InitFileError),
 }
 
 pub enum TaskManagerCommand {
     ListProcesses(oneshot::Sender<Vec<Vec<NominativeStatus>>>),
-    Reload {
-        config_file_name: String,
-    },
+    Reload(ReloadArgs),
     StartProgram {
         program_name: String,
     },

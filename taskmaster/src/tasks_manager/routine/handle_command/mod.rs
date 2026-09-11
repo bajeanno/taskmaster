@@ -22,8 +22,8 @@ impl Routine {
                     .expect("Receiver should never be dropped");
             }
 
-            TaskManagerCommand::Reload { config_file_name } => {
-                self.reload_config(&config_file_name).await?;
+            TaskManagerCommand::Reload(reload_args) => {
+                self.reload_config(reload_args).await?;
             }
 
             TaskManagerCommand::StartProgram { program_name } => {
@@ -108,7 +108,11 @@ impl Routine {
     }
 
     fn get_program_config(&self, program_name: &str) -> Option<Arc<ProgramConfig>> {
-        if let Active(config) = &self.config_state {
+        if let Active {
+            config,
+            config_file_path: _,
+        } = &self.config_state
+        {
             config.programs.get(program_name).map(Arc::clone)
         } else {
             None

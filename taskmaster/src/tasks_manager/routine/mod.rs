@@ -70,7 +70,11 @@ impl Routine {
     }
 
     async fn routine(mut self, status_receiver: StatusReceiver, log_receiver: LogReceiver) {
-        if let ConfigState::Active(config) = &self.config_state {
+        if let ConfigState::Active {
+            config,
+            config_file_path: _,
+        } = &self.config_state
+        {
             self.start_programs(&Arc::clone(config).programs).await;
         }
 
@@ -155,7 +159,10 @@ mod tests {
 
     fn program_from_yaml(content: &str, program_name: &str) -> Arc<crate::config::ProgramConfig> {
         match ConfigState::from_content(content.to_string()) {
-            ConfigState::Active(config) => config.programs.get(program_name).unwrap().clone(),
+            ConfigState::Active {
+                config,
+                config_file_path: _,
+            } => config.programs.get(program_name).unwrap().clone(),
             _ => panic!("config should parse"),
         }
     }

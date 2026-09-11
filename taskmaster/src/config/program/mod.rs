@@ -8,12 +8,13 @@ use super::deserialize::{
     deserialize_num_procs, deserialize_signal, deserialize_stderr_file, deserialize_stdout_file,
     deserialize_umask,
 };
+use super::serialize::serialize_signal;
 use super::{AutoRestart, Command};
 pub use crate::config::error::CommandError;
 use crate::output_file::OutputFile;
 use derive_getters::Getters;
 use libc::unistd::mode_t;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use signal::Signal;
 use std::sync::Arc;
 use std::{collections::HashMap, fmt::Display, str::FromStr};
@@ -26,7 +27,7 @@ pub enum ProgramDiff {
 }
 
 #[allow(dead_code)] // TODO: remove this
-#[derive(Debug, Getters, Deserialize, PartialEq)]
+#[derive(Debug, Getters, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct ProgramConfig {
     #[serde(skip)]
@@ -68,7 +69,8 @@ pub struct ProgramConfig {
     #[serde(
         rename = "stopsignal",
         default = "default_signal",
-        deserialize_with = "deserialize_signal"
+        deserialize_with = "deserialize_signal",
+        serialize_with = "serialize_signal"
     )]
     stop_signal: Signal,
 
@@ -125,6 +127,31 @@ impl ProgramConfig {
 
         ProgramDiff::Other
     }
+
+    pub(crate) fn template() -> ProgramConfig {
+        ProgramConfig {
+            name: "template_task".to_string(),
+            umask: 022,
+            cmd: Command {
+                exec: "echo".to_string(),
+                args: vec!["Hello World!".to_string()],
+            },
+            num_procs: 1,
+            working_dir: default_work_dir(),
+            auto_start: true,
+            auto_start_on_reload: false,
+            auto_restart: AutoRestart::default(),
+            exit_codes: vec![0],
+            start_retries: 0,
+            start_time: 0,
+            stop_signal: Signal::SIGTERM,
+            stop_time: 1,
+            stdout: Arc::new(OutputFile::new_stdout("/tmp/template_stdout.test").expect("error creating template stdout file in /tmp/template_stdout.test")),
+            stderr: Arc::new(OutputFile::new_stdout("/tmp/template_stderr.test").expect("error creating template stdout file in /tmp/template_stdout.test")),
+            clear_env: false,
+            env: HashMap::new(),
+        }
+    }
 }
 
 impl<'de> Deserialize<'de> for Command {
@@ -135,6 +162,19 @@ impl<'de> Deserialize<'de> for Command {
         let cmd = String::deserialize(deserializer)?;
         Command::from_str(cmd.as_str())
             .map_err(|err| serde::de::Error::custom(format!("Command parsing error: {}", err)))
+    }
+}
+impl Serialize for Command {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let str = String::from(&self.exec);
+        let str = self
+            .args
+            .iter()
+            .fold(str, |acc, arg| format!("{acc} {arg}"));
+        serializer.serialize_str(&str)
     }
 }
 

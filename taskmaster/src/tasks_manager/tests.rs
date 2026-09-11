@@ -3,7 +3,7 @@ use std::io::Write;
 use std::time::Duration;
 
 use super::routine::Routine;
-use crate::config_state::ConfigState;
+use crate::config_state::{ConfigState, ReloadArgs};
 use crate::tasks_manager::TaskManagerCommand;
 use tokio::sync::oneshot;
 use tokio::time::sleep;
@@ -200,10 +200,11 @@ async fn task_manager_reload_minus_1_proc() {
         r.await.unwrap();
     }
     handle
-        .send(TaskManagerCommand::Reload {
-            config_file_name: "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml"
-                .to_string(),
-        })
+        .send(TaskManagerCommand::Reload(
+            ReloadArgs::TempConfig(
+                "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string(),
+            ),
+        ))
         .await
         .unwrap();
     {
@@ -239,10 +240,11 @@ async fn task_manager_reload_plus_1_proc() {
         r.await.unwrap();
     }
     handle
-        .send(TaskManagerCommand::Reload {
-            config_file_name: "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml"
-                .to_string(),
-        })
+        .send(TaskManagerCommand::Reload(
+            ReloadArgs::TempConfig(
+                "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string(),
+            ),
+        ))
         .await
         .unwrap();
     {
@@ -287,9 +289,9 @@ async fn task_manager_reload_keeps_unchanged_program() {
         .expect("failed to write new taskmaster config file");
 
     handle
-        .send(TaskManagerCommand::Reload {
-            config_file_name: new_file,
-        })
+        .send(TaskManagerCommand::Reload(
+            ReloadArgs::TempConfig(new_file),
+        ))
         .await
         .unwrap();
 

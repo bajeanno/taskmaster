@@ -3,16 +3,17 @@ pub use program::ProgramConfig;
 
 mod default;
 mod deserialize;
+mod serialize;
 mod error;
 pub use error::ParseError;
 
-use serde::Deserialize;
 use serde::de::Error;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{File};
 use std::sync::Arc;
 
-#[derive(Debug, Deserialize, Default, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Default, PartialEq)]
 pub enum AutoRestart {
     #[serde(rename = "true")]
     True,
@@ -35,7 +36,7 @@ pub struct Config {
     pub programs: HashMap<String, Arc<ProgramConfig>>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct TmpConfig {
     #[serde(with = "::serde_with::rust::maps_duplicate_key_is_error")]
@@ -59,6 +60,12 @@ impl TmpConfig {
             })
             .collect()
     }
+
+    fn template() -> Self {
+        let mut config = Self { programs: HashMap::new()};
+        config.programs.insert("template_task".to_string(), ProgramConfig::template());
+        config
+    }
 }
 
 impl Config {
@@ -75,7 +82,25 @@ impl Config {
     }
 
     pub fn parse(file_name: &str) -> Result<Config, ParseError> {
-        let file = File::open(file_name).map_err(|err| ParseError::OpeningFile {
+        let file = {
+            match File::open(file_name) {
+                Ok(t) => Ok(t),
+                Err(_) => {
+                    serde_yaml::to_writer(
+                        File::create(file_name).map_err(|err| ParseError::OpeningFile {
+                            file: file_name.to_string(),
+                            error: err,
+                        })?,
+                        &TmpConfig::template(),
+                    ) .map_err(|err| ParseError::UnableToWrite {
+                        file: file_name.to_string(),
+                        error: err,
+                    })?;
+                    File::open(file_name)
+                }
+            }
+        }
+        .map_err(|err| ParseError::OpeningFile {
             file: file_name.to_string(),
             error: err,
         })?;

@@ -4,18 +4,29 @@ use crate::{
     config::program::ProgramDiff,
     config_state::ConfigState::{self, Active, LoadError, Uninitialized},
     tasks_manager::{ServerCommandError, routine::Routine},
+    config_state::ReloadArgs,
 };
 
 impl Routine {
-    pub async fn reload_config(&mut self, file: &str) -> Result<(), ServerCommandError> {
-        match ConfigState::from_config(Some(file)) {
-            Active(new_config) => {
+    pub async fn reload_config(
+        &mut self,
+        reload_command: ReloadArgs,
+    ) -> Result<(), ServerCommandError> {
+        match self.config_state.load_config(reload_command)? {
+            Active {
+                config: new_config,
+                config_file_path: current_config_file,
+            } => {
                 let current_config_state = self.config_state.take();
-                self.config_state = Active(new_config.clone());
+                self.config_state = Active {
+                    config: Arc::clone(&new_config),
+                    config_file_path: current_config_file,
+                };
                 match current_config_state {
-                    Active(current_config) => {
-                        self.update_processes(&current_config, &new_config).await
-                    }
+                    Active {
+                        config: current_config,
+                        config_file_path: _,
+                    } => self.update_processes(&current_config, &new_config).await,
                     Uninitialized | LoadError { error: _ } => {
                         self.start_programs(&new_config.programs).await
                     }
@@ -28,7 +39,7 @@ impl Routine {
             }
 
             ConfigState::Uninitialized => {
-                unreachable!("ConfigState::from_config cannot return Uninitialized")
+                unreachable!("ConfigState::from_config_file cannot return Uninitialized")
             }
         }
     }
@@ -108,7 +119,7 @@ mod tests {
     use signal::Signal;
 
     use crate::config::{AutoRestart, Command};
-    use crate::config_state::ConfigState;
+    use crate::config_state::{ConfigState, DEFAULT_TASKS_FILE};
     use crate::process_handler::{LogReceiver, Status, StatusReceiver};
     use crate::tasks_manager::process_registry::ProcessRegistry;
     use crate::tasks_manager::routine::Routine;
@@ -158,7 +169,10 @@ mod tests {
 
     fn config(content: &str) -> Arc<crate::config::Config> {
         match ConfigState::from_content(content.to_string()) {
-            ConfigState::Active(config) => config,
+            ConfigState::Active {
+                config,
+                config_file_path: _,
+            } => config,
             ConfigState::Uninitialized => panic!("config should be active"),
             ConfigState::LoadError { error } => panic!("config should parse: {error}"),
         }
@@ -172,8 +186,11 @@ mod tests {
         let (_command_sender, command_receiver) = mpsc::unbounded_channel();
 
         let mut routine = Routine {
-            config_state: ConfigState::Active(Arc::clone(current_config)),
             processes: ProcessRegistry::new(),
+            config_state: ConfigState::Active {
+                config: Arc::clone(current_config),
+                config_file_path: DEFAULT_TASKS_FILE.to_string(),
+            },
             clients: Arc::new(Mutex::new(HashMap::new())),
             command_receiver,
             log_sender,

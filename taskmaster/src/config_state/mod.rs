@@ -1,13 +1,16 @@
+use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use serde::Serialize;
 use thiserror::Error;
 
 use crate::config::Config;
+use crate::config_state::ConfigState::Active;
 use std::io;
 use std::io::Write;
 use std::{fs::OpenOptions, io::Read, sync::Arc};
-const CONF_FILE: &str = "/etc/taskmaster.d/taskmaster.conf";
-const DEFAULT_TASKS_FILE: &str = "/etc/taskmaster.d/taskmaster.yaml";
+
+const INIT_FILE: &str = "/etc/taskmaster.d/taskmaster.ron";
+pub const DEFAULT_TASKS_FILE: &str = "/etc/taskmaster.d/taskmaster.yaml";
 
 #[cfg(test)]
 mod tests;
@@ -15,7 +18,10 @@ mod tests;
 #[allow(dead_code)]
 #[derive(Default)]
 pub enum ConfigState {
-    Active(Arc<Config>),
+    Active {
+        config: Arc<Config>,
+        config_file_path: String,
+    },
     #[default]
     Uninitialized,
     LoadError {
@@ -23,15 +29,79 @@ pub enum ConfigState {
     },
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-struct ConfFile {
-    config_file_path: String,
+#[derive(Serialize)]
+pub enum ReloadArgs {
+    UseDefault,
+    UseCurrent,
+    NewDefault(String),
+    TempConfig(String),
+}
+
+// InitFile is the struct that is serialized to ron (Rust Object Notation)
+// and written to <INIT_FILE>
+#[derive(Debug, Deserialize, Serialize, Clone)]
+struct InitFile {
+    default_config_file_path: String,
+}
+
+impl Default for InitFile {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl InitFile {
+    fn new() -> Self {
+        Self {
+            default_config_file_path: DEFAULT_TASKS_FILE.into(),
+        }
+    }
+
+    fn flush(self) -> Result<Self, InitFileError> {
+        let file_content =
+            ron::ser::to_string_pretty(&self, PrettyConfig::new().struct_names(true)).expect(
+                "error serializing InitFile struct, see toml docs on Serialization failure",
+            );
+        println!("writing file: {file_content}"); //remove that
+        let mut file = OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .read(true)
+            .write(true)
+            .open(INIT_FILE)
+            .map_err(InitFileError::Open)?;
+        file.write_all(file_content.as_bytes())
+            .map_err(InitFileError::Write)?;
+        Ok(self)
+    }
+
+    fn edit_default(mut self, new_default_path: &str) -> Self {
+        self.default_config_file_path = new_default_path.into();
+        self
+    }
+
+    fn fetch() -> Result<Self, InitFileError> {
+        let mut file = match OpenOptions::new()
+            .read(true)
+            .open(INIT_FILE)
+            .map_err(InitFileError::Open)
+        {
+            Ok(file) => file,
+            Err(_) => {
+                Self::flush(Self::new())?;
+                return Ok(Self::new());
+            }
+        };
+        let mut buf = String::new();
+        file.read_to_string(&mut buf).map_err(InitFileError::Read)?;
+        Ok(ron::from_str::<InitFile>(buf.as_str()).map_err(InitFileError::Parse)?)
+    }
 }
 
 #[derive(Debug, Error)]
-pub enum ConfigFileError {
+pub enum InitFileError {
     #[error("Failed to parse taskmaster configuration file: {0}")]
-    Parse(#[from] toml::de::Error),
+    Parse(#[from] ron::de::SpannedError),
     #[error("Failed to open taskmaster configuration file: {0}")]
     Open(io::Error),
     #[error("Failed to read taskmaster configuration file: {0}")]
@@ -46,82 +116,63 @@ impl ConfigState {
         use std::io::Cursor;
 
         let config = Config::from_reader(Cursor::new(content)).expect("Parse error");
-        Self::Active(Arc::new(config))
+        Self::Active {
+            config: Arc::new(config),
+            config_file_path: DEFAULT_TASKS_FILE.into(),
+        }
     }
 
-    pub fn from_config(file: Option<&str>) -> Self {
-        let mut config = Self::default();
-        config.load_config(file).unwrap(); // TODO: write proper error handling
+    pub fn from_default_config_file() -> Self {
+        Self::from_config_file(ReloadArgs::UseDefault)
+    }
+
+    pub fn from_config_file(reload_command: ReloadArgs) -> Self {
+        let config = Self::default();
+        config.load_config(reload_command).unwrap(); // TODO: write proper error handling
         config
     }
 
-    pub fn load_config(&mut self, maybe_file: Option<&str>) -> Result<(), ConfigFileError> {
-        self.load_config_with(CONF_FILE, maybe_file)
+    pub fn load_config(&self, reload_command: ReloadArgs) -> Result<Self, InitFileError> {
+        let config_file_path = self.get_file_path_to_use(reload_command)?;
+        match Config::parse(&config_file_path) {
+            Ok(config) => Ok(Self::Active {
+                config: Arc::new(config),
+                config_file_path: config_file_path.to_string(),
+            }),
+            Err(err) => {
+                eprintln!("{err}"); //TODO: log error and/or broadcast to clients
+                Ok(Self::LoadError {
+                    error: err.to_string(),
+                })
+            }
+        }
     }
 
-    fn load_config_with(
-        &mut self,
-        conf_file_path: &str,
-        maybe_file: Option<&str>,
-    ) -> Result<(), ConfigFileError> {
-        let file_path = match maybe_file {
-            Some(file) => self.register_new_config_file(conf_file_path, Some(file))?,
-            None => self.fetch_tasks_file_path(conf_file_path)?,
-        };
-        match Config::parse(file_path.as_str()) {
-            Ok(config) => *self = Self::Active(Arc::new(config)),
-            Err(err) => {
-                eprintln!("Warning {err}"); //TODO: log error and/or broadcast to clients
-                *self = Self::LoadError {
-                    error: err.to_string(),
-                };
+    fn get_file_path_to_use(&self, reload_command: ReloadArgs) -> Result<String, InitFileError> {
+        Ok(match reload_command {
+            ReloadArgs::UseDefault => InitFile::fetch()?.default_config_file_path.to_string(),
+            ReloadArgs::UseCurrent => {
+                if let Active {
+                    config: _,
+                    config_file_path: current_config_file,
+                } = self
+                {
+                    current_config_file.to_string()
+                } else {
+                    InitFile::fetch()?.default_config_file_path.to_string()
+                }
             }
-        };
-        Ok(())
+            ReloadArgs::NewDefault(path) => {
+                InitFile::fetch()?.edit_default(&path).flush()?;
+                path
+            }
+            ReloadArgs::TempConfig(path) => path,
+        })
     }
 
     pub fn take(&mut self) -> Self {
         let mut tmp = Self::default();
         std::mem::swap(&mut tmp, self);
         tmp
-    }
-
-    fn fetch_tasks_file_path(&self, conf_file_path: &str) -> Result<String, ConfigFileError> {
-        let mut file = OpenOptions::new()
-            .create(true)
-            .read(true)
-            .write(true)
-            .truncate(false)
-            .open(conf_file_path)
-            .map_err(ConfigFileError::Open)?;
-        let mut content = String::new();
-        file.read_to_string(&mut content)
-            .map_err(ConfigFileError::Read)?;
-        Ok(toml::from_str::<ConfFile>(content.as_str())?.config_file_path)
-    }
-
-    fn register_new_config_file(
-        &self,
-        conf_file_path: &str,
-        maybe_conf_file: Option<&str>,
-    ) -> Result<String, ConfigFileError> {
-        let conf_file = match maybe_conf_file {
-            Some(conf_file_path) => ConfFile {
-                config_file_path: conf_file_path.to_string(),
-            },
-            None => ConfFile {
-                config_file_path: DEFAULT_TASKS_FILE.to_string(),
-            },
-        };
-        let file_content = toml::to_string(&conf_file)
-            .expect("error serializing ConfFile struct, see toml docs on Serialization failure");
-        let mut file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .open(conf_file_path)
-            .map_err(ConfigFileError::Open)?;
-        file.write_all(file_content.as_bytes())
-            .map_err(ConfigFileError::Write)?;
-        Ok(conf_file.config_file_path.to_string())
     }
 }

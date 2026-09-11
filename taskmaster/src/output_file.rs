@@ -3,6 +3,7 @@ use std::{
     io::Write,
 };
 
+use serde::Serialize;
 use tokio::sync::Mutex;
 
 use crate::process_handler::{Log, LogType};
@@ -46,6 +47,14 @@ impl OutputFile {
         })
     }
 
+    pub fn path(&self) -> Option<String> {
+        match self {
+            OutputFile::Stdout { file: _, path } => Some(path.to_string()),
+            OutputFile::Stderr { file: _, path } => Some(path.to_string()),
+            OutputFile::None => None,
+        }
+    }
+
     pub async fn write(&self, log: &Log) {
         match (self, log.log_type) {
             (OutputFile::Stdout { file, path: _ }, LogType::Stdout) => {
@@ -62,6 +71,18 @@ impl OutputFile {
             _ => panic!(
                 "log function was called with different values for output and log_type, expected same values"
             ),
+        }
+    }
+}
+
+impl Serialize for OutputFile {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self.path() {
+            Some(path) => serializer.serialize_some(&path),
+            None => serializer.serialize_none(),
         }
     }
 }
