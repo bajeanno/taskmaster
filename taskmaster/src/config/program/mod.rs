@@ -8,7 +8,7 @@ use super::deserialize::{
     deserialize_num_procs, deserialize_signal, deserialize_stderr_file, deserialize_stdout_file,
     deserialize_umask,
 };
-use super::serialize::serialize_signal;
+use super::serialize::{serialize_signal, serialize_umask};
 use super::{AutoRestart, Command};
 pub use crate::config::error::CommandError;
 use crate::output_file::OutputFile;
@@ -33,7 +33,7 @@ pub struct ProgramConfig {
     #[serde(skip)]
     name: String,
 
-    #[serde(default = "default_umask", deserialize_with = "deserialize_umask")]
+    #[serde(default = "default_umask", deserialize_with = "deserialize_umask", serialize_with = "serialize_umask")]
     umask: mode_t, //restart
 
     pub cmd: Command, //restart
@@ -131,7 +131,7 @@ impl ProgramConfig {
     pub(crate) fn template() -> ProgramConfig {
         ProgramConfig {
             name: "template_task".to_string(),
-            umask: 22,
+            umask: 0o22,
             cmd: Command {
                 exec: "echo".to_string(),
                 args: vec!["Hello World!".to_string()],
