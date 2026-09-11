@@ -94,7 +94,7 @@ impl InitFile {
         };
         let mut buf = String::new();
         file.read_to_string(&mut buf).map_err(InitFileError::Read)?;
-        Ok(ron::from_str::<InitFile>(buf.as_str()).map_err(InitFileError::Parse)?)
+        ron::from_str::<InitFile>(buf.as_str()).map_err(InitFileError::Parse)
     }
 }
 

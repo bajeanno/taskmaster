@@ -131,7 +131,7 @@ impl ProgramConfig {
     pub(crate) fn template() -> ProgramConfig {
         ProgramConfig {
             name: "template_task".to_string(),
-            umask: 022,
+            umask: 0o022,
             cmd: Command {
                 exec: "echo".to_string(),
                 args: vec!["Hello World!".to_string()],
