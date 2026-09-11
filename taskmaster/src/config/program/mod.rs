@@ -33,7 +33,11 @@ pub struct ProgramConfig {
     #[serde(skip)]
     name: String,
 
-    #[serde(default = "default_umask", deserialize_with = "deserialize_umask", serialize_with = "serialize_umask")]
+    #[serde(
+        default = "default_umask",
+        deserialize_with = "deserialize_umask",
+        serialize_with = "serialize_umask"
+    )]
     umask: mode_t, //restart
 
     pub cmd: Command, //restart

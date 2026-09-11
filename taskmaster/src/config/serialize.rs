@@ -1,5 +1,5 @@
-use signal::Signal;
 use serde::Serializer;
+use signal::Signal;
 
 use libc::unistd::mode_t;
 
