@@ -3,14 +3,14 @@ pub use program::ProgramConfig;
 
 mod default;
 mod deserialize;
-mod serialize;
 mod error;
+mod serialize;
 pub use error::ParseError;
 
 use serde::de::Error;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::{File};
+use std::fs::File;
 use std::sync::Arc;
 
 #[derive(Debug, Deserialize, Serialize, Default, PartialEq)]
@@ -62,8 +62,12 @@ impl TmpConfig {
     }
 
     fn template() -> Self {
-        let mut config = Self { programs: HashMap::new()};
-        config.programs.insert("template_task".to_string(), ProgramConfig::template());
+        let mut config = Self {
+            programs: HashMap::new(),
+        };
+        config
+            .programs
+            .insert("template_task".to_string(), ProgramConfig::template());
         config
     }
 }
@@ -92,7 +96,8 @@ impl Config {
                             error: err,
                         })?,
                         &TmpConfig::template(),
-                    ) .map_err(|err| ParseError::UnableToWrite {
+                    )
+                    .map_err(|err| ParseError::UnableToWrite {
                         file: file_name.to_string(),
                         error: err,
                     })?;

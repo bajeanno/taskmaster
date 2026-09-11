@@ -12,7 +12,10 @@ const VALID_YAML: &str = r#"programs:
 
 fn expect_active(state: &ConfigState) -> Arc<crate::config::Config> {
     match state {
-        ConfigState::Active { config, config_file_path: _ } => Arc::clone(config),
+        ConfigState::Active {
+            config,
+            config_file_path: _,
+        } => Arc::clone(config),
         _ => panic!("expected Active config state"),
     }
 }
@@ -75,7 +78,13 @@ fn test_from_content_activates_config() {
 fn test_take_returns_previous_state_and_resets_to_uninitialized() {
     let mut state = ConfigState::from_content(VALID_YAML.to_string());
     let taken = state.take();
-    assert!(matches!(taken, ConfigState::Active{config: _, config_file_path: _}));
+    assert!(matches!(
+        taken,
+        ConfigState::Active {
+            config: _,
+            config_file_path: _
+        }
+    ));
     assert!(matches!(state, ConfigState::Uninitialized));
 }
 
@@ -85,7 +94,10 @@ fn test_take_preserves_underlying_config() {
     let original = expect_active(&state);
     let taken = state.take();
     match taken {
-        ConfigState::Active{config, config_file_path: _} => assert!(Arc::ptr_eq(&config, &original)),
+        ConfigState::Active {
+            config,
+            config_file_path: _,
+        } => assert!(Arc::ptr_eq(&config, &original)),
         _ => panic!("expected Active"),
     }
 }

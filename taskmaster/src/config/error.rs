@@ -20,9 +20,7 @@ pub enum ParseError {
         #[source]
         error: serde_yaml::Error,
     },
-    #[error(
-        "Error writing taskmaster config file: {file}: {error}"
-    )]
+    #[error("Error writing taskmaster config file: {file}: {error}")]
     UnableToWrite {
         file: String,
         #[source]

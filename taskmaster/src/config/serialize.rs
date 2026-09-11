@@ -1,6 +1,5 @@
-use signal::Signal;
 use serde::Serializer;
-
+use signal::Signal;
 
 pub fn serialize_signal<S>(signal: &Signal, serializer: S) -> Result<S::Ok, S::Error>
 where

@@ -146,8 +146,14 @@ impl ProgramConfig {
             start_time: 0,
             stop_signal: Signal::SIGTERM,
             stop_time: 1,
-            stdout: Arc::new(OutputFile::new_stdout("/tmp/template_stdout.test").expect("error creating template stdout file in /tmp/template_stdout.test")),
-            stderr: Arc::new(OutputFile::new_stdout("/tmp/template_stderr.test").expect("error creating template stdout file in /tmp/template_stdout.test")),
+            stdout: Arc::new(
+                OutputFile::new_stdout("/tmp/template_stdout.test")
+                    .expect("error creating template stdout file in /tmp/template_stdout.test"),
+            ),
+            stderr: Arc::new(
+                OutputFile::new_stdout("/tmp/template_stderr.test")
+                    .expect("error creating template stdout file in /tmp/template_stdout.test"),
+            ),
             clear_env: false,
             env: HashMap::new(),
         }

@@ -200,11 +200,9 @@ async fn task_manager_reload_minus_1_proc() {
         r.await.unwrap();
     }
     handle
-        .send(TaskManagerCommand::Reload(
-            ReloadArgs::TempConfig(
-                "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string(),
-            ),
-        ))
+        .send(TaskManagerCommand::Reload(ReloadArgs::TempConfig(
+            "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string(),
+        )))
         .await
         .unwrap();
     {
@@ -240,11 +238,9 @@ async fn task_manager_reload_plus_1_proc() {
         r.await.unwrap();
     }
     handle
-        .send(TaskManagerCommand::Reload(
-            ReloadArgs::TempConfig(
-                "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string(),
-            ),
-        ))
+        .send(TaskManagerCommand::Reload(ReloadArgs::TempConfig(
+            "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string(),
+        )))
         .await
         .unwrap();
     {
@@ -289,9 +285,7 @@ async fn task_manager_reload_keeps_unchanged_program() {
         .expect("failed to write new taskmaster config file");
 
     handle
-        .send(TaskManagerCommand::Reload(
-            ReloadArgs::TempConfig(new_file),
-        ))
+        .send(TaskManagerCommand::Reload(ReloadArgs::TempConfig(new_file)))
         .await
         .unwrap();
 
