@@ -63,11 +63,9 @@ impl InitFile {
             ron::ser::to_string_pretty(&self, PrettyConfig::new().struct_names(true)).expect(
                 "error serializing InitFile struct, see toml docs on Serialization failure",
             );
-        println!("writing file: {file_content}"); //remove that
         let mut file = OpenOptions::new()
             .create(true)
             .truncate(true)
-            .read(true)
             .write(true)
             .open(INIT_FILE)
             .map_err(InitFileError::Open)?;
