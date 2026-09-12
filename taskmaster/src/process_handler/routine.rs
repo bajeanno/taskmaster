@@ -232,11 +232,12 @@ impl Routine {
     fn child_spawn(&mut self) -> Result<Child, Error> {
         self.start_attempts += 1;
         let config_umask = *self.config.umask();
+        let workdir = self.config.working_dir().clone();
         let child = unsafe {
             self.command
                 .pre_exec(move || {
                     umask(config_umask);
-                    Ok(())
+                    std::env::set_current_dir(workdir.as_str())
                 })
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())

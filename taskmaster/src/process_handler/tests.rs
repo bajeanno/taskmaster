@@ -310,3 +310,72 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
 
     routine_handle.stop_and_join().await;
 }
+
+#[tokio::test]
+async fn create_task_with_working_dir() {
+    use crate::config::Config;
+    use std::io::Cursor;
+    use tokio::fs::remove_file;
+
+    let (stdout_file, stderr_file) = test_log_paths("taskmaster_tests_working_dir");
+    let yaml_content = format!(
+        r#"programs:
+    taskmaster_test_task:
+        cmd: "pwd"
+        numprocs: 1
+        umask: 022
+        workingdir: /tmp
+        autostart: true
+        exitcodes:
+        - 0
+        startretries: 5
+        starttime: 0
+        stopsignal: SIGTERM
+        stoptime: 10
+        stdout: {stdout}
+        stderr: {stderr}
+        clearenv: true"#,
+        stdout = stdout_file,
+        stderr = stderr_file
+    );
+
+    let program = Config::from_reader(Cursor::new(yaml_content))
+        .expect("Parse error")
+        .programs
+        .into_iter()
+        .next()
+        .expect("Config vector is empty")
+        .1;
+
+    let (status_sender, status_receiver) = mpsc::unbounded_channel();
+    let (log_sender, _log_receiver) = mpsc::unbounded_channel();
+    let name = format!("{}-0", program.name());
+
+    let _routine_handle = Routine::spawn(program, status_sender, log_sender, name.clone(), 0);
+    let status_receiver = Arc::new(Mutex::new(status_receiver));
+    check_status(Arc::clone(&status_receiver), name.clone()).await;
+    check_status_exited(Arc::clone(&status_receiver), &name).await;
+
+    let buffer_stdout = tokio::fs::read_to_string(&stdout_file)
+        .await
+        .expect("failed to read stdout file");
+
+    remove_file(&stdout_file)
+        .await
+        .inspect_err(|err| eprintln!("{err}"))
+        .unwrap();
+    remove_file(&stderr_file)
+        .await
+        .inspect_err(|err| eprintln!("{err}"))
+        .unwrap();
+
+    let expected = std::fs::canonicalize("/tmp")
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
+    assert_eq!(
+        buffer_stdout.trim(),
+        format!("{}: {}", name, expected),
+        "process should have run in /tmp directory"
+    );
+}
