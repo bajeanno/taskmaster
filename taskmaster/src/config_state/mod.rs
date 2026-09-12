@@ -46,7 +46,7 @@ struct InitFile {
 
 impl Default for InitFile {
     fn default() -> Self {
-        Self::new()
+        Self { default_config_file_path: DEFAULT_TASKS_FILE.to_string() }
     }
 }
 
@@ -59,9 +59,7 @@ impl<W: io::Write> std::fmt::Write for FmtWriter<W> {
 
 impl InitFile {
     fn new() -> Self {
-        Self {
-            default_config_file_path: DEFAULT_TASKS_FILE.into(),
-        }
+        Self::default()
     }
 
     fn flush(self) -> Result<Self, InitFileError> {
