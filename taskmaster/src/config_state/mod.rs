@@ -5,9 +5,10 @@ use thiserror::Error;
 
 use crate::config::Config;
 use crate::config_state::ConfigState::Active;
+use std::fs::File;
 use std::io;
 use std::io::Write;
-use std::{fs::OpenOptions, io::Read, sync::Arc};
+use std::{fs::OpenOptions, sync::Arc};
 
 const INIT_FILE: &str = "/etc/taskmaster.d/taskmaster.ron";
 pub const DEFAULT_TASKS_FILE: &str = "/etc/taskmaster.d/taskmaster.yaml";
@@ -81,7 +82,7 @@ impl InitFile {
     }
 
     fn fetch() -> Result<Self, InitFileError> {
-        let mut file = match OpenOptions::new()
+        let file = match OpenOptions::new()
             .read(true)
             .open(INIT_FILE)
             .map_err(InitFileError::Open)
@@ -92,9 +93,7 @@ impl InitFile {
                 return Ok(Self::new());
             }
         };
-        let mut buf = String::new();
-        file.read_to_string(&mut buf).map_err(InitFileError::Read)?;
-        ron::from_str::<InitFile>(buf.as_str()).map_err(InitFileError::Parse)
+        ron::de::from_reader::<File, InitFile>(file).map_err(InitFileError::Parse)
     }
 }
 
