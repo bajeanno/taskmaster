@@ -138,7 +138,7 @@ impl ConfigState {
         match Config::parse(&config_file_path) {
             Ok(config) => Ok(Self::Active {
                 config: Arc::new(config),
-                config_file_path: config_file_path.to_string(),
+                config_file_path: config_file_path,
             }),
             Err(err) => {
                 eprintln!("{err}"); //TODO: log error and/or broadcast to clients
