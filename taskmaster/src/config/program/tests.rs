@@ -420,4 +420,13 @@ mod tests {
         );
         assert_config_parses_to(&yaml_content, program);
     }
+
+    #[test]
+    fn template_test() {
+        let content = serde_yaml::to_string(&ProgramConfig::template()).unwrap();
+        println!("{}", content);
+        let mut _config: ProgramConfig = serde_yaml::from_str(&content).unwrap();
+        _config.name = "template_task".to_string();
+        assert_eq!(_config, ProgramConfig::template());
+    }
 }

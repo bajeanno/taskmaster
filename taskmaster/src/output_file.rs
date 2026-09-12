@@ -81,8 +81,8 @@ impl Serialize for OutputFile {
         S: serde::Serializer,
     {
         match self.path() {
-            Some(path) => serializer.serialize_some(&path),
-            None => serializer.serialize_none(),
+            Some(path) => serializer.serialize_str(&path),
+            None => serializer.serialize_str(""),
         }
     }
 }

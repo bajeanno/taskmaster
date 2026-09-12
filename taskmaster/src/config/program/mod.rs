@@ -135,7 +135,7 @@ impl ProgramConfig {
     pub(crate) fn template() -> ProgramConfig {
         ProgramConfig {
             name: "template_task".to_string(),
-            umask: 0o22,
+            umask: 0o022,
             cmd: Command {
                 exec: "echo".to_string(),
                 args: vec!["Hello World!".to_string()],
@@ -168,6 +168,7 @@ impl<'de> Deserialize<'de> for Command {
             .map_err(|err| serde::de::Error::custom(format!("Command parsing error: {}", err)))
     }
 }
+
 impl Serialize for Command {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -177,7 +178,7 @@ impl Serialize for Command {
         let str = self
             .args
             .iter()
-            .fold(str, |acc, arg| format!("{acc} {arg}"));
+            .fold(str, |acc, arg| format!("{acc} \"{arg}\""));
         serializer.serialize_str(&str)
     }
 }

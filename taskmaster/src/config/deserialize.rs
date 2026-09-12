@@ -24,7 +24,9 @@ where
     D: Deserializer<'de>,
 {
     let umask_str = String::deserialize(deserializer)
-        .map_err(|err| serde::de::Error::custom(format!("Failed to parse umask: {err}")))?;
+        .map_err(|err| serde::de::Error::custom(format!("Failed to parse umask: {err}")))?
+        .trim_start_matches("0o")
+        .to_string();
     let umask = mode_t::from_str_radix(umask_str.as_str(), 8).map_err(|err| {
         serde::de::Error::custom(format!("ParseIntError on umask parsing: {err}"))
     })?;
@@ -60,9 +62,7 @@ where
     let file_path = String::deserialize(deserializer)
         .map_err(|err| serde::de::Error::custom(format!("Failed to parse stderr file: {err}")))?;
     if file_path.is_empty() {
-        return Err(serde::de::Error::custom(
-            "Failed to parse stderr file: cannot be empty".to_string(),
-        ));
+        return Ok(Arc::new(OutputFile::None));
     }
 
     Ok(Arc::new(
@@ -83,9 +83,7 @@ where
     let file_path = String::deserialize(deserializer)
         .map_err(|err| serde::de::Error::custom(format!("Failed to parse stdout file: {err}")))?;
     if file_path.is_empty() {
-        return Err(serde::de::Error::custom(
-            "Failed to parse stdout file: cannot be empty".to_string(),
-        ));
+        return Ok(Arc::new(OutputFile::None));
     }
 
     Ok(Arc::new(

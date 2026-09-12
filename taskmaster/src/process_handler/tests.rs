@@ -95,7 +95,7 @@ async fn create_task() {
     taskmaster_test_task:
         cmd: "bash -c \"echo Hello $STARTED_BY!\""
         numprocs: 1
-        umask: 022
+        umask: 0o022
         workingdir: /tmp
         autostart: true
         exitcodes:
