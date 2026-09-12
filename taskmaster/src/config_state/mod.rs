@@ -7,7 +7,6 @@ use crate::config::Config;
 use crate::config_state::ConfigState::Active;
 use std::fs::File;
 use std::io;
-use std::io::Write;
 use std::{fs::OpenOptions, sync::Arc};
 
 const INIT_FILE: &str = "/etc/taskmaster.d/taskmaster.ron";
@@ -51,6 +50,13 @@ impl Default for InitFile {
     }
 }
 
+struct FmtWriter<W: io::Write>(W);
+impl<W: io::Write> std::fmt::Write for FmtWriter<W> {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        self.0.write_all(s.as_bytes()).map_err(|_| std::fmt::Error)
+    }
+}
+
 impl InitFile {
     fn new() -> Self {
         Self {
@@ -59,18 +65,16 @@ impl InitFile {
     }
 
     fn flush(self) -> Result<Self, InitFileError> {
-        let file_content =
-            ron::ser::to_string_pretty(&self, PrettyConfig::new().struct_names(true)).expect(
-                "error serializing InitFile struct, see toml docs on Serialization failure",
-            );
-        let mut file = OpenOptions::new()
+        let file = OpenOptions::new()
             .create(true)
             .truncate(true)
             .write(true)
             .open(INIT_FILE)
             .map_err(InitFileError::Open)?;
-        file.write_all(file_content.as_bytes())
-            .map_err(InitFileError::Write)?;
+
+        ron::ser::to_writer_pretty(FmtWriter(file), &self, PrettyConfig::new().struct_names(true)).expect(
+                "error serializing InitFile struct, see toml docs on Serialization failure",
+            );
         Ok(self)
     }
 
