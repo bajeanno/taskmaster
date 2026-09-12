@@ -78,11 +78,6 @@ impl InitFile {
         Ok(self)
     }
 
-    fn edit_default(mut self, new_default_path: &str) -> Self {
-        self.default_config_file_path = new_default_path.into();
-        self
-    }
-
     fn fetch() -> Result<Self, InitFileError> {
         let file = match OpenOptions::new()
             .read(true)
@@ -96,6 +91,12 @@ impl InitFile {
             }
         };
         ron::de::from_reader::<File, InitFile>(file).map_err(InitFileError::Parse)
+    }
+}
+
+impl From<String> for InitFile {
+    fn from(value: String) -> Self {
+        Self { default_config_file_path: value }
     }
 }
 
@@ -164,7 +165,7 @@ impl ConfigState {
                 }
             }
             ReloadArgs::NewDefault(path) => {
-                InitFile::fetch()?.edit_default(&path).flush()?;
+                InitFile::from(path.clone()).flush()?;
                 path
             }
             ReloadArgs::TempConfig(path) => path,
