@@ -8,12 +8,12 @@ mod tasks_manager;
 use crate::config_state::ConfigState;
 use config::ProgramConfig;
 use error::Error;
-use std::fs::{File, OpenOptions};
+use std::fs::{File, OpenOptions, remove_file};
 use std::io::{Read, Write};
 use tasks_manager::TaskManagerCommand;
 
 const DEFAULT_PORT: i32 = 4444;
-const PID_FILE: &str = "/var/run/taskmaster.pid";
+const PID_FILE: &str = "/var/run/taskmaster.d/taskmaster.pid";
 
 type Result<T> = core::result::Result<T, Error>;
 
@@ -41,41 +41,44 @@ fn entrypoint() -> Result<()> {
 }
 
 fn check_already_running() -> Result<()> {
-    let pids = get_taskmaster_pids()?;
-    if pids.is_empty() {
-        let buf = std::process::id().to_string();
-        File::create(PID_FILE)?.write_all(buf.as_bytes())?;
+    let pid = get_taskmaster_pids()?;
+    if pid == 0 {
+        File::create(PID_FILE)?.write_all(std::process::id().to_string().as_bytes())?;
     } else {
         todo!("taskmaster is already running: need to write exit routine for this case");
     }
     Ok(())
 }
 
-fn get_taskmaster_pids() -> Result<Vec<u64>> {
+fn get_taskmaster_pids() -> Result<u64> {
     let mut buf = Vec::new();
-    let file = OpenOptions::new()
-        .read(true)
+    let file_content = OpenOptions::new()
         .write(true)
         .create(true)
-        .truncate(false)
+        .read(true)
         .open(PID_FILE)
         .map_err(Error::FailedToOpenPidFile)?
         .read_to_end(&mut buf)?;
-    file.to_string()
-        .split("\n")
-        .map(|line| Ok(line.parse()?))
-        .collect::<Result<Vec<u64>>>()
+    Ok(file_content.to_string().parse::<u64>()?)
 }
 
 #[allow(dead_code)]
 // TODO: use this function on exit
 fn erase_taskmaster_pids() -> Result<()> {
     OpenOptions::new()
-        .create(true)
+        .write(true)
         .truncate(true)
-        .open("/var/run/taskmaster.pid")
+        .open(PID_FILE)
         .map_err(Error::FailedToOpenPidFile)?;
     Ok(())
+}
+
+#[test]
+fn pid_check_test() {
+    check_already_running().unwrap();
+    erase_taskmaster_pids().unwrap();
+    check_already_running().unwrap();
+    remove_file(PID_FILE).unwrap();
 }
 
 fn parse_args(port: Option<String>) -> Result<Args> {
