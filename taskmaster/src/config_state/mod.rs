@@ -151,7 +151,7 @@ impl ConfigState {
 
     fn get_file_path_to_use(&self, reload_command: ReloadArgs) -> Result<String, InitFileError> {
         Ok(match reload_command {
-            ReloadArgs::UseDefault => InitFile::fetch()?.default_config_file_path.to_string(),
+            ReloadArgs::UseDefault => InitFile::fetch()?.default_config_file_path,
             ReloadArgs::UseCurrent => {
                 if let Active {
                     config: _,
@@ -160,7 +160,7 @@ impl ConfigState {
                 {
                     current_config_file.to_string()
                 } else {
-                    InitFile::fetch()?.default_config_file_path.to_string()
+                    InitFile::fetch()?.default_config_file_path
                 }
             }
             ReloadArgs::NewDefault(path) => {
