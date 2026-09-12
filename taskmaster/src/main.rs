@@ -8,7 +8,7 @@ mod tasks_manager;
 use crate::config_state::ConfigState;
 use config::ProgramConfig;
 use error::Error;
-use std::fs::{File, OpenOptions, remove_file};
+use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use tasks_manager::TaskManagerCommand;
 
@@ -41,6 +41,9 @@ fn entrypoint() -> Result<()> {
 }
 
 fn check_already_running() -> Result<()> {
+    let path = std::path::Path::new(PID_FILE);
+    let prefix = path.parent().unwrap();
+    std::fs::create_dir_all(prefix).unwrap();
     let pid = get_taskmaster_pids()?;
     if pid == 0 {
         File::create(PID_FILE)?.write_all(std::process::id().to_string().as_bytes())?;
@@ -55,6 +58,7 @@ fn get_taskmaster_pids() -> Result<u64> {
     let file_content = OpenOptions::new()
         .write(true)
         .create(true)
+        .truncate(true)
         .read(true)
         .open(PID_FILE)
         .map_err(Error::FailedToOpenPidFile)?
@@ -63,7 +67,6 @@ fn get_taskmaster_pids() -> Result<u64> {
 }
 
 #[allow(dead_code)]
-// TODO: use this function on exit
 fn erase_taskmaster_pids() -> Result<()> {
     OpenOptions::new()
         .write(true)
@@ -75,6 +78,7 @@ fn erase_taskmaster_pids() -> Result<()> {
 
 #[test]
 fn pid_check_test() {
+    use std::fs::remove_file;
     check_already_running().unwrap();
     erase_taskmaster_pids().unwrap();
     check_already_running().unwrap();
