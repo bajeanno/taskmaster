@@ -46,7 +46,9 @@ struct InitFile {
 
 impl Default for InitFile {
     fn default() -> Self {
-        Self { default_config_file_path: DEFAULT_TASKS_FILE.to_string() }
+        Self {
+            default_config_file_path: DEFAULT_TASKS_FILE.to_string(),
+        }
     }
 }
 
@@ -70,9 +72,12 @@ impl InitFile {
             .open(INIT_FILE)
             .map_err(InitFileError::Open)?;
 
-        ron::ser::to_writer_pretty(FmtWriter(file), &self, PrettyConfig::new().struct_names(true)).expect(
-                "error serializing InitFile struct, see toml docs on Serialization failure",
-            );
+        ron::ser::to_writer_pretty(
+            FmtWriter(file),
+            &self,
+            PrettyConfig::new().struct_names(true),
+        )
+        .expect("error serializing InitFile struct, see toml docs on Serialization failure");
         Ok(self)
     }
 
@@ -94,7 +99,9 @@ impl InitFile {
 
 impl From<String> for InitFile {
     fn from(value: String) -> Self {
-        Self { default_config_file_path: value }
+        Self {
+            default_config_file_path: value,
+        }
     }
 }
 
@@ -137,7 +144,7 @@ impl ConfigState {
         match Config::parse(&config_file_path) {
             Ok(config) => Ok(Self::Active {
                 config: Arc::new(config),
-                config_file_path: config_file_path,
+                config_file_path,
             }),
             Err(err) => {
                 eprintln!("{err}"); //TODO: log error and/or broadcast to clients
