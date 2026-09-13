@@ -135,12 +135,10 @@ impl ConfigState {
                 config: Arc::new(config),
                 config_file_path,
             }),
-            Err(err) => {
-                Ok(Self::LoadError {
-                    error: err.to_string(),
-                    config_file_path,
-                })
-            }
+            Err(err) => Ok(Self::LoadError {
+                error: err.to_string(),
+                config_file_path,
+            }),
         }
     }
 
