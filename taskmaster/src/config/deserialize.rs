@@ -32,6 +32,14 @@ where
         ));
     }
     let umask_str = umask_str.trim_start_matches("0o").to_string();
+    if umask_str.contains(|c: char| {
+        !c.is_ascii_digit()
+    }) {
+        return Err(serde::de::Error::custom(
+            "Failed to parse umask: umask contains non-digit characters"
+                .to_string(),
+        ));
+    }
     let umask = mode_t::from_str_radix(umask_str.as_str(), 8).map_err(|err| {
         serde::de::Error::custom(format!("ParseIntError on umask parsing: {err}"))
     })?;
