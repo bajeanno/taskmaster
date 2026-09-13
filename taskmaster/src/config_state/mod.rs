@@ -136,7 +136,6 @@ impl ConfigState {
                 config_file_path,
             }),
             Err(err) => {
-                eprintln!("{err}"); //TODO: log error and/or broadcast to clients
                 Ok(Self::LoadError {
                     error: err.to_string(),
                     config_file_path,
