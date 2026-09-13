@@ -19,7 +19,10 @@ pub enum ServerCommandError {
     #[error("{0}")]
     NoSuchProgram(String),
     #[error("error loading config from file '{config_file_path}': {error}")]
-    FailedToLoadNewConfig{error: String, config_file_path: String},
+    FailedToLoadNewConfig {
+        error: String,
+        config_file_path: String,
+    },
     #[error("{0}")]
     InitFileError(#[from] InitFileError),
 }

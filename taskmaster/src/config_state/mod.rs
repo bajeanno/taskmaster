@@ -139,7 +139,7 @@ impl ConfigState {
                 eprintln!("{err}"); //TODO: log error and/or broadcast to clients
                 Ok(Self::LoadError {
                     error: err.to_string(),
-                    config_file_path
+                    config_file_path,
                 })
             }
         }
@@ -148,13 +148,17 @@ impl ConfigState {
     fn get_file_path_to_use(&self, reload_command: ReloadArgs) -> Result<String, InitFileError> {
         Ok(match reload_command {
             ReloadArgs::UseDefault => InitFile::fetch()?.default_config_file_path,
-            ReloadArgs::UseCurrent => {
-                match self {
-                    Active { config: _, config_file_path } => config_file_path.clone(),
-                    ConfigState::Uninitialized => InitFile::fetch()?.default_config_file_path,
-                    ConfigState::LoadError { error: _, config_file_path } => config_file_path.clone(),
-                }
-            }
+            ReloadArgs::UseCurrent => match self {
+                Active {
+                    config: _,
+                    config_file_path,
+                } => config_file_path.clone(),
+                ConfigState::Uninitialized => InitFile::fetch()?.default_config_file_path,
+                ConfigState::LoadError {
+                    error: _,
+                    config_file_path,
+                } => config_file_path.clone(),
+            },
             ReloadArgs::NewDefault(path) => {
                 InitFile::from(path.clone()).flush()?;
                 path

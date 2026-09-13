@@ -26,8 +26,10 @@ pub enum ParseError {
 
 #[derive(Error, Debug)]
 pub enum CreatingDefaultConfigFileError {
-    #[error("Error writing default taskmaster config file: {file}: {error}\n\
-        Consider making a reload request after fixing the issue")]
+    #[error(
+        "Error writing default taskmaster config file: {file}: {error}\n\
+        Consider making a reload request after fixing the issue"
+    )]
     UnableToWriteDefaultConfigFile {
         file: String,
         #[source]

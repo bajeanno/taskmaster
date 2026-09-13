@@ -26,11 +26,12 @@ where
     let umask_str = String::deserialize(deserializer)
         .map_err(|err| serde::de::Error::custom(format!("Failed to parse umask: {err}")))?;
     if !umask_str.starts_with("0o") {
-        return Err(serde::de::Error::custom("Failed to parse umask: Not an explicit octal value (needs explicit '0o' marker)".to_string()));
+        return Err(serde::de::Error::custom(
+            "Failed to parse umask: Not an explicit octal value (needs explicit '0o' marker)"
+                .to_string(),
+        ));
     }
-    let umask_str = umask_str
-        .trim_start_matches("0o")
-        .to_string();
+    let umask_str = umask_str.trim_start_matches("0o").to_string();
     let umask = mode_t::from_str_radix(umask_str.as_str(), 8).map_err(|err| {
         serde::de::Error::custom(format!("ParseIntError on umask parsing: {err}"))
     })?;
