@@ -323,7 +323,7 @@ async fn create_task_with_working_dir() {
     taskmaster_test_task:
         cmd: "pwd"
         numprocs: 1
-        umask: 022
+        umask: 0o022
         workingdir: /tmp
         autostart: true
         exitcodes:
