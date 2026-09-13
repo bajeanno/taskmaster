@@ -3,7 +3,7 @@ use std::io::Write;
 use std::time::Duration;
 
 use super::routine::Routine;
-use crate::config_state::ConfigState;
+use crate::config_state::{ConfigState, ReloadArgs};
 use crate::tasks_manager::TaskManagerCommand;
 use tokio::sync::oneshot;
 use tokio::time::sleep;
@@ -13,7 +13,7 @@ fn create_tasks_yaml_content() -> String {
     taskmaster_test_task:
         cmd: "sleep 30"
         numprocs: 2
-        umask: 022
+        umask: 0o022
         workingdir: /tmp
         autostart: true
         exitcodes:
@@ -35,7 +35,7 @@ fn create_tasks_yaml_content_reload() -> String {
     reload:
         cmd: "sleep 30"
         numprocs: 2
-        umask: 022
+        umask: 0o022
         workingdir: /tmp
         autostart: true
         exitcodes:
@@ -57,7 +57,7 @@ fn create_tasks_alternate_yaml_content_minus_1_proc() -> String {
     reload:
         cmd: "sleep 30"
         numprocs: 1
-        umask: 022
+        umask: 0o022
         workingdir: /tmp
         autostart: true
         exitcodes:
@@ -79,7 +79,7 @@ fn create_tasks_alternate_yaml_content_plus_1_proc() -> String {
     reload:
         cmd: "sleep 30"
         numprocs: 3
-        umask: 022
+        umask: 0o022
         workingdir: /tmp
         autostart: true
         exitcodes:
@@ -200,10 +200,9 @@ async fn task_manager_reload_minus_1_proc() {
         r.await.unwrap();
     }
     handle
-        .send(TaskManagerCommand::Reload {
-            config_file_name: "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml"
-                .to_string(),
-        })
+        .send(TaskManagerCommand::Reload(ReloadArgs::TempConfig(
+            "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string(),
+        )))
         .await
         .unwrap();
     {
@@ -239,10 +238,9 @@ async fn task_manager_reload_plus_1_proc() {
         r.await.unwrap();
     }
     handle
-        .send(TaskManagerCommand::Reload {
-            config_file_name: "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml"
-                .to_string(),
-        })
+        .send(TaskManagerCommand::Reload(ReloadArgs::TempConfig(
+            "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string(),
+        )))
         .await
         .unwrap();
     {
@@ -287,9 +285,7 @@ async fn task_manager_reload_keeps_unchanged_program() {
         .expect("failed to write new taskmaster config file");
 
     handle
-        .send(TaskManagerCommand::Reload {
-            config_file_name: new_file,
-        })
+        .send(TaskManagerCommand::Reload(ReloadArgs::TempConfig(new_file)))
         .await
         .unwrap();
 

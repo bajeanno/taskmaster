@@ -20,6 +20,30 @@ pub enum ParseError {
         #[source]
         error: serde_yaml::Error,
     },
+    #[error("{0}")]
+    CreatingDefaultConfigFileError(#[from] CreatingDefaultConfigFileError),
+}
+
+#[derive(Error, Debug)]
+pub enum CreatingDefaultConfigFileError {
+    #[error(
+        "Error writing default taskmaster config file: {file}: {error}\n\
+        Consider making a reload request after fixing the issue"
+    )]
+    UnableToWrite {
+        file: String,
+        #[source]
+        error: serde_yaml::Error,
+    },
+    #[error(
+        "Error creating default taskmaster config file: {file}: {error}\n\
+        Consider making a reload request after fixing the issue"
+    )]
+    UnableToCreate {
+        file: String,
+        #[source]
+        error: std::io::Error,
+    },
 }
 
 #[derive(Debug, Error)]

@@ -25,7 +25,13 @@ where
 {
     let umask_str = String::deserialize(deserializer)
         .map_err(|err| serde::de::Error::custom(format!("Failed to parse umask: {err}")))?;
-    let umask = mode_t::from_str_radix(umask_str.as_str(), 8).map_err(|err| {
+    if !umask_str.starts_with("0o") {
+        return Err(serde::de::Error::custom(
+            "Failed to parse umask: Not an explicit octal value (needs explicit '0o' marker)"
+                .to_string(),
+        ));
+    }
+    let umask = mode_t::from_str_radix(&umask_str[2..], 8).map_err(|err| {
         serde::de::Error::custom(format!("ParseIntError on umask parsing: {err}"))
     })?;
     if umask > 0o777 {
@@ -60,9 +66,7 @@ where
     let file_path = String::deserialize(deserializer)
         .map_err(|err| serde::de::Error::custom(format!("Failed to parse stderr file: {err}")))?;
     if file_path.is_empty() {
-        return Err(serde::de::Error::custom(
-            "Failed to parse stderr file: cannot be empty".to_string(),
-        ));
+        return Ok(Arc::new(OutputFile::None));
     }
 
     Ok(Arc::new(
@@ -83,9 +87,7 @@ where
     let file_path = String::deserialize(deserializer)
         .map_err(|err| serde::de::Error::custom(format!("Failed to parse stdout file: {err}")))?;
     if file_path.is_empty() {
-        return Err(serde::de::Error::custom(
-            "Failed to parse stdout file: cannot be empty".to_string(),
-        ));
+        return Ok(Arc::new(OutputFile::None));
     }
 
     Ok(Arc::new(
