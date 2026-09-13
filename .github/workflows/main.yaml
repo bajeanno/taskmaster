@@ -29,7 +29,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run tests
-        run: sudo bash -c ci-install.sh ; RUST_BACKTRACE=1 cargo test --all -- --no-capture
+        run: sudo bash ci-install.sh && RUST_BACKTRACE=1 cargo test --all -- --no-capture
 
   format:
     runs-on: ubuntu-latest
