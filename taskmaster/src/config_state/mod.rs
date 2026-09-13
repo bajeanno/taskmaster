@@ -124,8 +124,8 @@ impl ConfigState {
     }
 
     pub fn from_config_file(reload_command: ReloadArgs) -> Self {
-        let config = Self::default();
-        config.load_config(reload_command).unwrap(); // TODO: write proper error handling
+        let mut config = Self::default();
+        config = config.load_config(reload_command).unwrap(); // TODO: write proper error handling
         config
     }
 
