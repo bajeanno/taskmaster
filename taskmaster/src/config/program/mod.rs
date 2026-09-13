@@ -132,7 +132,7 @@ impl ProgramConfig {
         ProgramDiff::Other
     }
 
-    pub(crate) fn template() -> ProgramConfig {
+    pub(super) fn template() -> ProgramConfig {
         ProgramConfig {
             name: "template_task".to_string(),
             umask: 0o022,

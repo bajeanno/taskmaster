@@ -117,3 +117,20 @@ impl Config {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn template_test() {
+        //TmpConfig is the same type as Config but with no Arc inside the HashMap
+        let content = serde_yaml::to_string(&TmpConfig::template()).unwrap();
+        let mut _config: TmpConfig = serde_yaml::from_str(&content).unwrap();
+
+        for (name, program) in _config.programs.iter_mut() {
+            *program.name_mut() = name.clone();
+        }
+        assert_eq!(_config, TmpConfig::template());
+    }
+}
