@@ -120,14 +120,14 @@ impl ConfigState {
         }
     }
 
-    pub fn from_default_config_file() -> Self {
+    pub fn from_default_config_file() -> Result<Self, InitFileError> {
         Self::from_config_file(ReloadArgs::UseDefault)
     }
 
-    pub fn from_config_file(reload_command: ReloadArgs) -> Self {
+    pub fn from_config_file(reload_command: ReloadArgs) -> Result<Self, InitFileError> {
         let mut config = Self::default();
         config = config.load_config(reload_command).unwrap(); // TODO: write proper error handling
-        config
+        Ok(config)
     }
 
     pub fn load_config(&self, reload_command: ReloadArgs) -> Result<Self, InitFileError> {
