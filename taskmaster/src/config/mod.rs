@@ -5,13 +5,14 @@ mod default;
 mod deserialize;
 mod error;
 mod serialize;
-pub use error::ParseError;
+pub use error::{ParseError, CreatingDefaultConfigFileError};
 
 use serde::de::Error;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::sync::Arc;
+
 
 #[derive(Debug, Deserialize, Serialize, Default, PartialEq)]
 pub enum AutoRestart {
@@ -92,13 +93,13 @@ impl Config {
                 Ok(t) => Ok(t),
                 Err(_) => {
                     serde_yaml::to_writer(
-                        File::create(file_name).map_err(|err| ParseError::OpeningFile {
+                        File::create(file_name).map_err(|err| CreatingDefaultConfigFileError::UnableToCreateDefaultConfigFile {
                             file: file_name.to_string(),
                             error: err,
                         })?,
                         &TmpConfig::template(),
                     )
-                    .map_err(|err| ParseError::UnableToWrite {
+                    .map_err(|err| CreatingDefaultConfigFileError::UnableToWriteDefaultConfigFile {
                         file: file_name.to_string(),
                         error: err,
                     })?;
