@@ -3,8 +3,8 @@ use std::sync::Arc;
 use crate::{
     config::program::ProgramDiff,
     config_state::ConfigState::{self, Active, LoadError, Uninitialized},
-    tasks_manager::{ServerCommandError, routine::Routine},
     config_state::ReloadArgs,
+    tasks_manager::{ServerCommandError, routine::Routine},
 };
 
 impl Routine {
