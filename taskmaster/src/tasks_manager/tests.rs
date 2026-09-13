@@ -13,7 +13,7 @@ fn create_tasks_yaml_content() -> String {
     taskmaster_test_task:
         cmd: "sleep 30"
         numprocs: 2
-        umask: 022
+        umask: 0o022
         workingdir: /tmp
         autostart: true
         exitcodes:
@@ -35,7 +35,7 @@ fn create_tasks_yaml_content_reload() -> String {
     reload:
         cmd: "sleep 30"
         numprocs: 2
-        umask: 022
+        umask: 0o022
         workingdir: /tmp
         autostart: true
         exitcodes:
@@ -57,7 +57,7 @@ fn create_tasks_alternate_yaml_content_minus_1_proc() -> String {
     reload:
         cmd: "sleep 30"
         numprocs: 1
-        umask: 022
+        umask: 0o022
         workingdir: /tmp
         autostart: true
         exitcodes:
@@ -79,7 +79,7 @@ fn create_tasks_alternate_yaml_content_plus_1_proc() -> String {
     reload:
         cmd: "sleep 30"
         numprocs: 3
-        umask: 022
+        umask: 0o022
         workingdir: /tmp
         autostart: true
         exitcodes:

@@ -168,7 +168,7 @@ fn parsing_with_umask_octal() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            umask: "644""#,
+            umask: "0o644""#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -181,7 +181,7 @@ fn parsing_with_umask_zero() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            umask: "0""#,
+            umask: "0o0""#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -210,7 +210,7 @@ fn parsing_with_umask_max() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            umask: "777""#,
+            umask: "0o777""#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -225,7 +225,7 @@ fn parsing_with_multiple_fields() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            umask: "644"
+            umask: "0o644"
             workingdir: "/tmp"
             autostart: true"#,
     );

@@ -176,7 +176,7 @@ async fn create_task_then_interrupt() {
     taskmaster_test_task:
         cmd: "cat"
         numprocs: 1
-        umask: 022
+        umask: 0o022
         workingdir: /tmp
         autostart: true
         exitcodes:
