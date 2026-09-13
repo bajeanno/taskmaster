@@ -18,8 +18,8 @@ use tokio::sync::oneshot;
 pub enum ServerCommandError {
     #[error("{0}")]
     NoSuchProgram(String),
-    #[error("{0}")]
-    FailedToLoadNewConfig(String),
+    #[error("error loading config from file '{config_file_path}': {error}")]
+    FailedToLoadNewConfig{error: String, config_file_path: String},
     #[error("{0}")]
     InitFileError(#[from] InitFileError),
 }

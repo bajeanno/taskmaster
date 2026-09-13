@@ -27,15 +27,15 @@ impl Routine {
                         config: current_config,
                         config_file_path: _,
                     } => self.update_processes(&current_config, &new_config).await,
-                    Uninitialized | LoadError { error: _ } => {
+                    Uninitialized | LoadError { error: _ , config_file_path: _} => {
                         self.start_programs(&new_config.programs).await
                     }
                 }
                 Ok(())
             }
 
-            ConfigState::LoadError { error } => {
-                Err(ServerCommandError::FailedToLoadNewConfig(error))
+            ConfigState::LoadError { error, config_file_path } => {
+                Err(ServerCommandError::FailedToLoadNewConfig{ error, config_file_path })
             }
 
             ConfigState::Uninitialized => {
@@ -174,7 +174,7 @@ mod tests {
                 config_file_path: _,
             } => config,
             ConfigState::Uninitialized => panic!("config should be active"),
-            ConfigState::LoadError { error } => panic!("config should parse: {error}"),
+            ConfigState::LoadError { error, config_file_path } => panic!("config from '{config_file_path}' should parse: {error}"),
         }
     }
 

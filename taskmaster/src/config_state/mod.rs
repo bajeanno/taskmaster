@@ -26,6 +26,7 @@ pub enum ConfigState {
     Uninitialized,
     LoadError {
         error: String,
+        config_file_path: String,
     },
 }
 
@@ -140,6 +141,7 @@ impl ConfigState {
                 eprintln!("{err}"); //TODO: log error and/or broadcast to clients
                 Ok(Self::LoadError {
                     error: err.to_string(),
+                    config_file_path
                 })
             }
         }
@@ -149,14 +151,10 @@ impl ConfigState {
         Ok(match reload_command {
             ReloadArgs::UseDefault => InitFile::fetch()?.default_config_file_path,
             ReloadArgs::UseCurrent => {
-                if let Active {
-                    config: _,
-                    config_file_path: current_config_file,
-                } = self
-                {
-                    current_config_file.to_string()
-                } else {
-                    InitFile::fetch()?.default_config_file_path
+                match self {
+                    Active { config: _, config_file_path } => config_file_path.clone(),
+                    ConfigState::Uninitialized => InitFile::fetch()?.default_config_file_path,
+                    ConfigState::LoadError { error: _, config_file_path } => config_file_path.clone(),
                 }
             }
             ReloadArgs::NewDefault(path) => {
