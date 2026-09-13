@@ -52,13 +52,6 @@ impl Default for InitFile {
     }
 }
 
-struct FmtWriter<W: io::Write>(W);
-impl<W: io::Write> std::fmt::Write for FmtWriter<W> {
-    fn write_str(&mut self, s: &str) -> std::fmt::Result {
-        self.0.write_all(s.as_bytes()).map_err(|_| std::fmt::Error)
-    }
-}
-
 impl InitFile {
     fn new() -> Self {
         Self::default()
@@ -72,12 +65,9 @@ impl InitFile {
             .open(INIT_FILE)
             .map_err(InitFileError::Open)?;
 
-        ron::ser::to_writer_pretty(
-            FmtWriter(file),
-            &self,
-            PrettyConfig::new().struct_names(true),
-        )
-        .expect("error serializing InitFile struct, see toml docs on Serialization failure");
+        ron::Options::default()
+            .to_io_writer_pretty(file, &self, PrettyConfig::new().struct_names(true))
+            .expect("error serializing InitFile struct, see toml docs on Serialization failure");
         Ok(self)
     }
 
