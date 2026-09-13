@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use crate::config::TmpConfig;
     use crate::config::program::{AutoRestart, CommandError};
     use crate::config::{Config, program::Command, program::ProgramConfig};
     use crate::output_file::OutputFile;
@@ -423,10 +424,12 @@ mod tests {
 
     #[test]
     fn template_test() {
-        let content = serde_yaml::to_string(&ProgramConfig::template()).unwrap();
-        println!("{}", content);
-        let mut _config: ProgramConfig = serde_yaml::from_str(&content).unwrap();
-        _config.name = "template_task".to_string();
-        assert_eq!(_config, ProgramConfig::template());
+        let content = serde_yaml::to_string(&TmpConfig::template()).unwrap();
+        let mut _config: TmpConfig = serde_yaml::from_str(&content).unwrap();
+        //TmpConfig is the same type as Config but with no Arc inside the HashMap
+        for (name, program) in _config.programs.iter_mut() {
+            program.name = name.to_string();
+        }
+        assert_eq!(_config, TmpConfig::template());
     }
 }

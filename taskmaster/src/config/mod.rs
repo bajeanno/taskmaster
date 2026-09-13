@@ -36,7 +36,8 @@ pub struct Config {
     pub programs: HashMap<String, Arc<ProgramConfig>>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
+#[cfg_attr(test, derive(PartialEq))]
 #[serde(deny_unknown_fields)]
 struct TmpConfig {
     #[serde(with = "::serde_with::rust::maps_duplicate_key_is_error")]
