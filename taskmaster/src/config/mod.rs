@@ -93,7 +93,7 @@ impl Config {
                 Err(_) => {
                     serde_yaml::to_writer(
                         File::create(file_name).map_err(|err| {
-                            CreatingDefaultConfigFileError::UnableToCreateDefaultConfigFile {
+                            CreatingDefaultConfigFileError::UnableToCreate {
                                 file: file_name.to_string(),
                                 error: err,
                             }
@@ -101,7 +101,7 @@ impl Config {
                         &TmpConfig::template(),
                     )
                     .map_err(|err| {
-                        CreatingDefaultConfigFileError::UnableToWriteDefaultConfigFile {
+                        CreatingDefaultConfigFileError::UnableToWrite {
                             file: file_name.to_string(),
                             error: err,
                         }

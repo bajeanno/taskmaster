@@ -30,7 +30,7 @@ pub enum CreatingDefaultConfigFileError {
         "Error writing default taskmaster config file: {file}: {error}\n\
         Consider making a reload request after fixing the issue"
     )]
-    UnableToWriteDefaultConfigFile {
+    UnableToWrite {
         file: String,
         #[source]
         error: serde_yaml::Error,
@@ -39,7 +39,7 @@ pub enum CreatingDefaultConfigFileError {
         "Error creating default taskmaster config file: {file}: {error}\n\
         Consider making a reload request after fixing the issue"
     )]
-    UnableToCreateDefaultConfigFile {
+    UnableToCreate {
         file: String,
         #[source]
         error: std::io::Error,
