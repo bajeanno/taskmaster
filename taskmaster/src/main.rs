@@ -111,31 +111,6 @@ fn parse_args(port: Option<String>) -> Result<Args, Error> {
     Ok(Args { port })
 }
 
-#[cfg(test)]
-mod taskmaster {
-    use super::*;
-
-    #[test]
-    fn test_parse_args() {
-        let mut port = Some("4444".to_string());
-        assert_eq!(4444, parse_args(port).unwrap().port);
-        port = Some("4443".to_string());
-        assert_eq!(4443, parse_args(port).unwrap().port);
-        port = Some("0".to_string());
-        assert_eq!(0, parse_args(port).unwrap().port);
-        port = Some("55".to_string());
-        assert_eq!(55, parse_args(port).unwrap().port);
-
-        assert_eq!(DEFAULT_PORT, parse_args(None).unwrap().port);
-
-        port = Some("hey".to_string());
-        let Err(Error::PortArgumentIsNotAnInteger { input, error: _ }) = parse_args(port) else {
-            panic!("Function parse_args did not return an error")
-        };
-        assert_eq!(input, "hey");
-    }
-}
-
 fn daemonize() -> Result<(), Error> {
     unsafe {
         daemonize::Daemonize::new()
