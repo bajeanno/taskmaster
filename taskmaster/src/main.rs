@@ -5,13 +5,27 @@ mod output_file;
 mod process_handler;
 mod tasks_manager;
 
+#[cfg(test)]
+mod tests;
+
+use std::{
+    fs::{File, OpenOptions},
+    io::{Read, Write},
+    os::fd::AsRawFd,
+};
+
 use crate::{config_state::ConfigState, tasks_manager::ServerCommandError};
 use config::ProgramConfig;
-use error::Error;
+use error::{
+    Error,
+    PidError::{self, OtherInstanceRunning},
+};
+use libc::sys::file::{LOCK_EX, LOCK_UN, flock};
 use tasks_manager::TaskManagerCommand;
 use tokio::sync::{mpsc, oneshot};
 
 const DEFAULT_PORT: i32 = 4444;
+const PID_FILE: &str = "/var/run/taskmaster.d/taskmaster.pid";
 
 pub type CommandReceiver = mpsc::UnboundedReceiver<(
     TaskManagerCommand,
@@ -28,7 +42,11 @@ struct Args {
 }
 
 fn main() {
+    check_already_running(PID_FILE).unwrap();
+
     let _ = entrypoint().inspect_err(|err| eprintln!("{err}"));
+
+    erase_file(PID_FILE);
 }
 
 fn entrypoint() -> Result<(), Error> {
@@ -41,6 +59,45 @@ fn entrypoint() -> Result<(), Error> {
     // TODO: replace None with an Optional arguments that specifies the config
     // file name
     start_server(port)
+}
+
+fn check_already_running(pid_file: &str) -> Result<(), Error> {
+    let mut file = acquire_file_lock(pid_file)?;
+    if claim_pid(&mut file)?.is_some() {
+        release_file_lock(file);
+        Err(OtherInstanceRunning)?
+    } else {
+        file.write_all(std::process::id().to_string().as_bytes())
+            .map_err(PidError::File)?;
+        release_file_lock(file);
+        Ok(())
+    }
+}
+
+fn acquire_file_lock(pid_file: &str) -> Result<File, Error> {
+    let file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .read(true)
+        .truncate(false)
+        .open(pid_file)
+        .map_err(PidError::File)?;
+    unsafe { flock(file.as_raw_fd(), LOCK_EX) };
+    Ok(file)
+}
+
+fn release_file_lock(file: File) {
+    unsafe { flock(file.as_raw_fd(), LOCK_UN) };
+}
+
+fn claim_pid(file: &mut File) -> Result<Option<u32>, Error> {
+    let mut buf = String::new();
+    file.read_to_string(&mut buf).map_err(PidError::File)?;
+    Ok(buf.parse::<u32>().ok())
+}
+
+fn erase_file(pid_file: &str) {
+    let _ = OpenOptions::new().write(true).truncate(true).open(pid_file);
 }
 
 fn parse_args(port: Option<String>) -> Result<Args, Error> {
