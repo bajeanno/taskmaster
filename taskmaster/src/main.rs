@@ -12,6 +12,7 @@ use std::{
     fs::{File, OpenOptions},
     io::{Read, Write},
     os::fd::AsRawFd,
+    path::PathBuf,
 };
 
 use crate::{config_state::ConfigState, tasks_manager::ServerCommandError};
@@ -75,6 +76,7 @@ fn check_already_running(pid_file: &str) -> Result<(), Error> {
 }
 
 fn acquire_file_lock(pid_file: &str) -> Result<File, Error> {
+    std::fs::create_dir_all(PathBuf::from(pid_file).parent().unwrap()).unwrap();
     let file = OpenOptions::new()
         .create(true)
         .write(true)
