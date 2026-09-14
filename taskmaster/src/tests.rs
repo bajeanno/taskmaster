@@ -145,6 +145,13 @@ fn test_erase_pid_file_in_truncates_file() {
 }
 
 #[test]
+fn test_pid_file_permissions() {
+    assert!(check_already_running(PID_FILE).is_ok());
+    assert!(check_already_running(PID_FILE).is_err());
+    erase_file(PID_FILE);
+}
+
+#[test]
 fn test_parse_args() {
     let mut port = Some("4444".to_string());
     assert_eq!(4444, parse_args(port).unwrap().port);
