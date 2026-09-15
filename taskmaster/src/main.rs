@@ -42,11 +42,11 @@ struct Args {
 }
 
 #[derive(Debug)]
-struct PidFile();
+struct Claim();
 
-impl Drop for PidFile {
+impl Drop for Claim {
     fn drop(&mut self) {
-        erase_file(PID_FILE);
+        unclaim_taskmaster_instance();
     }
 }
 
@@ -55,7 +55,7 @@ fn main() {
 }
 
 fn entrypoint() -> Result<(), Error> {
-    let _pid_file = check_already_running(PID_FILE)?;
+    let _pid_file = claim_taskmaster_instance()?;
     let Args { port } = parse_args(std::env::args().nth(1))?;
 
     if !cfg!(debug_assertions) {
@@ -67,14 +67,14 @@ fn entrypoint() -> Result<(), Error> {
     start_server(port)
 }
 
-fn check_already_running(pid_file: &str) -> Result<PidFile, Error> {
-    let mut file = acquire_file_lock(pid_file)?;
+fn claim_taskmaster_instance() -> Result<Claim, Error> {
+    let mut file = acquire_file_lock(PID_FILE)?;
     let res = if read_pid(&mut file)?.is_some() {
         Err(OtherInstanceRunning)?
     } else {
         file.write_all(std::process::id().to_string().as_bytes())
             .map_err(PidError::WriteFile)?;
-        Ok(PidFile())
+        Ok(Claim())
     };
     release_file_lock(file);
     res
@@ -105,8 +105,12 @@ fn read_pid(file: &mut File) -> Result<Option<u32>, Error> {
     })
 }
 
-fn erase_file(pid_file: &str) {
-    let _ = OpenOptions::new().write(true).truncate(true).open(pid_file);
+fn unclaim_taskmaster_instance() {
+    let _ = OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(PID_FILE)
+        .inspect_err(|err| eprintln!("{err}"));
 }
 
 fn parse_args(port: Option<String>) -> Result<Args, Error> {
