@@ -64,15 +64,15 @@ fn entrypoint() -> Result<(), Error> {
 
 fn check_already_running(pid_file: &str) -> Result<(), Error> {
     let mut file = acquire_file_lock(pid_file)?;
-    if claim_pid(&mut file)?.is_some() {
-        release_file_lock(file);
+    let res = if read_pid(&mut file)?.is_some() {
         Err(OtherInstanceRunning)?
     } else {
         file.write_all(std::process::id().to_string().as_bytes())
             .map_err(PidError::File)?;
-        release_file_lock(file);
         Ok(())
-    }
+    };
+    release_file_lock(file);
+    res
 }
 
 fn acquire_file_lock(pid_file: &str) -> Result<File, Error> {
@@ -92,7 +92,7 @@ fn release_file_lock(file: File) {
     unsafe { flock(file.as_raw_fd(), LOCK_UN) };
 }
 
-fn claim_pid(file: &mut File) -> Result<Option<u32>, Error> {
+fn read_pid(file: &mut File) -> Result<Option<u32>, Error> {
     let mut buf = String::new();
     file.read_to_string(&mut buf).map_err(PidError::File)?;
     Ok(buf.parse::<u32>().ok())
