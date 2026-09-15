@@ -12,7 +12,6 @@ use std::{
     fs::{File, OpenOptions},
     io::{Read, Write},
     os::fd::AsRawFd,
-    path::PathBuf,
 };
 
 use crate::{config_state::ConfigState, tasks_manager::ServerCommandError};
@@ -68,7 +67,7 @@ fn check_already_running(pid_file: &str) -> Result<(), Error> {
         Err(OtherInstanceRunning)?
     } else {
         file.write_all(std::process::id().to_string().as_bytes())
-            .map_err(PidError::File)?;
+            .map_err(PidError::WriteFile)?;
         Ok(())
     };
     release_file_lock(file);
@@ -76,14 +75,13 @@ fn check_already_running(pid_file: &str) -> Result<(), Error> {
 }
 
 fn acquire_file_lock(pid_file: &str) -> Result<File, Error> {
-    std::fs::create_dir_all(PathBuf::from(pid_file).parent().unwrap()).unwrap();
     let file = OpenOptions::new()
         .create(true)
         .write(true)
         .read(true)
         .truncate(false)
         .open(pid_file)
-        .map_err(PidError::File)?;
+        .map_err(PidError::OpenFile)?;
     unsafe { flock(file.as_raw_fd(), LOCK_EX) };
     Ok(file)
 }
@@ -94,8 +92,11 @@ fn release_file_lock(file: File) {
 
 fn read_pid(file: &mut File) -> Result<Option<u32>, Error> {
     let mut buf = String::new();
-    file.read_to_string(&mut buf).map_err(PidError::File)?;
-    Ok(buf.parse::<u32>().ok())
+    file.read_to_string(&mut buf).map_err(PidError::ReadFile)?;
+    Ok(match buf.len() == 0 {
+        true => None,
+        false => Some(buf.parse::<u32>().map_err(PidError::Parse)?),
+    })
 }
 
 fn erase_file(pid_file: &str) {

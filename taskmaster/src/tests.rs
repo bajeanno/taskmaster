@@ -54,7 +54,7 @@ fn test_claim_pid_returns_none_for_invalid_content() {
     let path = tmp.path("pid");
     fs::write(&path, "taskmaster").unwrap();
     let mut file = File::open(&path).unwrap();
-    assert_eq!(read_pid(&mut file).unwrap(), None);
+    assert!(matches!(read_pid(&mut file), Err(_)));
 }
 
 #[test]
@@ -63,7 +63,7 @@ fn test_claim_pid_returns_error_when_read_fails() {
     let mut file = File::open(&tmp.0).unwrap();
     assert!(matches!(
         read_pid(&mut file),
-        Err(Error::Pid(PidError::File(_)))
+        Err(Error::Pid(PidError::ReadFile(_)))
     ));
 }
 
