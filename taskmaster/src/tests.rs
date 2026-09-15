@@ -71,7 +71,7 @@ fn test_claim_pid_returns_error_when_read_fails() {
 fn test_check_already_running_in_writes_pid_when_free() {
     let tmp = TempDir::new("write_pid");
     let path = tmp.path("pid");
-    check_already_running(&path).unwrap();
+    claim_taskmaster_instance().unwrap();
     assert_eq!(
         fs::read_to_string(&path).unwrap(),
         std::process::id().to_string()
@@ -83,18 +83,14 @@ fn test_check_already_running_in_fails_when_pid_present() {
     let tmp = TempDir::new("already_running");
     let path = tmp.path("pid");
     fs::write(&path, "999999").unwrap();
-    let err = check_already_running(&path).unwrap_err();
+    let err = claim_taskmaster_instance().unwrap_err();
     assert!(matches!(err, Error::Pid(PidError::OtherInstanceRunning)));
 }
 
 #[test]
 fn test_check_already_running_in_allows_only_one_instance() {
-    let tmp = TempDir::new("single_instance");
-    let path = tmp.path("pid");
-    let path_a = path.clone();
-    let path_b = path.clone();
-    let first = std::thread::spawn(move || check_already_running(&path_a));
-    let second = std::thread::spawn(move || check_already_running(&path_b));
+    let first = std::thread::spawn(move || claim_taskmaster_instance());
+    let second = std::thread::spawn(move || claim_taskmaster_instance());
     let results = [first.join().unwrap(), second.join().unwrap()];
     let claimed = results.iter().filter(|result| result.is_ok()).count();
     let refused = results
@@ -140,19 +136,19 @@ fn test_erase_pid_file_in_truncates_file() {
     let tmp = TempDir::new("erase");
     let path = tmp.path("pid");
     fs::write(&path, "12345").unwrap();
-    erase_file(&path);
+    unclaim_taskmaster_instance();
     assert_eq!(fs::read_to_string(&path).unwrap(), "");
 }
 
 #[test]
 fn test_pid_file_permissions() {
-    let file = check_already_running(PID_FILE);
+    let file = claim_taskmaster_instance();
     assert!(file.is_ok());
     // ensure the file result isn't dropped
     // before the second check or the file
     // would ne erased and second check
     // wouldn't find any pid in it
-    assert!(check_already_running(PID_FILE).is_err());
+    assert!(claim_taskmaster_instance().is_err());
 }
 
 #[test]
