@@ -69,15 +69,14 @@ fn entrypoint() -> Result<(), Error> {
 
 fn claim_taskmaster_instance() -> Result<Claim, Error> {
     let mut file = acquire_file_lock(PID_FILE)?;
-    let res = if read_pid(&mut file)?.is_some() {
+    if read_pid(&mut file)?.is_some() {
         Err(OtherInstanceRunning)?
     } else {
         file.write_all(std::process::id().to_string().as_bytes())
             .map_err(PidError::WriteFile)?;
-        Ok(Claim())
     };
     release_file_lock(file);
-    res
+    Ok(Claim())
 }
 
 fn acquire_file_lock(pid_file: &str) -> Result<File, Error> {
