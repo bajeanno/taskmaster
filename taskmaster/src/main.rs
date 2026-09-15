@@ -99,7 +99,7 @@ fn release_file_lock(file: File) {
 fn read_pid(file: &mut File) -> Result<Option<u32>, Error> {
     let mut buf = String::new();
     file.read_to_string(&mut buf).map_err(PidError::ReadFile)?;
-    Ok(match buf.len() == 0 {
+    Ok(match buf.is_empty() {
         true => None,
         false => Some(buf.parse::<u32>().map_err(PidError::Parse)?),
     })
