@@ -10,9 +10,7 @@ mod tasks_manager;
 mod tests;
 
 use std::{
-    fs::{File, OpenOptions},
-    io::{Read, Write},
-    os::fd::AsRawFd,
+    fs::{File, OpenOptions}, io::{Read, Write}, os::fd::AsRawFd,
 };
 
 use crate::{config_state::ConfigState, tasks_manager::ServerCommandError};
@@ -42,15 +40,21 @@ struct Args {
     port: i32,
 }
 
+#[derive(Debug)]
+struct PidFile();
+
+impl Drop for PidFile {
+    fn drop(&mut self) {
+        erase_file(PID_FILE);
+    }
+}
+
 fn main() {
-    check_already_running(PID_FILE).unwrap();
-
     let _ = entrypoint().inspect_err(|err| eprintln!("{err}"));
-
-    erase_file(PID_FILE);
 }
 
 fn entrypoint() -> Result<(), Error> {
+    let _pid_file = check_already_running(PID_FILE)?;
     let Args { port } = parse_args(std::env::args().nth(1))?;
 
     if !cfg!(debug_assertions) {
@@ -62,14 +66,14 @@ fn entrypoint() -> Result<(), Error> {
     start_server(port)
 }
 
-fn check_already_running(pid_file: &str) -> Result<(), Error> {
+fn check_already_running(pid_file: &str) -> Result<PidFile, Error> {
     let mut file = acquire_file_lock(pid_file)?;
     let res = if read_pid(&mut file)?.is_some() {
         Err(OtherInstanceRunning)?
     } else {
         file.write_all(std::process::id().to_string().as_bytes())
             .map_err(PidError::WriteFile)?;
-        Ok(())
+        Ok(PidFile())
     };
     release_file_lock(file);
     res
