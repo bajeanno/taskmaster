@@ -146,9 +146,13 @@ fn test_erase_pid_file_in_truncates_file() {
 
 #[test]
 fn test_pid_file_permissions() {
-    assert!(check_already_running(PID_FILE).is_ok());
+    let file = check_already_running(PID_FILE);
+    assert!(file.is_ok());
+    // ensure the file result isn't dropped
+    // before the second check or the file
+    // would ne erased and second check
+    // wouldn't find any pid in it
     assert!(check_already_running(PID_FILE).is_err());
-    erase_file(PID_FILE);
 }
 
 #[test]
