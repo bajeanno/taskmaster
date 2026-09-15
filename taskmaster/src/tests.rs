@@ -36,7 +36,7 @@ fn test_claim_pid_returns_some_for_valid_pid() {
     let path = tmp.path("pid");
     fs::write(&path, "12345").unwrap();
     let mut file = File::open(&path).unwrap();
-    assert_eq!(claim_pid(&mut file).unwrap(), Some(12345));
+    assert_eq!(read_pid(&mut file).unwrap(), Some(12345));
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn test_claim_pid_returns_none_for_empty_file() {
     let path = tmp.path("pid");
     fs::write(&path, "").unwrap();
     let mut file = File::open(&path).unwrap();
-    assert_eq!(claim_pid(&mut file).unwrap(), None);
+    assert_eq!(read_pid(&mut file).unwrap(), None);
 }
 
 #[test]
@@ -54,7 +54,7 @@ fn test_claim_pid_returns_none_for_invalid_content() {
     let path = tmp.path("pid");
     fs::write(&path, "taskmaster").unwrap();
     let mut file = File::open(&path).unwrap();
-    assert_eq!(claim_pid(&mut file).unwrap(), None);
+    assert_eq!(read_pid(&mut file).unwrap(), None);
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn test_claim_pid_returns_error_when_read_fails() {
     let tmp = TempDir::new("unreadable_pid");
     let mut file = File::open(&tmp.0).unwrap();
     assert!(matches!(
-        claim_pid(&mut file),
+        read_pid(&mut file),
         Err(Error::Pid(PidError::File(_)))
     ));
 }
