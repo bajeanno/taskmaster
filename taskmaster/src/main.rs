@@ -5,13 +5,27 @@ mod output_file;
 mod process_handler;
 mod tasks_manager;
 
+#[cfg(test)]
+mod tests;
+
+use std::{
+    fs::{File, OpenOptions},
+    io::{Read, Write},
+    os::fd::AsRawFd,
+};
+
 use crate::{config_state::ConfigState, tasks_manager::ServerCommandError};
 use config::ProgramConfig;
-use error::Error;
+use error::{
+    Error,
+    PidError::{self, OtherInstanceRunning},
+};
+use libc::sys::file::{LOCK_EX, LOCK_UN, flock};
 use tasks_manager::TaskManagerCommand;
 use tokio::sync::{mpsc, oneshot};
 
 const DEFAULT_PORT: i32 = 4444;
+const PID_FILE: &str = "/var/run/taskmaster.d/taskmaster.pid";
 
 pub type CommandReceiver = mpsc::UnboundedReceiver<(
     TaskManagerCommand,
@@ -27,11 +41,21 @@ struct Args {
     port: i32,
 }
 
+#[derive(Debug)]
+struct Claim();
+
+impl Drop for Claim {
+    fn drop(&mut self) {
+        unclaim_taskmaster_instance();
+    }
+}
+
 fn main() {
     let _ = entrypoint().inspect_err(|err| eprintln!("{err}"));
 }
 
 fn entrypoint() -> Result<(), Error> {
+    let _pid_file = claim_taskmaster_instance()?;
     let Args { port } = parse_args(std::env::args().nth(1))?;
 
     if !cfg!(debug_assertions) {
@@ -43,6 +67,51 @@ fn entrypoint() -> Result<(), Error> {
     start_server(port)
 }
 
+fn claim_taskmaster_instance() -> Result<Claim, Error> {
+    let mut file = acquire_file_lock(PID_FILE)?;
+    if read_pid(&mut file)?.is_some() {
+        Err(OtherInstanceRunning)?
+    } else {
+        file.write_all(std::process::id().to_string().as_bytes())
+            .map_err(PidError::WriteFile)?;
+    };
+    release_file_lock(file);
+    Ok(Claim())
+}
+
+fn acquire_file_lock(pid_file: &str) -> Result<File, Error> {
+    let file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .read(true)
+        .truncate(false)
+        .open(pid_file)
+        .map_err(PidError::OpenFile)?;
+    unsafe { flock(file.as_raw_fd(), LOCK_EX) };
+    Ok(file)
+}
+
+fn release_file_lock(file: File) {
+    unsafe { flock(file.as_raw_fd(), LOCK_UN) };
+}
+
+fn read_pid(file: &mut File) -> Result<Option<u32>, Error> {
+    let mut buf = String::new();
+    file.read_to_string(&mut buf).map_err(PidError::ReadFile)?;
+    Ok(match buf.is_empty() {
+        true => None,
+        false => Some(buf.parse::<u32>().map_err(PidError::Parse)?),
+    })
+}
+
+fn unclaim_taskmaster_instance() {
+    let _ = OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(PID_FILE)
+        .inspect_err(|err| eprintln!("{err}"));
+}
+
 fn parse_args(port: Option<String>) -> Result<Args, Error> {
     let port = port
         .map(|port| {
@@ -52,31 +121,6 @@ fn parse_args(port: Option<String>) -> Result<Args, Error> {
         .unwrap_or(Ok(DEFAULT_PORT))?;
 
     Ok(Args { port })
-}
-
-#[cfg(test)]
-mod taskmaster {
-    use super::*;
-
-    #[test]
-    fn test_parse_args() {
-        let mut port = Some("4444".to_string());
-        assert_eq!(4444, parse_args(port).unwrap().port);
-        port = Some("4443".to_string());
-        assert_eq!(4443, parse_args(port).unwrap().port);
-        port = Some("0".to_string());
-        assert_eq!(0, parse_args(port).unwrap().port);
-        port = Some("55".to_string());
-        assert_eq!(55, parse_args(port).unwrap().port);
-
-        assert_eq!(DEFAULT_PORT, parse_args(None).unwrap().port);
-
-        port = Some("hey".to_string());
-        let Err(Error::PortArgumentIsNotAnInteger { input, error: _ }) = parse_args(port) else {
-            panic!("Function parse_args did not return an error")
-        };
-        assert_eq!(input, "hey");
-    }
 }
 
 fn daemonize() -> Result<(), Error> {
