@@ -1,66 +1,51 @@
-use std::fs;
-use std::path::PathBuf;
-use std::sync::mpsc;
+use std::io::Write;
+use std::sync::{Mutex, mpsc};
 use std::time::Duration;
 
 use super::*;
 
-struct TempDir(PathBuf);
+static PID_TEST_LOCK: Mutex<()> = Mutex::new(());
 
-impl TempDir {
-    fn new(name: &str) -> Self {
-        let path = std::env::temp_dir().join(format!(
-            "taskmaster_pid_file_test_{}_{}",
-            std::process::id(),
-            name
-        ));
-        let _ = fs::remove_dir_all(&path);
-        fs::create_dir_all(&path).unwrap();
-        Self(path)
-    }
-
-    fn path(&self, name: &str) -> String {
-        self.0.join(name).to_str().unwrap().to_string()
-    }
-}
-
-impl Drop for TempDir {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
-    }
+fn write_pid_file(content: &str) {
+    let mut file = acquire_file_lock(PID_FILE).unwrap();
+    file.set_len(0).unwrap();
+    file.write_all(content.as_bytes()).unwrap();
+    release_file_lock(file);
 }
 
 #[test]
-fn test_claim_pid_returns_some_for_valid_pid() {
-    let tmp = TempDir::new("valid_pid");
-    let path = tmp.path("pid");
-    fs::write(&path, "12345").unwrap();
-    let mut file = File::open(&path).unwrap();
+fn test_read_pid_returns_some_for_valid_pid() {
+    let _guard = PID_TEST_LOCK.lock().unwrap();
+    write_pid_file("12345");
+    let mut file = acquire_file_lock(PID_FILE).unwrap();
     assert_eq!(read_pid(&mut file).unwrap(), Some(12345));
+    release_file_lock(file);
 }
 
 #[test]
-fn test_claim_pid_returns_none_for_empty_file() {
-    let tmp = TempDir::new("empty_pid");
-    let path = tmp.path("pid");
-    fs::write(&path, "").unwrap();
-    let mut file = File::open(&path).unwrap();
+fn test_read_pid_returns_none_for_empty_file() {
+    let _guard = PID_TEST_LOCK.lock().unwrap();
+    write_pid_file("");
+    let mut file = acquire_file_lock(PID_FILE).unwrap();
     assert_eq!(read_pid(&mut file).unwrap(), None);
+    release_file_lock(file);
 }
 
 #[test]
-fn test_claim_pid_returns_none_for_invalid_content() {
-    let tmp = TempDir::new("invalid_pid");
-    let path = tmp.path("pid");
-    fs::write(&path, "taskmaster").unwrap();
-    let mut file = File::open(&path).unwrap();
-    assert!(matches!(read_pid(&mut file), Err(_)));
+fn test_read_pid_returns_error_for_invalid_content() {
+    let _guard = PID_TEST_LOCK.lock().unwrap();
+    write_pid_file("taskmaster");
+    let mut file = acquire_file_lock(PID_FILE).unwrap();
+    assert!(matches!(
+        read_pid(&mut file),
+        Err(Error::Pid(PidError::Parse(_)))
+    ));
+    release_file_lock(file);
 }
 
 #[test]
-fn test_claim_pid_returns_error_when_read_fails() {
-    let tmp = TempDir::new("unreadable_pid");
-    let mut file = File::open(&tmp.0).unwrap();
+fn test_read_pid_returns_error_when_read_fails() {
+    let mut file = File::open(std::env::temp_dir()).unwrap();
     assert!(matches!(
         read_pid(&mut file),
         Err(Error::Pid(PidError::ReadFile(_)))
@@ -68,53 +53,65 @@ fn test_claim_pid_returns_error_when_read_fails() {
 }
 
 #[test]
-fn test_check_already_running_in_writes_pid_when_free() {
-    let tmp = TempDir::new("write_pid");
-    let path = tmp.path("pid");
-    claim_taskmaster_instance().unwrap();
-    assert_eq!(
-        fs::read_to_string(&path).unwrap(),
-        std::process::id().to_string()
-    );
+fn test_claim_taskmaster_instance_writes_pid_when_free() {
+    let _guard = PID_TEST_LOCK.lock().unwrap();
+    write_pid_file("");
+    let _claim = claim_taskmaster_instance().unwrap();
+    let mut file = acquire_file_lock(PID_FILE).unwrap();
+    assert_eq!(read_pid(&mut file).unwrap(), Some(std::process::id()));
+    release_file_lock(file);
 }
 
 #[test]
-fn test_check_already_running_in_fails_when_pid_present() {
-    let tmp = TempDir::new("already_running");
-    let path = tmp.path("pid");
-    fs::write(&path, "999999").unwrap();
+fn test_claim_taskmaster_instance_fails_when_pid_present() {
+    let _guard = PID_TEST_LOCK.lock().unwrap();
+    write_pid_file("999999");
     let err = claim_taskmaster_instance().unwrap_err();
     assert!(matches!(err, Error::Pid(PidError::OtherInstanceRunning)));
 }
 
 #[test]
-fn test_check_already_running_in_allows_only_one_instance() {
-    let first = std::thread::spawn(move || claim_taskmaster_instance());
-    let second = std::thread::spawn(move || claim_taskmaster_instance());
+fn test_claim_taskmaster_instance_allows_only_one_instance() {
+    let _guard = PID_TEST_LOCK.lock().unwrap();
+    write_pid_file("");
+    let first = std::thread::spawn(claim_taskmaster_instance);
+    let second = std::thread::spawn(claim_taskmaster_instance);
     let results = [first.join().unwrap(), second.join().unwrap()];
-    let claimed = results.iter().filter(|result| result.is_ok()).count();
-    let refused = results
-        .iter()
-        .filter(|result| matches!(result, Err(Error::Pid(PidError::OtherInstanceRunning))))
-        .count();
-    assert_eq!(claimed, 1, "exactly one instance must claim the pid file");
+
+    let mut claimed = vec![];
+    let mut refused = 0;
+    for result in results {
+        match result {
+            Ok(claim) => claimed.push(claim),
+            Err(Error::Pid(PidError::OtherInstanceRunning)) => refused += 1,
+            Err(other) => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    assert_eq!(
+        claimed.len(),
+        1,
+        "exactly one instance must claim the pid file"
+    );
     assert_eq!(refused, 1, "the second instance must be refused");
+
+    drop(claimed);
+    assert!(
+        claim_taskmaster_instance().is_ok(),
+        "releasing the claim must erase the pid file"
+    );
 }
 
 #[test]
 fn test_flock_blocks_second_lock_until_release() {
-    let tmp = TempDir::new("lock_blocking");
-    let path = tmp.path("pid");
-    fs::write(&path, "").unwrap();
-
-    let first = File::open(&path).unwrap();
-    unsafe { flock(first.as_raw_fd(), LOCK_EX) };
+    let _guard = PID_TEST_LOCK.lock().unwrap();
+    write_pid_file("");
+    let first = acquire_file_lock(PID_FILE).unwrap();
 
     let (sender, receiver) = mpsc::channel();
-    let second_path = path.clone();
     let second = std::thread::spawn(move || {
-        let file = File::open(second_path).unwrap();
-        unsafe { flock(file.as_raw_fd(), LOCK_EX) };
+        let file = acquire_file_lock(PID_FILE).unwrap();
+        release_file_lock(file);
         sender.send(()).unwrap();
     });
 
@@ -123,7 +120,7 @@ fn test_flock_blocks_second_lock_until_release() {
         "flock must block a second lock while the first is still held"
     );
 
-    unsafe { flock(first.as_raw_fd(), LOCK_UN) };
+    release_file_lock(first);
 
     receiver
         .recv_timeout(Duration::from_secs(2))
@@ -132,23 +129,29 @@ fn test_flock_blocks_second_lock_until_release() {
 }
 
 #[test]
-fn test_erase_pid_file_in_truncates_file() {
-    let tmp = TempDir::new("erase");
-    let path = tmp.path("pid");
-    fs::write(&path, "12345").unwrap();
+fn test_unclaim_taskmaster_instance_truncates_file() {
+    let _guard = PID_TEST_LOCK.lock().unwrap();
+    write_pid_file("12345");
     unclaim_taskmaster_instance();
-    assert_eq!(fs::read_to_string(&path).unwrap(), "");
+    let mut file = acquire_file_lock(PID_FILE).unwrap();
+    assert_eq!(read_pid(&mut file).unwrap(), None);
+    release_file_lock(file);
 }
 
 #[test]
-fn test_pid_file_permissions() {
-    let file = claim_taskmaster_instance();
-    assert!(file.is_ok());
-    // ensure the file result isn't dropped
-    // before the second check or the file
-    // would ne erased and second check
-    // wouldn't find any pid in it
-    assert!(claim_taskmaster_instance().is_err());
+fn test_claim_taskmaster_instance_erases_file_on_drop() {
+    let _guard = PID_TEST_LOCK.lock().unwrap();
+    write_pid_file("");
+    let claim = claim_taskmaster_instance().unwrap();
+    let mut file = acquire_file_lock(PID_FILE).unwrap();
+    assert!(read_pid(&mut file).unwrap().is_some());
+    release_file_lock(file);
+
+    drop(claim);
+
+    let mut file = acquire_file_lock(PID_FILE).unwrap();
+    assert_eq!(read_pid(&mut file).unwrap(), None);
+    release_file_lock(file);
 }
 
 #[test]
