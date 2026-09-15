@@ -9,7 +9,9 @@ mod tasks_manager;
 mod tests;
 
 use std::{
-    fs::{File, OpenOptions}, io::{Read, Write}, os::fd::AsRawFd,
+    fs::{File, OpenOptions},
+    io::{Read, Write},
+    os::fd::AsRawFd,
 };
 
 use crate::{config_state::ConfigState, tasks_manager::ServerCommandError};
