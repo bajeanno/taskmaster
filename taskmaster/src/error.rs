@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, num::ParseIntError};
 
 use thiserror::Error;
 
@@ -20,8 +20,14 @@ pub enum Error {
 
 #[derive(Debug, Error)]
 pub enum PidError {
-    #[error("{0}")]
-    File(#[from] std::io::Error),
+    #[error("Failed to open pid file: {0}")]
+    OpenFile(std::io::Error),
+    #[error("Failed to read pid file: {0}")]
+    ReadFile(std::io::Error),
+    #[error("Failed to write to pid file: {0}")]
+    WriteFile(std::io::Error),
+    #[error("Failed to parse pid file content: {0}")]
+    Parse(ParseIntError),
     #[error("Another instance of Taskmaster is already running")]
     OtherInstanceRunning,
 }
