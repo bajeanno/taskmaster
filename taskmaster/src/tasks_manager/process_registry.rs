@@ -4,9 +4,9 @@ use tokio::sync::{Mutex, mpsc::UnboundedSender};
 
 use crate::{
     config::ProgramConfig,
+    process::Process,
     process_handler::{LogSender, NominativeStatus, Status},
     tasks_manager::{ServerCommandError, split_process_name},
-    process::{Process},
 };
 
 // TODO: remove that
