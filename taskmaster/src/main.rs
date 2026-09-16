@@ -2,6 +2,7 @@ mod config;
 mod config_state;
 mod error;
 mod output_file;
+mod process;
 mod process_handler;
 mod tasks_manager;
 

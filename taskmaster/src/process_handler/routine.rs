@@ -4,6 +4,7 @@ use super::ReloadEventReceiver;
 use super::{Handle, NominativeStatus, Status, StatusSender, command};
 use crate::config::{AutoRestart, ProgramConfig};
 use crate::output_file::OutputFile;
+use crate::process::ProcessId;
 use crate::process_handler::{Log, LogType, Outputs};
 use libc::signal::kill;
 use libc::unistd::umask;
@@ -29,9 +30,9 @@ pub struct Routine {
     config: Arc<ProgramConfig>,
     start_attempts: u32,
     command: Command,
-    process_name: String,
+    process_id: ProcessId,
     kill_command_received: bool,
-    instance_id: u64,
+    instance_id: usize,
 }
 
 #[derive(Error, Debug, Clone)]
@@ -48,8 +49,8 @@ impl Routine {
         config: Arc<ProgramConfig>,
         status_sender: UnboundedSender<NominativeStatus>,
         log_sender: LogSender,
-        process_name: String,
-        instance_id: u64,
+        process_id: ProcessId,
+        instance_id: usize,
     ) -> Handle {
         let (kill_command_sender, kill_command_receiver) = mpsc::channel(1);
         let (reload_event_sender, reload_event_receiver) = mpsc::channel(1);
@@ -59,12 +60,12 @@ impl Routine {
             Self {
                 config,
                 log_sender,
-                status_sender: StatusSender::new(status_sender, process_name.clone()),
+                status_sender: StatusSender::new(status_sender, process_id.clone()),
                 kill_command_receiver,
                 reload_event_receiver,
                 start_attempts: 0,
                 command,
-                process_name,
+                process_id,
                 kill_command_received: false,
                 instance_id,
             }
@@ -109,7 +110,7 @@ impl Routine {
             Arc::clone(self.config.stdout()),
             Arc::clone(self.config.stderr()),
             self.log_sender.clone(),
-            self.process_name.clone(),
+            self.process_id.clone(),
         ));
 
         loop {
@@ -270,7 +271,7 @@ impl Routine {
         stdout_file: Arc<OutputFile>,
         stderr_file: Arc<OutputFile>,
         log_sender: LogSender,
-        process_name: String,
+        process_id: ProcessId,
     ) {
         let stdout = outputs.stdout;
         let stderr = outputs.stderr;
@@ -281,14 +282,14 @@ impl Routine {
                 log_sender.clone(),
                 stdout_file,
                 LogType::Stdout,
-                &process_name
+                &process_id
             ),
             listen_and_log(
                 stderr,
                 log_sender,
                 stderr_file,
                 LogType::Stderr,
-                &process_name
+                &process_id
             ),
         );
     }
@@ -299,7 +300,7 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
     mut sender: LogSender,
     output_file: Arc<OutputFile>,
     log_type: LogType,
-    name: &str,
+    id: &ProcessId,
 ) {
     loop {
         let mut buffer = Vec::new();
@@ -308,46 +309,14 @@ async fn listen_and_log<R: AsyncBufRead + Unpin>(
         match bytes_read {
             Ok(0) => break,
             Ok(_) => {
-                let log = Log::new(log_type, &buffer, name);
-                dispatch_log(log, &mut sender, Arc::clone(&output_file)).await;
+                Log::new(log_type, &buffer, id)
+                    .dispatch_log(&mut sender, Arc::clone(&output_file))
+                    .await;
             }
             Err(err) => {
-                eprintln!(
-                    "Taskmaster error: {name}: Error encountered while reading stderr: {err}"
-                );
+                eprintln!("Taskmaster error: {id}: Error encountered while reading stderr: {err}");
                 break;
             }
         }
     }
-}
-
-/// Sends a log message over the channel and writes it to the appropriate output file.
-/// This function performs two operations:
-/// - Write the log message to the corresponding output file (stdout or stderr)
-/// - Send the log message through the log channel to any receivers
-///
-/// # Arguments
-///
-/// * `log` - A `Log` struct containing the log type, the task's name and the log itself
-/// * `log_sender` - A `mpsc::Sender<Log>` to send log to the manager coroutine
-/// * `output` - A `OutputFile` enum that contains the file to write in
-///
-/// # Panics
-///
-/// Will panic if the `OutputFile` and the `LogType` enums are not accorded.
-/// That should never happen because those structs are both constructed side by side.
-///
-async fn dispatch_log(log: Log, log_sender: &mut LogSender, output: Arc<OutputFile>) {
-    //TODO: move this to task_manager
-    output.write(&log).await;
-    let process_name = log.process_name.clone();
-    log_sender
-        .send(log)
-        .inspect_err(|_| {
-            eprintln!(
-                "Taskmaster error: {}: Log receiver was dropped",
-                process_name
-            )
-        })
-        .unwrap()
 }

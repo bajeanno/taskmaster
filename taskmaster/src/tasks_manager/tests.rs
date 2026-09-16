@@ -299,7 +299,7 @@ async fn task_manager_reload_keeps_unchanged_program() {
     let process_names: Vec<String> = processes
         .iter()
         .flatten()
-        .map(|process| process.process_name.clone())
+        .map(|nstatus| nstatus.process_id.to_string())
         .collect();
 
     assert!(

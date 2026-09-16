@@ -4,8 +4,9 @@ use tokio::sync::{Mutex, mpsc::UnboundedSender};
 
 use crate::{
     config::ProgramConfig,
+    process::{Process, ProcessId},
     process_handler::{LogSender, NominativeStatus, Status},
-    tasks_manager::{ServerCommandError, process::Process, split_process_name},
+    tasks_manager::ServerCommandError,
 };
 
 // TODO: remove that
@@ -109,7 +110,10 @@ impl ProcessRegistry {
                     .iter()
                     .enumerate()
                     .map(|(id, process)| NominativeStatus {
-                        process_name: format!("{}-{}", name, id),
+                        process_id: ProcessId {
+                            id,
+                            task_name: name.clone(),
+                        },
                         status: process.nominative_status.status.clone(),
                     })
                     .collect()
@@ -184,10 +188,9 @@ impl ProcessRegistry {
         nominative_status: NominativeStatus,
     ) {
         let mut processes = self.0.lock().await;
-        let (program_name, id) = split_process_name(nominative_status.process_name.clone())
-            .expect("Error: process name does not contain process id");
-        if let Some(processes) = processes.get_mut(&program_name)
-            && let Some(process) = processes.get_mut(id)
+        let process_id = nominative_status.process_id.clone();
+        if let Some(processes) = processes.get_mut(&process_id.task_name)
+            && let Some(process) = processes.get_mut(process_id.id)
         {
             if let Status::NotRestarting { instance_id } = nominative_status.status
                 && process.instance_id() == instance_id

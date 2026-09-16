@@ -7,7 +7,6 @@ use crate::config_state::ConfigState;
 use crate::process_handler::NominativeStatus;
 use crate::tasks_manager::ServerCommandError;
 use crate::tasks_manager::process_registry::ProcessRegistry;
-use crate::tasks_manager::split_process_name;
 use crate::{
     config::ProgramConfig,
     process_handler::{LogReceiver, LogSender, StatusReceiver},
@@ -101,14 +100,6 @@ impl Routine {
         }
     }
 
-    fn get_program_name(process_name: &str) -> Option<String> {
-        if let Some((program_name, _)) = split_process_name(process_name.to_string()) {
-            Some(program_name)
-        } else {
-            None
-        }
-    }
-
     async fn listen_for_status(
         mut status_receiver: StatusReceiver,
         processes: Arc<ProcessRegistry>,
@@ -123,11 +114,7 @@ impl Routine {
     /// logs are already written to log files, we only need to write them to the client if he asks for it
     async fn listen_for_logs(mut log_receiver: LogReceiver, clients: ClientMap) {
         while let Some(log) = log_receiver.recv().await {
-            if let Some(clients) = clients
-                .lock()
-                .await
-                .get(&Self::get_program_name(log.process_name.as_str()).unwrap_or(log.process_name))
-            {
+            if let Some(clients) = clients.lock().await.get(&log.process_id.task_name) {
                 clients.for_each(Client::send);
             }
         }

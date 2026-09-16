@@ -2,13 +2,13 @@ use std::{fmt::Debug, process::ExitStatus};
 
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::process_handler::RoutineSpawnError;
+use crate::{process::ProcessId, process_handler::RoutineSpawnError};
 
 #[allow(dead_code)] //TODO: remove that
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct NominativeStatus {
-    pub process_name: String,
+    pub process_id: ProcessId,
     pub status: Status,
 }
 
@@ -26,7 +26,7 @@ pub enum Status {
     Exited(ExitStatus),
     FailedToSpawnRoutine(RoutineSpawnError),
     NotRestarting {
-        instance_id: u64,
+        instance_id: usize,
     },
 }
 
@@ -38,22 +38,18 @@ impl Status {
 
 pub struct StatusSender {
     sender: UnboundedSender<NominativeStatus>,
-    process_name: String,
+    process_id: ProcessId,
 }
 
 impl StatusSender {
-    pub fn new(sender: UnboundedSender<NominativeStatus>, process_name: String) -> Self {
-        Self {
-            sender,
-            process_name,
-        }
+    pub fn new(sender: UnboundedSender<NominativeStatus>, process_id: ProcessId) -> Self {
+        Self { sender, process_id }
     }
 
     pub fn send_new_status_to_task_manager(&mut self, status: Status) {
-        let process_name = self.process_name.clone();
         self.sender
             .send(NominativeStatus {
-                process_name,
+                process_id: self.process_id.clone(),
                 status,
             })
             .expect("Receiver was dropped");
