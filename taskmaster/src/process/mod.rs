@@ -23,7 +23,7 @@ pub struct ProcessId {
 
 impl Display for ProcessId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(format!("{}-{}", self.task_name, self.id).as_str())
+        write!(f, "{}-{}", self.task_name, self.id)
     }
 }
 
