@@ -13,6 +13,12 @@ use crate::{
     process_handler::{self, LogSender, NominativeStatus, Status},
 };
 
+#[allow(dead_code)]
+pub struct ProcessId {
+    task_name: String,
+    id: u64,
+}
+
 pub struct Process {
     program_config: Arc<ProgramConfig>,
     handle: Option<process_handler::Handle>,
