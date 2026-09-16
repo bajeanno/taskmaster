@@ -1,4 +1,6 @@
-use crate::process_handler::{Log, LogType, NominativeStatus, Routine, Status};
+use crate::process::ProcessId;
+use crate::process_handler::log::LogType;
+use crate::process_handler::{Log, NominativeStatus, Routine, Status};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::mpsc;
@@ -26,11 +28,11 @@ fn test_log_paths(prefix: &str) -> (String, String) {
 
 async fn check_status(
     status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>,
-    process_name: String,
+    process_id: ProcessId,
 ) {
     let nominative_status = status_receiver.lock().await.recv().await.unwrap();
     assert_eq!(
-        nominative_status.process_name, process_name,
+        nominative_status.process_id, process_id,
         "process name doesn't match in nominative status, while expecting for Status::Starting"
     );
     assert!(
@@ -40,7 +42,7 @@ async fn check_status(
     );
     let nominative_status = status_receiver.lock().await.recv().await.unwrap();
     assert_eq!(
-        nominative_status.process_name, process_name,
+        nominative_status.process_id, process_id,
         "process name doesn't match in nominative status, while expecting for Status::Running"
     );
     assert!(
@@ -52,10 +54,10 @@ async fn check_status(
 
 async fn check_status_exited(
     status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>,
-    process_name: &str,
+    process_id: &ProcessId,
 ) {
     let nominative_status = status_receiver.lock().await.recv().await.unwrap();
-    assert_eq!(nominative_status.process_name, process_name);
+    assert_eq!(&nominative_status.process_id, process_id);
     assert!(
         matches!(nominative_status.status, Status::Exited(_)),
         "not expected {:?}",
@@ -69,11 +71,11 @@ async fn check_realtime_output(mut log_receiver: mpsc::UnboundedReceiver<Log>) {
             Some(log) => match log.log_type {
                 LogType::Stdout => {
                     assert_eq!(log.message, "taskmaster_test_task-0: Hello taskmaster!\n");
-                    assert_eq!(log.process_name, "taskmaster_test_task-0");
+                    assert_eq!(log.process_id.to_string(), "taskmaster_test_task-0");
                 }
                 LogType::Stderr => {
                     assert_eq!(log.message, "");
-                    assert_eq!(log.process_name, "taskmaster_test_task-0");
+                    assert_eq!(log.process_id.to_string(), "taskmaster_test_task-0");
                 }
             },
             None => break,
@@ -124,13 +126,18 @@ async fn create_task() {
 
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, log_receiver) = mpsc::unbounded_channel();
-    let name = format!("{}-0", program.name());
+    let process_id = ProcessId {
+        task_name: program.name().clone(),
+        id: 0,
+    };
 
-    let routine_handle = Routine::spawn(program, status_sender, log_sender, name.clone(), 0);
+    let routine_handle = Routine::spawn(program, status_sender, log_sender, process_id.clone(), 0);
     let log_checker_handle = tokio::spawn(check_realtime_output(log_receiver));
     let status_receiver = Arc::new(Mutex::new(status_receiver));
-    let status_checker_handle =
-        tokio::spawn(check_status(Arc::clone(&status_receiver), name.clone()));
+    let status_checker_handle = tokio::spawn(check_status(
+        Arc::clone(&status_receiver),
+        process_id.clone(),
+    ));
 
     routine_handle.join().await;
     log_checker_handle
@@ -139,7 +146,7 @@ async fn create_task() {
     status_checker_handle
         .await
         .expect("failed to join status handle");
-    check_status_exited(Arc::clone(&status_receiver), &name).await;
+    check_status_exited(Arc::clone(&status_receiver), &process_id).await;
 
     let buffer_stdout = tokio::fs::read_to_string(&stdout_file)
         .await
@@ -205,15 +212,21 @@ async fn create_task_then_interrupt() {
 
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, _) = mpsc::unbounded_channel();
-    let name = format!("{}-0", config.name());
-    let routine_handle = Routine::spawn(config, status_sender, log_sender, name.clone(), 0);
+    let process_id = ProcessId {
+        task_name: config.name().clone(),
+        id: 0,
+    };
+    let routine_handle = Routine::spawn(config, status_sender, log_sender, process_id.clone(), 0);
     let status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>> =
         Arc::new(Mutex::new(status_receiver));
-    let handle2 = tokio::spawn(check_status(Arc::clone(&status_receiver), name.clone()));
+    let handle2 = tokio::spawn(check_status(
+        Arc::clone(&status_receiver),
+        process_id.clone(),
+    ));
 
     handle2.await.expect("failed to join status handle"); // wait for running status to send stop signal
     routine_handle.stop_and_join().await;
-    check_status_exited(Arc::clone(&status_receiver), &name).await; // check exited status after stop signal
+    check_status_exited(Arc::clone(&status_receiver), &process_id).await; // check exited status after stop signal
 
     let buffer_stdout = tokio::fs::read_to_string(&stdout_file)
         .await
@@ -267,7 +280,10 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
 
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, _log_receiver) = mpsc::unbounded_channel();
-    let name = "reload_test-0".to_string();
+    let name = ProcessId {
+        task_name: "reload_test".to_string(),
+        id: 0,
+    };
 
     let routine_handle = Routine::spawn(
         program_from_yaml(initial_yaml),
@@ -349,12 +365,15 @@ async fn create_task_with_working_dir() {
 
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, _log_receiver) = mpsc::unbounded_channel();
-    let name = format!("{}-0", program.name());
+    let process_id = ProcessId {
+        task_name: program.name().clone(),
+        id: 0,
+    };
 
-    let _routine_handle = Routine::spawn(program, status_sender, log_sender, name.clone(), 0);
+    let _routine_handle = Routine::spawn(program, status_sender, log_sender, process_id.clone(), 0);
     let status_receiver = Arc::new(Mutex::new(status_receiver));
-    check_status(Arc::clone(&status_receiver), name.clone()).await;
-    check_status_exited(Arc::clone(&status_receiver), &name).await;
+    check_status(Arc::clone(&status_receiver), process_id.clone()).await;
+    check_status_exited(Arc::clone(&status_receiver), &process_id).await;
 
     let buffer_stdout = tokio::fs::read_to_string(&stdout_file)
         .await
@@ -375,7 +394,7 @@ async fn create_task_with_working_dir() {
         .to_string();
     assert_eq!(
         buffer_stdout.trim(),
-        format!("{}: {}", name, expected),
+        format!("{}: {}", process_id, expected),
         "process should have run in /tmp directory"
     );
 }

@@ -1,8 +1,8 @@
 use std::{
-    fmt::Debug,
+    fmt::{Debug, Display},
     sync::{
         Arc,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicUsize, Ordering},
     },
 };
 
@@ -14,17 +14,25 @@ use crate::{
 };
 
 #[allow(dead_code)]
+#[cfg_attr(test, derive(PartialEq, Eq))]
+#[derive(Debug, Clone)]
 pub struct ProcessId {
-    task_name: String,
-    id: u64,
+    pub task_name: String,
+    pub id: usize,
+}
+
+impl Display for ProcessId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(format!("{}-{}", self.task_name, self.id).as_str())
+    }
 }
 
 pub struct Process {
     program_config: Arc<ProgramConfig>,
     handle: Option<process_handler::Handle>,
     pub nominative_status: NominativeStatus,
-    instance_id: u64,
-    process_name: String,
+    instance_id: usize,
+    process_id: ProcessId,
 }
 
 impl Debug for Process {
@@ -36,20 +44,25 @@ impl Debug for Process {
     }
 }
 
-static NEXT_PROCESS_INSTANCE_ID: AtomicU64 = AtomicU64::new(1);
+static NEXT_PROCESS_INSTANCE_ID: AtomicUsize = AtomicUsize::new(1);
 
 impl Process {
     pub fn new(program: Arc<ProgramConfig>, id: usize) -> Self {
-        let process_name = format!("{}-{}", program.name(), id);
         Self {
             program_config: Arc::clone(&program),
             handle: None,
             nominative_status: NominativeStatus {
-                process_name: process_name.clone(),
+                process_id: ProcessId {
+                    task_name: program.name().clone(),
+                    id,
+                },
                 status: Status::default(),
             },
             instance_id: 0,
-            process_name,
+            process_id: ProcessId {
+                task_name: program.name().clone(),
+                id,
+            },
         }
     }
 
@@ -87,7 +100,7 @@ impl Process {
             self.program_config.clone(),
             status_sender.clone(),
             log_sender.clone(),
-            self.process_name.clone(),
+            self.process_id.clone(),
             self.instance_id,
         );
 
@@ -105,7 +118,7 @@ impl Process {
         };
     }
 
-    pub fn instance_id(&self) -> u64 {
+    pub fn instance_id(&self) -> usize {
         self.instance_id
     }
 

@@ -1,5 +1,6 @@
 mod command;
 mod handle;
+mod log;
 mod routine;
 mod status;
 #[cfg(test)]
@@ -18,36 +19,7 @@ use tokio::process::{ChildStderr, ChildStdout};
 use tokio::{io::BufReader, process::Child, sync::mpsc};
 
 use crate::config::ProgramConfig;
-
-#[derive(Debug, Clone, Copy)]
-pub enum LogType {
-    Stdout,
-    Stderr,
-}
-
-#[derive(Clone, Debug)]
-pub struct Log {
-    pub message: String,
-    pub process_name: String,
-    pub log_type: LogType,
-}
-
-impl Log {
-    fn new(log_type: LogType, buffer: &[u8], name: &str) -> Self {
-        match log_type {
-            LogType::Stdout => Log {
-                message: format!("{}: {}", name, String::from_utf8_lossy(buffer)),
-                process_name: name.to_string(),
-                log_type,
-            },
-            LogType::Stderr => Log {
-                message: format!("{}: {}", name, String::from_utf8_lossy(buffer)),
-                process_name: name.to_string(),
-                log_type,
-            },
-        }
-    }
-}
+pub use log::{Log, LogType};
 
 pub type LogReceiver = mpsc::UnboundedReceiver<Log>;
 pub type LogSender = mpsc::UnboundedSender<Log>;
