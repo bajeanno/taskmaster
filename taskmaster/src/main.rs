@@ -1,3 +1,4 @@
+mod claim_pid;
 mod config;
 mod config_state;
 mod error;
@@ -6,7 +7,7 @@ mod process;
 mod process_handler;
 mod tasks_manager;
 
-use crate::{config_state::ConfigState, tasks_manager::ServerCommandError};
+use crate::{claim_pid::Claim, config_state::ConfigState, tasks_manager::ServerCommandError};
 use config::ProgramConfig;
 use error::Error;
 use tasks_manager::TaskManagerCommand;
@@ -33,15 +34,16 @@ fn main() {
 }
 
 fn entrypoint() -> Result<(), Error> {
+    let pid_file_claim = Claim::new()?;
     let Args { port } = parse_args(std::env::args().nth(1))?;
 
     if !cfg!(debug_assertions) {
         daemonize()?
     }
 
-    // TODO: replace None with an Optional arguments that specifies the config
-    // file name
-    start_server(port)
+    let result = start_server(port);
+    pid_file_claim.release_claim();
+    result
 }
 
 fn parse_args(port: Option<String>) -> Result<Args, Error> {
@@ -53,31 +55,6 @@ fn parse_args(port: Option<String>) -> Result<Args, Error> {
         .unwrap_or(Ok(DEFAULT_PORT))?;
 
     Ok(Args { port })
-}
-
-#[cfg(test)]
-mod taskmaster {
-    use super::*;
-
-    #[test]
-    fn test_parse_args() {
-        let mut port = Some("4444".to_string());
-        assert_eq!(4444, parse_args(port).unwrap().port);
-        port = Some("4443".to_string());
-        assert_eq!(4443, parse_args(port).unwrap().port);
-        port = Some("0".to_string());
-        assert_eq!(0, parse_args(port).unwrap().port);
-        port = Some("55".to_string());
-        assert_eq!(55, parse_args(port).unwrap().port);
-
-        assert_eq!(DEFAULT_PORT, parse_args(None).unwrap().port);
-
-        port = Some("hey".to_string());
-        let Err(Error::PortArgumentIsNotAnInteger { input, error: _ }) = parse_args(port) else {
-            panic!("Function parse_args did not return an error")
-        };
-        assert_eq!(input, "hey");
-    }
 }
 
 fn daemonize() -> Result<(), Error> {
@@ -96,4 +73,24 @@ fn start_server(_port: i32) -> Result<(), Error> {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
         .block_on(async { Result::<(), Error>::Ok(()) })
+}
+
+#[test]
+fn test_parse_args() {
+    let mut port = Some("4444".to_string());
+    assert_eq!(4444, parse_args(port).unwrap().port);
+    port = Some("4443".to_string());
+    assert_eq!(4443, parse_args(port).unwrap().port);
+    port = Some("0".to_string());
+    assert_eq!(0, parse_args(port).unwrap().port);
+    port = Some("55".to_string());
+    assert_eq!(55, parse_args(port).unwrap().port);
+
+    assert_eq!(DEFAULT_PORT, parse_args(None).unwrap().port);
+
+    port = Some("hey".to_string());
+    let Err(Error::PortArgumentIsNotAnInteger { input, error: _ }) = parse_args(port) else {
+        panic!("Function parse_args did not return an error")
+    };
+    assert_eq!(input, "hey");
 }
