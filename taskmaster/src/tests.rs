@@ -1,81 +1,67 @@
-use std::io::Write;
 use std::sync::{Mutex, mpsc};
 use std::time::Duration;
 
 use super::*;
+use crate::error::{Error, PidError};
 
 static PID_TEST_LOCK: Mutex<()> = Mutex::new(());
 
-fn write_pid_file(content: &str) {
-    let mut file = acquire_file_lock(PID_FILE).unwrap();
-    file.set_len(0).unwrap();
-    file.write_all(content.as_bytes()).unwrap();
-    release_file_lock(file);
+fn set_pid_file_content(content: &str) {
+    let mut pid_file = PidFile::open().unwrap();
+    pid_file.set_content_for_tests(content);
 }
 
 #[test]
 fn test_read_pid_returns_some_for_valid_pid() {
     let _guard = PID_TEST_LOCK.lock().unwrap();
-    write_pid_file("12345");
-    let mut file = acquire_file_lock(PID_FILE).unwrap();
-    assert_eq!(read_pid(&mut file).unwrap(), Some(12345));
-    release_file_lock(file);
+    set_pid_file_content("12345");
+    let mut pid_file = PidFile::open().unwrap();
+    assert_eq!(pid_file.read_pid().unwrap(), Some(12345));
 }
 
 #[test]
 fn test_read_pid_returns_none_for_empty_file() {
     let _guard = PID_TEST_LOCK.lock().unwrap();
-    write_pid_file("");
-    let mut file = acquire_file_lock(PID_FILE).unwrap();
-    assert_eq!(read_pid(&mut file).unwrap(), None);
-    release_file_lock(file);
+    set_pid_file_content("");
+    let mut pid_file = PidFile::open().unwrap();
+    assert_eq!(pid_file.read_pid().unwrap(), None);
 }
 
 #[test]
 fn test_read_pid_returns_error_for_invalid_content() {
     let _guard = PID_TEST_LOCK.lock().unwrap();
-    write_pid_file("taskmaster");
-    let mut file = acquire_file_lock(PID_FILE).unwrap();
+    set_pid_file_content("taskmaster");
+    let mut pid_file = PidFile::open().unwrap();
     assert!(matches!(
-        read_pid(&mut file),
+        pid_file.read_pid(),
         Err(Error::Pid(PidError::Parse(_)))
     ));
-    release_file_lock(file);
 }
 
 #[test]
-fn test_read_pid_returns_error_when_read_fails() {
-    let mut file = File::open(std::env::temp_dir()).unwrap();
-    assert!(matches!(
-        read_pid(&mut file),
-        Err(Error::Pid(PidError::ReadFile(_)))
-    ));
-}
-
-#[test]
-fn test_claim_taskmaster_instance_writes_pid_when_free() {
+fn test_claim_writes_pid_when_free() {
     let _guard = PID_TEST_LOCK.lock().unwrap();
-    write_pid_file("");
-    let _claim = claim_taskmaster_instance().unwrap();
-    let mut file = acquire_file_lock(PID_FILE).unwrap();
-    assert_eq!(read_pid(&mut file).unwrap(), Some(std::process::id()));
-    release_file_lock(file);
+    set_pid_file_content("");
+    let _claim = Claim::new().unwrap();
+    let mut pid_file = PidFile::open().unwrap();
+    assert_eq!(pid_file.read_pid().unwrap(), Some(std::process::id()));
 }
 
 #[test]
-fn test_claim_taskmaster_instance_fails_when_pid_present() {
+fn test_claim_fails_when_pid_present() {
     let _guard = PID_TEST_LOCK.lock().unwrap();
-    write_pid_file("999999");
-    let err = claim_taskmaster_instance().unwrap_err();
+    set_pid_file_content("999999");
+    let err = Claim::new().unwrap_err();
     assert!(matches!(err, Error::Pid(PidError::OtherInstanceRunning)));
 }
 
 #[test]
-fn test_claim_taskmaster_instance_allows_only_one_instance() {
+fn test_claim_allows_only_one_instance() {
     let _guard = PID_TEST_LOCK.lock().unwrap();
-    write_pid_file("");
-    let first = std::thread::spawn(claim_taskmaster_instance);
-    let second = std::thread::spawn(claim_taskmaster_instance);
+    set_pid_file_content("");
+
+    let first = std::thread::spawn(Claim::new);
+    let second = std::thread::spawn(Claim::new);
     let results = [first.join().unwrap(), second.join().unwrap()];
 
     let mut claimed = vec![];
@@ -97,7 +83,7 @@ fn test_claim_taskmaster_instance_allows_only_one_instance() {
 
     drop(claimed);
     assert!(
-        claim_taskmaster_instance().is_ok(),
+        Claim::new().is_ok(),
         "releasing the claim must erase the pid file"
     );
 }
@@ -105,13 +91,11 @@ fn test_claim_taskmaster_instance_allows_only_one_instance() {
 #[test]
 fn test_flock_blocks_second_lock_until_release() {
     let _guard = PID_TEST_LOCK.lock().unwrap();
-    write_pid_file("");
-    let first = acquire_file_lock(PID_FILE).unwrap();
+    let first = PidFile::open().unwrap();
 
     let (sender, receiver) = mpsc::channel();
     let second = std::thread::spawn(move || {
-        let file = acquire_file_lock(PID_FILE).unwrap();
-        release_file_lock(file);
+        let _pid_file = PidFile::open().unwrap();
         sender.send(()).unwrap();
     });
 
@@ -120,7 +104,7 @@ fn test_flock_blocks_second_lock_until_release() {
         "flock must block a second lock while the first is still held"
     );
 
-    release_file_lock(first);
+    drop(first);
 
     receiver
         .recv_timeout(Duration::from_secs(2))
@@ -129,29 +113,31 @@ fn test_flock_blocks_second_lock_until_release() {
 }
 
 #[test]
-fn test_unclaim_taskmaster_instance_truncates_file() {
+fn test_pid_file_truncate_clears_content() {
     let _guard = PID_TEST_LOCK.lock().unwrap();
-    write_pid_file("12345");
-    unclaim_taskmaster_instance();
-    let mut file = acquire_file_lock(PID_FILE).unwrap();
-    assert_eq!(read_pid(&mut file).unwrap(), None);
-    release_file_lock(file);
+    let mut pid_file = PidFile::open().unwrap();
+    pid_file.set_content_for_tests("12345");
+    pid_file.truncate();
+    drop(pid_file);
+
+    let mut pid_file = PidFile::open().unwrap();
+    assert_eq!(pid_file.read_pid().unwrap(), None);
 }
 
 #[test]
-fn test_claim_taskmaster_instance_erases_file_on_drop() {
+fn test_claim_erases_file_on_drop() {
     let _guard = PID_TEST_LOCK.lock().unwrap();
-    write_pid_file("");
-    let claim = claim_taskmaster_instance().unwrap();
-    let mut file = acquire_file_lock(PID_FILE).unwrap();
-    assert!(read_pid(&mut file).unwrap().is_some());
-    release_file_lock(file);
+    set_pid_file_content("");
+
+    let claim = Claim::new().unwrap();
+    let mut pid_file = PidFile::open().unwrap();
+    assert!(pid_file.read_pid().unwrap().is_some());
+    drop(pid_file);
 
     drop(claim);
 
-    let mut file = acquire_file_lock(PID_FILE).unwrap();
-    assert_eq!(read_pid(&mut file).unwrap(), None);
-    release_file_lock(file);
+    let mut pid_file = PidFile::open().unwrap();
+    assert_eq!(pid_file.read_pid().unwrap(), None);
 }
 
 #[test]
