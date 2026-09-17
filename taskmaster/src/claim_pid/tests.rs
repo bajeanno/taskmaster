@@ -1,6 +1,12 @@
-use std::{sync::{Mutex, mpsc}, time::Duration};
+use std::{
+    sync::{Mutex, mpsc},
+    time::Duration,
+};
 
-use crate::{claim_pid::{Claim, PidFile}, error::{Error, PidError}};
+use crate::{
+    claim_pid::{Claim, PidFile},
+    error::{Error, PidError},
+};
 
 static PID_TEST_LOCK: Mutex<()> = Mutex::new(());
 
