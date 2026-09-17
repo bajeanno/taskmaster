@@ -82,7 +82,7 @@ impl PidFile {
         self.file.set_len(0).expect("File truncating should never return an error since the len is 0 and a PidFile only handles a file with write permissions");
     }
 
-    fn write_pid(&mut self) -> Result<(), Error> {
+    fn write_pid(mut self) -> Result<(), Error> {
         self.file
             .write_all(std::process::id().to_string().as_bytes())
             .map_err(PidError::WriteFile)?;
