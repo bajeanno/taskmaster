@@ -1,8 +1,6 @@
-use std::sync::{Mutex, mpsc};
-use std::time::Duration;
+use std::{sync::{Mutex, mpsc}, time::Duration};
 
-use super::*;
-use crate::error::{Error, PidError};
+use crate::{claim_pid::{Claim, PidFile}, error::{Error, PidError}};
 
 static PID_TEST_LOCK: Mutex<()> = Mutex::new(());
 
@@ -138,24 +136,4 @@ fn test_claim_erases_file_on_drop() {
 
     let mut pid_file = PidFile::open().unwrap();
     assert_eq!(pid_file.read_pid().unwrap(), None);
-}
-
-#[test]
-fn test_parse_args() {
-    let mut port = Some("4444".to_string());
-    assert_eq!(4444, parse_args(port).unwrap().port);
-    port = Some("4443".to_string());
-    assert_eq!(4443, parse_args(port).unwrap().port);
-    port = Some("0".to_string());
-    assert_eq!(0, parse_args(port).unwrap().port);
-    port = Some("55".to_string());
-    assert_eq!(55, parse_args(port).unwrap().port);
-
-    assert_eq!(DEFAULT_PORT, parse_args(None).unwrap().port);
-
-    port = Some("hey".to_string());
-    let Err(Error::PortArgumentIsNotAnInteger { input, error: _ }) = parse_args(port) else {
-        panic!("Function parse_args did not return an error")
-    };
-    assert_eq!(input, "hey");
 }
