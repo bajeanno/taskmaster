@@ -56,12 +56,9 @@ struct PidFile {
 
 impl PidFile {
     fn open() -> Result<Self, Error> {
-<<<<<<< HEAD
-=======
         #[cfg(test)]
         crate::test_artifacts_dir("pid");
 
->>>>>>> 4d92b92 (tests: moved all tests artifacts mainly from /tmp/taskmaster/ to ./target/tests/)
         let file = OpenOptions::new()
             .create(true)
             .write(true)

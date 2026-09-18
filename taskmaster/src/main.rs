@@ -6,7 +6,6 @@ mod output_file;
 mod process;
 mod process_handler;
 mod tasks_manager;
-mod claim_pid;
 
 #[cfg(test)]
 mod tests;
