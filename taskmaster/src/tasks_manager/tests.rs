@@ -5,6 +5,7 @@ use std::time::Duration;
 use super::routine::Routine;
 use crate::config_state::{ConfigState, ReloadArgs};
 use crate::tasks_manager::TaskManagerCommand;
+use crate::test_artifacts_dir;
 use tokio::sync::oneshot;
 use tokio::time::sleep;
 
@@ -181,13 +182,15 @@ async fn task_manager_restart() {
 #[tokio::test]
 async fn task_manager_reload_minus_1_proc() {
     let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content_reload()));
-    let new_content = create_tasks_alternate_yaml_content_plus_1_proc();
-    let new_file = "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string();
+    let new_content = create_tasks_alternate_yaml_content_minus_1_proc();
+    let base = test_artifacts_dir("reload");
+    let new_file = base.join("taskmaster_task_manager_reload.yaml");
+    let new_file = new_file.to_string_lossy();
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)
         .truncate(true)
-        .open(new_file.as_str())
+        .open(new_file.as_ref())
         .expect("failed to create new taskmaster config file");
     file.write_all(new_content.as_bytes())
         .expect("failed to write new taskmaster config file");
@@ -219,13 +222,15 @@ async fn task_manager_reload_minus_1_proc() {
 #[tokio::test]
 async fn task_manager_reload_plus_1_proc() {
     let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content_reload()));
-    let new_content = create_tasks_alternate_yaml_content_minus_1_proc();
-    let new_file = "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string();
+    let new_content = create_tasks_alternate_yaml_content_plus_1_proc();
+    let base = test_artifacts_dir("reload");
+    let new_file = base.join("taskmaster_task_manager_reload.yaml");
+    let new_file = new_file.to_string_lossy();
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)
         .truncate(true)
-        .open(new_file.as_str())
+        .open(new_file.as_ref())
         .expect("failed to create new taskmaster config file");
     file.write_all(new_content.as_bytes())
         .expect("failed to write new taskmaster config file");

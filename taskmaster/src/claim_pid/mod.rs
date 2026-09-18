@@ -15,7 +15,7 @@ use std::{
 #[cfg(not(test))]
 const PID_FILE: &str = "/var/run/taskmaster.d/taskmaster.pid";
 #[cfg(test)]
-const PID_FILE: &str = "/tmp/taskmaster.pid";
+const PID_FILE: &str = "target/tests/pid/taskmaster.pid";
 
 #[derive(Debug)]
 pub struct Claim();
@@ -56,6 +56,12 @@ struct PidFile {
 
 impl PidFile {
     fn open() -> Result<Self, Error> {
+<<<<<<< HEAD
+=======
+        #[cfg(test)]
+        crate::test_artifacts_dir("pid");
+
+>>>>>>> 4d92b92 (tests: moved all tests artifacts mainly from /tmp/taskmaster/ to ./target/tests/)
         let file = OpenOptions::new()
             .create(true)
             .write(true)

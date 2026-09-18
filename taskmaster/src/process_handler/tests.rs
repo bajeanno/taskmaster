@@ -1,14 +1,12 @@
 use crate::process::ProcessId;
 use crate::process_handler::log::LogType;
 use crate::process_handler::{Log, NominativeStatus, Routine, Status};
-use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
 fn test_log_paths(prefix: &str) -> (String, String) {
-    let base = PathBuf::from("/tmp/").join("taskmaster_tests");
-    std::fs::create_dir_all(&base).expect("failed to create local temp test directory");
+    let base = crate::test_artifacts_dir("process_handler");
     let unique = format!(
         "{}_{}_{}",
         prefix,

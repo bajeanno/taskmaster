@@ -1,25 +1,25 @@
 use crate::config::program::{AutoRestart, CommandError};
 use crate::config::{Config, program::Command, program::ProgramConfig};
 use crate::output_file::OutputFile;
+use crate::test_artifacts_dir;
 use libc::unistd::mode_t;
 use signal::Signal;
 use std::collections::HashMap;
 use std::io::Cursor;
-use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
 fn yaml_from_string_command(command: &str) -> String {
     let start = r#"programs:
-        taskmaster_test_program:
-            cmd: ""#;
+    taskmaster_test_program:
+        cmd: ""#;
     String::from(start) + command + "\""
 }
 
 fn yaml_with_fields(command: &str, additional_fields: &str) -> String {
     let start = r#"programs:
-        taskmaster_test_program:
-            cmd: ""#;
+    taskmaster_test_program:
+        cmd: ""#;
     String::from(start) + command + "\"" + additional_fields
 }
 
@@ -114,8 +114,8 @@ fn assert_config_parsing_error(yaml_content: &str) {
 #[test]
 fn create_yaml_test() {
     let left = r#"programs:
-        taskmaster_test_program:
-            cmd: "bash -c 'echo Hello $STARTED_BY!'""#;
+    taskmaster_test_program:
+        cmd: "bash -c 'echo Hello $STARTED_BY!'""#;
     let right = yaml_from_string_command(r#"bash -c 'echo Hello $STARTED_BY!'"#);
     assert_eq!(left, right)
 }
@@ -168,7 +168,7 @@ fn parsing_with_umask_octal() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            umask: "0o644""#,
+        umask: "644""#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -181,7 +181,7 @@ fn parsing_with_umask_zero() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            umask: "0o0""#,
+        umask: "0""#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -189,16 +189,16 @@ fn parsing_with_umask_zero() {
 #[test]
 fn parsing_program_with_digits_in_name() {
     let yaml_content = r#"programs:
-        program1:
-            cmd: "echo test""#;
+    program1:
+        cmd: "echo test""#;
     assert_config_parsing_error(yaml_content);
 }
 
 #[test]
 fn parsing_program_with_multiple_digits_not_at_end() {
     let yaml_content = r#"programs:
-        pro123gram:
-            cmd: "echo test""#;
+    pro123gram:
+        cmd: "echo test""#;
     assert_config_parsing_error(yaml_content);
 }
 
@@ -210,7 +210,7 @@ fn parsing_with_umask_max() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            umask: "0o777""#,
+        umask: "777""#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -225,9 +225,9 @@ fn parsing_with_multiple_fields() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            umask: "0o644"
-            workingdir: "/tmp"
-            autostart: true"#,
+        umask: "644"
+        workingdir: "/tmp"
+        autostart: true"#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -237,7 +237,7 @@ fn parsing_with_exit_code_greater_than_256() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            exitcodes: [257]"#,
+        exitcodes: [257]"#,
     );
     assert_config_parsing_error(&yaml_content);
 }
@@ -250,7 +250,7 @@ fn parsing_with_exit_codes() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            exitcodes: [0, 1, 2]"#,
+        exitcodes: [0, 1, 2]"#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -263,7 +263,7 @@ fn parsing_with_num_procs() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            numprocs: 3"#,
+        numprocs: 3"#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -276,7 +276,7 @@ fn parsing_with_start_retries() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            startretries: 5"#,
+        startretries: 5"#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -289,7 +289,7 @@ fn parsing_with_start_time() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            starttime: 10"#,
+        starttime: 10"#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -302,7 +302,7 @@ fn parsing_with_stop_time() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            stoptime: 15"#,
+        stoptime: 15"#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -315,7 +315,7 @@ fn parsing_with_stop_signal_no_sig() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            stopsignal: "TERM""#,
+        stopsignal: "TERM""#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -328,7 +328,7 @@ fn parsing_with_stop_signal_with_sig() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            stopsignal: "SIGTERM""#,
+        stopsignal: "SIGTERM""#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -341,7 +341,7 @@ fn parsing_with_auto_restart() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            autorestart: true"#,
+        autorestart: true"#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
@@ -354,27 +354,27 @@ fn parsing_with_clear_env() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            clearenv: true"#,
+        clearenv: true"#,
     );
     assert_config_parses_to(&yaml_content, program);
 }
 
 #[test]
 fn parsing_with_stdout() {
-    let base = PathBuf::from("/tmp/").join("taskmaster_tests");
-    std::fs::create_dir_all(&base).expect("failed to create local temp test directory");
-    let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
-    let stdout = "/tmp/taskmaster_tests/stdout.log";
-    builder.stdout = Arc::new(
-        OutputFile::new_stdout(stdout)
-            .expect(format!("Failed to open stderr file ({stdout})").as_str()),
-    );
-    let program = builder.build().expect("Failed to build program");
-    let yaml_content = yaml_with_fields(
-        "echo test",
-        format!(
-            r#"
-            stdout: "{stdout}""#
+let base = test_artifacts_dir("config");
+let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
+let stdout = base.join("stdout.log");
+let stdout = &stdout.to_string_lossy();
+builder.stdout = Arc::new(
+    OutputFile::new_stdout(stdout)
+        .expect(format!("Failed to open stderr file ({stdout})").as_str()),
+);
+let program = builder.build().expect("Failed to build program");
+let yaml_content = yaml_with_fields(
+    "echo test",
+    format!(
+        r#"
+        stdout: "{stdout}""#
         )
         .as_str(),
     );
@@ -383,20 +383,20 @@ fn parsing_with_stdout() {
 
 #[test]
 fn parsing_with_stderr() {
-    let base = PathBuf::from("/tmp/").join("taskmaster_tests");
-    std::fs::create_dir_all(&base).expect("failed to create local temp test directory");
-    let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
-    let stderr = "/tmp/taskmaster_tests/stderr.log";
-    builder.stderr = Arc::new(
-        OutputFile::new_stderr(stderr)
-            .expect(format!("Failed to open stderr file ({stderr})").as_str()),
-    );
-    let program = builder.build().expect("Failed to build program");
-    let yaml_content = yaml_with_fields(
-        "echo test",
-        format!(
-            r#"
-            stderr: "{stderr}""#
+let base = test_artifacts_dir("config");
+let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
+let stderr = base.join("stderr.log");
+let stderr = &stderr.to_string_lossy();
+builder.stderr = Arc::new(
+    OutputFile::new_stderr(stderr)
+        .expect(format!("Failed to open stderr file ({stderr})").as_str()),
+);
+let program = builder.build().expect("Failed to build program");
+let yaml_content = yaml_with_fields(
+    "echo test",
+    format!(
+        r#"
+        stderr: "{stderr}""#
         )
         .as_str(),
     );
@@ -412,9 +412,9 @@ fn parsing_with_env() {
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
-            env:
-                VAR1: "value1"
-                VAR2: "value2""#,
+        env:
+            VAR1: "value1"
+            VAR2: "value2""#,
     );
     assert_config_parses_to(&yaml_content, program);
 }

@@ -6,6 +6,12 @@ mod output_file;
 mod process;
 mod process_handler;
 mod tasks_manager;
+mod claim_pid;
+
+#[cfg(test)]
+mod tests;
+#[cfg(test)]
+pub use tests::test_artifacts_dir;
 
 use crate::{claim_pid::Claim, config_state::ConfigState, tasks_manager::ServerCommandError};
 use config::ProgramConfig;
