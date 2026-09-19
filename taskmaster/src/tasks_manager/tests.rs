@@ -5,6 +5,7 @@ use std::time::Duration;
 use super::routine::Routine;
 use crate::config_state::{ConfigState, ReloadArgs};
 use crate::tasks_manager::TaskManagerCommand;
+use crate::tests::TestDir;
 use tokio::sync::oneshot;
 use tokio::time::sleep;
 
@@ -181,8 +182,9 @@ async fn task_manager_restart() {
 #[tokio::test]
 async fn task_manager_reload_minus_1_proc() {
     let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content_reload()));
-    let new_content = create_tasks_alternate_yaml_content_plus_1_proc();
-    let new_file = "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string();
+    let new_content = create_tasks_alternate_yaml_content_minus_1_proc();
+    let path = TestDir::new("reload-1");
+    let new_file = path.join("taskmaster_task_manager_reload.yaml");
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)
@@ -200,9 +202,7 @@ async fn task_manager_reload_minus_1_proc() {
         r.await.unwrap();
     }
     handle
-        .send(TaskManagerCommand::Reload(ReloadArgs::TempConfig(
-            "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string(),
-        )))
+        .send(TaskManagerCommand::Reload(ReloadArgs::TempConfig(new_file)))
         .await
         .unwrap();
     {
@@ -219,8 +219,9 @@ async fn task_manager_reload_minus_1_proc() {
 #[tokio::test]
 async fn task_manager_reload_plus_1_proc() {
     let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content_reload()));
-    let new_content = create_tasks_alternate_yaml_content_minus_1_proc();
-    let new_file = "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string();
+    let new_content = create_tasks_alternate_yaml_content_plus_1_proc();
+    let path = TestDir::new("reload+1");
+    let new_file = path.join("taskmaster_task_manager_reload.yaml");
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)
@@ -238,9 +239,7 @@ async fn task_manager_reload_plus_1_proc() {
         r.await.unwrap();
     }
     handle
-        .send(TaskManagerCommand::Reload(ReloadArgs::TempConfig(
-            "/tmp/taskmaster_tests/taskmaster_task_manager_reload.yaml".to_string(),
-        )))
+        .send(TaskManagerCommand::Reload(ReloadArgs::TempConfig(new_file)))
         .await
         .unwrap();
     {
@@ -274,7 +273,8 @@ async fn task_manager_reload_keeps_unchanged_program() {
 
     let handle = Routine::spawn(ConfigState::from_content(initial_content.to_string()));
 
-    let new_file = "/tmp/taskmaster_tests/taskmaster_reload_keeps_unchanged.yaml".to_string();
+    let path = TestDir::new("reload_keeps_program_unchanged");
+    let new_file = path.join("taskmaster_task_manager_reload.yaml");
     let mut file = OpenOptions::new()
         .create(true)
         .write(true)

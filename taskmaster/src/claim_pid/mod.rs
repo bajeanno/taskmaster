@@ -5,6 +5,10 @@ use crate::error::{
     Error,
     PidError::{self, OtherInstanceRunning},
 };
+
+#[cfg(test)]
+use crate::TestDir;
+
 use libc::sys::file::{LOCK_EX, LOCK_UN, flock};
 use std::{
     fs::{File, OpenOptions},
@@ -15,7 +19,7 @@ use std::{
 #[cfg(not(test))]
 const PID_FILE: &str = "/var/run/taskmaster.d/taskmaster.pid";
 #[cfg(test)]
-const PID_FILE: &str = "/tmp/taskmaster.pid";
+const PID_FILE: &str = "target/tests/pid/taskmaster.pid";
 
 #[derive(Debug)]
 pub struct Claim();
@@ -56,6 +60,9 @@ struct PidFile {
 
 impl PidFile {
     fn open() -> Result<Self, Error> {
+        #[cfg(test)]
+        TestDir::new("pid");
+
         let file = OpenOptions::new()
             .create(true)
             .write(true)
