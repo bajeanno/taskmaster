@@ -134,44 +134,44 @@ mod tests {
     const CURRENT_CONFIG: &str = r#"programs:
     unchanged:
         cmd: "sleep 30"
-        autostart: true
+        auto-start: true
     changed_increased:
         cmd: "sleep 30"
-        numprocs: 1
-        autostart: true
+        num-procs: 1
+        auto-start: true
     changed_decreased:
         cmd: "sleep 30"
-        numprocs: 2
-        autostart: true
-    changed_autostart:
+        num-procs: 2
+        auto-start: true
+    changed_auto-start:
         cmd: "sleep 30"
-        numprocs: 1
-        autostart: false
+        num-procs: 1
+        auto-start: false
     removed:
         cmd: "sleep 30"
-        autostart: true"#;
+        auto-start: true"#;
 
     const NEW_CONFIG: &str = r#"programs:
     unchanged:
         cmd: "sleep 30"
-        autostart: true
+        auto-start: true
     changed_increased:
         cmd: "sleep 30"
-        numprocs: 2
-        autostart: true
-        autostart-on-reload: true
+        num-procs: 2
+        auto-start: true
+        auto-start-on-reload: true
     changed_decreased:
         cmd: "sleep 30"
-        numprocs: 1
-        autostart: true
-        autostart-on-reload: true
-    changed_autostart:
+        num-procs: 1
+        auto-start: true
+        auto-start-on-reload: true
+    changed_auto-start:
         cmd: "sleep 30"
-        numprocs: 1
-        autostart: false
+        num-procs: 1
+        auto-start: false
     added:
         cmd: "sleep 30"
-        autostart: true"#;
+        auto-start: true"#;
 
     fn config(content: &str) -> Arc<crate::config::Config> {
         match ConfigState::from_content(content.to_string()) {
@@ -295,7 +295,7 @@ mod tests {
             );
             assert!(
                 !processes
-                    .get("changed_autostart")
+                    .get("changed_auto-start")
                     .unwrap()
                     .iter()
                     .any(|p| p.is_running()),
@@ -332,20 +332,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reload_numprocs_increase_preserves_existing_processes() {
+    async fn reload_num_procs_increase_preserves_existing_processes() {
         let current_yaml = r#"programs:
     scale:
         cmd: "sleep 30"
-        numprocs: 2
-        autostart: true
-        autostart-on-reload: true"#;
+        num-procs: 2
+        auto-start: true
+        auto-start-on-reload: true"#;
 
         let increase_yaml = r#"programs:
     scale:
         cmd: "sleep 30"
-        numprocs: 3
-        autostart: true
-        autostart-on-reload: true"#;
+        num-procs: 3
+        auto-start: true
+        auto-start-on-reload: true"#;
 
         let current_config = config(current_yaml);
         let increase_config = config(increase_yaml);
@@ -394,18 +394,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reload_numprocs_decrease_preserves_remaining_processes() {
+    async fn reload_num_procs_decrease_preserves_remaining_processes() {
         let current_yaml = r#"programs:
     scale:
         cmd: "sleep 30"
-        numprocs: 2
-        autostart: true"#;
+        num-procs: 2
+        auto-start: true"#;
 
         let decrease_yaml = r#"programs:
     scale:
         cmd: "sleep 30"
-        numprocs: 1
-        autostart: true"#;
+        num-procs: 1
+        auto-start: true"#;
 
         let current_config = config(current_yaml);
         let decrease_config = config(decrease_yaml);
@@ -454,26 +454,26 @@ mod tests {
         let current_yaml = r#"programs:
   app:
     cmd: "sleep 30"
-    numprocs: 1
-    autostart: true
-    exitcodes: [0]
-    startretries: 1
-    stoptime: 2
-    stopsignal: "SIGTERM"
-    autorestart: false
-    clearenv: false"#;
+    num-procs: 1
+    auto-start: true
+    exit-codes: [0]
+    start-retries: 1
+    stop-time: 2
+    stop-signal: "SIGTERM"
+    auto-restart: false
+    clear-env: false"#;
 
         let new_yaml = r#"programs:
   app:
     cmd: "sleep 30"
-    numprocs: 1
-    autostart: true
-    exitcodes: [0, 2]
-    startretries: 5
-    stoptime: 10
-    stopsignal: "SIGINT"
-    autorestart: true
-    clearenv: true"#;
+    num-procs: 1
+    auto-start: true
+    exit-codes: [0, 2]
+    start-retries: 5
+    stop-time: 10
+    stop-signal: "SIGINT"
+    auto-restart: true
+    clear-env: true"#;
 
         let current_config = config(current_yaml);
         let new_config = config(new_yaml);
@@ -536,12 +536,12 @@ mod tests {
         let current_yaml = r#"programs:
   app:
     cmd: "sleep 30"
-    autostart: true"#;
+    auto-start: true"#;
 
         let new_yaml = r#"programs:
   app:
     cmd: "sleep 31"
-    autostart: true"#;
+    auto-start: true"#;
 
         let current_config = config(current_yaml);
         let new_config = config(new_yaml);
@@ -589,17 +589,17 @@ mod tests {
         let current_yaml = r#"programs:
   app:
     cmd: "sleep 30"
-    numprocs: 1
-    autostart: true
-    startretries: 1"#;
+    num-procs: 1
+    auto-start: true
+    start-retries: 1"#;
 
         let new_yaml = r#"programs:
   app:
     cmd: "sleep 30"
-    numprocs: 1
-    autostart: true
-    autostart-on-reload: false
-    startretries: 5"#;
+    num-procs: 1
+    auto-start: true
+    auto-start-on-reload: false
+    start-retries: 5"#;
 
         let current_config = config(current_yaml);
         let new_config = config(new_yaml);
@@ -645,18 +645,18 @@ mod tests {
         let current_yaml = r#"programs:
   app:
     cmd: "sh -c 'sleep 0.1; exit 1'"
-    numprocs: 1
-    autostart: true
-    autorestart: unexpected
-    exitcodes: [1]"#;
+    num-procs: 1
+    auto-start: true
+    auto-restart: unexpected
+    exit-codes: [1]"#;
 
         let new_yaml = r#"programs:
   app:
     cmd: "sh -c 'sleep 0.1; exit 1'"
-    numprocs: 1
-    autostart: true
-    autorestart: unexpected
-    exitcodes: [0]"#;
+    num-procs: 1
+    auto-start: true
+    auto-restart: unexpected
+    exit-codes: [0]"#;
 
         let current_config = config(current_yaml);
         let new_config = config(new_yaml);

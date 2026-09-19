@@ -8,7 +8,7 @@ use super::{ConfigState, DEFAULT_TASKS_FILE, InitFile, InitFileError, ReloadArgs
 const VALID_YAML: &str = r#"programs:
   testprog:
     cmd: "sleep 30"
-    numprocs: 2"#;
+    num-procs: 2"#;
 
 fn expect_active(state: &ConfigState) -> Arc<crate::config::Config> {
     match state {
