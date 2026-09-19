@@ -1,30 +1,10 @@
 use crate::process::ProcessId;
 use crate::process_handler::log::LogType;
 use crate::process_handler::{Log, NominativeStatus, Routine, Status};
-use std::path::PathBuf;
+use crate::tests::TestDir;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
-
-fn test_log_paths(prefix: &str) -> (String, String) {
-    let base = PathBuf::from("/tmp/").join("taskmaster_tests");
-    std::fs::create_dir_all(&base).expect("failed to create local temp test directory");
-    let unique = format!(
-        "{}_{}_{}",
-        prefix,
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("system clock is before UNIX_EPOCH")
-            .as_nanos()
-    );
-    let stdout = base.join(format!("{unique}_stdout.txt"));
-    let stderr = base.join(format!("{unique}_stderr.txt"));
-    (
-        stdout.to_string_lossy().to_string(),
-        stderr.to_string_lossy().to_string(),
-    )
-}
 
 async fn check_status(
     status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>,
@@ -91,7 +71,8 @@ async fn create_task() {
 
     use crate::config::Config;
 
-    let (stdout_file, stderr_file) = test_log_paths("taskmaster_tests");
+    let base = TestDir::new("create_task");
+    let (stdout_file, stderr_file) = (base.join("stdout.log"), base.join("stderr.log"));
     let yaml_content = format!(
         r#"programs:
     taskmaster_test_task:
@@ -177,7 +158,8 @@ async fn create_task_then_interrupt() {
     use std::io::Cursor;
     use tokio::fs::remove_file;
 
-    let (stdout_file, stderr_file) = test_log_paths("taskmaster_tests_interrupt");
+    let base = TestDir::new("create_task").sub_dir("then_interrupt");
+    let (stdout_file, stderr_file) = (base.join("stdout.log"), base.join("stderr.log"));
     let yaml_content = format!(
         r#"programs:
     taskmaster_test_task:
@@ -203,7 +185,7 @@ async fn create_task_then_interrupt() {
         stderr = stderr_file
     );
     let config = Config::from_reader(Cursor::new(yaml_content))
-        .expect("Parse error")
+        .unwrap()
         .programs
         .into_iter()
         .next()
@@ -333,7 +315,8 @@ async fn create_task_with_working_dir() {
     use std::io::Cursor;
     use tokio::fs::remove_file;
 
-    let (stdout_file, stderr_file) = test_log_paths("taskmaster_tests_working_dir");
+    let base = TestDir::new("create_task").sub_dir("with_working_dir");
+    let (stdout_file, stderr_file) = (base.join("stdout.log"), base.join("stderr.log"));
     let yaml_content = format!(
         r#"programs:
     taskmaster_test_task:

@@ -1,11 +1,11 @@
 use crate::config::program::{AutoRestart, CommandError};
 use crate::config::{Config, program::Command, program::ProgramConfig};
 use crate::output_file::OutputFile;
+use crate::tests::TestDir;
 use libc::unistd::mode_t;
 use signal::Signal;
 use std::collections::HashMap;
 use std::io::Cursor;
-use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -361,12 +361,11 @@ fn parsing_with_clear_env() {
 
 #[test]
 fn parsing_with_stdout() {
-    let base = PathBuf::from("/tmp/").join("taskmaster_tests");
-    std::fs::create_dir_all(&base).expect("failed to create local temp test directory");
+    let base = TestDir::new("parsing_with_stdout");
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
-    let stdout = "/tmp/taskmaster_tests/stdout.log";
+    let stdout = base.join("stdout.log");
     builder.stdout = Arc::new(
-        OutputFile::new_stdout(stdout)
+        OutputFile::new_stdout(stdout.as_str())
             .expect(format!("Failed to open stderr file ({stdout})").as_str()),
     );
     let program = builder.build().expect("Failed to build program");
@@ -383,12 +382,11 @@ fn parsing_with_stdout() {
 
 #[test]
 fn parsing_with_stderr() {
-    let base = PathBuf::from("/tmp/").join("taskmaster_tests");
-    std::fs::create_dir_all(&base).expect("failed to create local temp test directory");
+    let base = TestDir::new("parsing_with_stderr");
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
-    let stderr = "/tmp/taskmaster_tests/stderr.log";
+    let stderr = base.join("stderr.log");
     builder.stderr = Arc::new(
-        OutputFile::new_stderr(stderr)
+        OutputFile::new_stderr(stderr.as_str())
             .expect(format!("Failed to open stderr file ({stderr})").as_str()),
     );
     let program = builder.build().expect("Failed to build program");

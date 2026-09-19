@@ -1,6 +1,5 @@
-use std::fs;
+use crate::TestDir;
 use std::io;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::{ConfigState, DEFAULT_TASKS_FILE, InitFile, InitFileError, ReloadArgs};
@@ -17,37 +16,6 @@ fn expect_active(state: &ConfigState) -> Arc<crate::config::Config> {
             config_file_path: _,
         } => Arc::clone(config),
         _ => panic!("expected Active config state"),
-    }
-}
-
-struct TempDir(PathBuf);
-
-impl TempDir {
-    fn new(name: &str) -> Self {
-        let path = std::env::temp_dir().join(format!(
-            "taskmaster_config_state_test_{}_{}",
-            std::process::id(),
-            name
-        ));
-        let _ = fs::remove_dir_all(&path);
-        fs::create_dir_all(&path).unwrap();
-        Self(path)
-    }
-
-    fn path(&self, name: &str) -> String {
-        self.0.join(name).to_str().unwrap().to_string()
-    }
-
-    fn write(&self, name: &str, content: &str) -> String {
-        let path = self.path(name);
-        fs::write(&path, content).unwrap();
-        path
-    }
-}
-
-impl Drop for TempDir {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
     }
 }
 
@@ -129,7 +97,7 @@ fn test_error_display_messages() {
 
 #[test]
 fn test_load_config_temp_config_returns_active_with_file_path() {
-    let tmp = TempDir::new("temp_config");
+    let tmp = TestDir::new("temp_config");
     let tasks_path = tmp.write("tasks.yaml", VALID_YAML);
     let state = ConfigState::default()
         .load_config(ReloadArgs::TempConfig(tasks_path.clone()))
@@ -148,7 +116,7 @@ fn test_load_config_temp_config_returns_active_with_file_path() {
 
 #[test]
 fn test_load_config_use_current_reloads_current_file() {
-    let tmp = TempDir::new("use_current");
+    let tmp = TestDir::new("use_current");
     let tasks_path = tmp.write("tasks.yaml", VALID_YAML);
     let active = ConfigState::default()
         .load_config(ReloadArgs::TempConfig(tasks_path.clone()))
@@ -168,8 +136,8 @@ fn test_load_config_use_current_reloads_current_file() {
 
 #[test]
 fn test_load_config_missing_file_creates_template() {
-    let tmp = TempDir::new("missing_file_creates_template");
-    let missing_path = tmp.path("not_created.yaml");
+    let tmp = TestDir::new("missing_file_creates_template");
+    let missing_path = tmp.join("not_created.yaml");
     let state = ConfigState::default()
         .load_config(ReloadArgs::TempConfig(missing_path.clone()))
         .unwrap();
@@ -187,7 +155,7 @@ fn test_load_config_missing_file_creates_template() {
 
 #[test]
 fn test_load_config_invalid_yaml_returns_load_error() {
-    let tmp = TempDir::new("invalid_yaml");
+    let tmp = TestDir::new("invalid_yaml");
     let tasks_path = tmp.write("tasks.yaml", "not: [valid");
     let state = ConfigState::default()
         .load_config(ReloadArgs::TempConfig(tasks_path))
