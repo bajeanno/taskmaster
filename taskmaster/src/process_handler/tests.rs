@@ -96,20 +96,20 @@ async fn create_task() {
         r#"programs:
     taskmaster_test_task:
         cmd: "bash -c \"echo Hello $STARTED_BY!\""
-        numprocs: 1
+        num-procs: 1
         umask: 0o022
-        workingdir: /tmp
-        autostart: true
-        exitcodes:
+        working-dir: /tmp
+        auto-start: true
+        exit-codes:
         - 0
         - 2
-        startretries: 5
-        starttime: 0
-        stopsignal: SIGTERM
-        stoptime: 10
+        start-retries: 5
+        start-time: 0
+        stop-signal: SIGTERM
+        stop-time: 10
         stdout: {stdout}
         stderr: {stderr}
-        clearenv: true
+        clear-env: true
         env:
             STARTED_BY: taskmaster
             ANSWER: 42"#,
@@ -182,20 +182,20 @@ async fn create_task_then_interrupt() {
         r#"programs:
     taskmaster_test_task:
         cmd: "cat"
-        numprocs: 1
+        num-procs: 1
         umask: 0o022
-        workingdir: /tmp
-        autostart: true
-        exitcodes:
+        working-dir: /tmp
+        auto-start: true
+        exit-codes:
         - 0
         - 2
-        startretries: 5
-        starttime: 0
-        stopsignal: SIGINT
-        stoptime: 10
+        start-retries: 5
+        start-time: 0
+        stop-signal: SIGINT
+        stop-time: 10
         stdout: {stdout}
         stderr: {stderr}
-        clearenv: true
+        clear-env: true
         env:
             STARTED_BY: taskmaster
             ANSWER: 42"#,
@@ -265,18 +265,18 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
     let initial_yaml = r#"programs:
   reload_test:
     cmd: "sh -c 'sleep 0.1; exit 1'"
-    numprocs: 1
-    autostart: true
-    autorestart: unexpected
-    exitcodes: [1]"#;
+    num-procs: 1
+    auto-start: true
+    auto-restart: unexpected
+    exit-codes: [1]"#;
 
     let reloaded_yaml = r#"programs:
   reload_test:
     cmd: "sh -c 'sleep 0.1; exit 1'"
-    numprocs: 1
-    autostart: true
-    autorestart: unexpected
-    exitcodes: [0]"#;
+    num-procs: 1
+    auto-start: true
+    auto-restart: unexpected
+    exit-codes: [0]"#;
 
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, _log_receiver) = mpsc::unbounded_channel();
@@ -338,19 +338,19 @@ async fn create_task_with_working_dir() {
         r#"programs:
     taskmaster_test_task:
         cmd: "pwd"
-        numprocs: 1
+        num-procs: 1
         umask: 0o022
-        workingdir: /tmp
-        autostart: true
-        exitcodes:
+        working-dir: /tmp
+        auto-start: true
+        exit-codes:
         - 0
-        startretries: 5
-        starttime: 0
-        stopsignal: SIGTERM
-        stoptime: 10
+        start-retries: 5
+        start-time: 0
+        stop-signal: SIGTERM
+        stop-time: 10
         stdout: {stdout}
         stderr: {stderr}
-        clearenv: true"#,
+        clear-env: true"#,
         stdout = stdout_file,
         stderr = stderr_file
     );
