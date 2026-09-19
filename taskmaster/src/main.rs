@@ -7,6 +7,12 @@ mod process;
 mod process_handler;
 mod tasks_manager;
 
+#[cfg(test)]
+mod tests;
+
+#[cfg(test)]
+use tests::TestDir;
+
 use crate::{claim_pid::Claim, config_state::ConfigState, tasks_manager::ServerCommandError};
 use config::ProgramConfig;
 use error::Error;
