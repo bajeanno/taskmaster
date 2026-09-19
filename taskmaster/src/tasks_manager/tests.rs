@@ -12,18 +12,18 @@ fn create_tasks_yaml_content() -> String {
     r#"programs:
     taskmaster_test_task:
         cmd: "sleep 30"
-        numprocs: 2
+        num-procs: 2
         umask: 0o022
-        workingdir: /tmp
-        autostart: true
-        exitcodes:
+        working-dir: /tmp
+        auto-start: true
+        exit-codes:
         - 0
         - 2
-        startretries: 5
-        starttime: 0
-        stopsignal: SIGTERM
-        stoptime: 10
-        clearenv: true
+        start-retries: 5
+        start-time: 0
+        stop-signal: SIGTERM
+        stop-time: 10
+        clear-env: true
         env:
             STARTED_BY: taskmaster
             ANSWER: 42"#
@@ -34,18 +34,18 @@ fn create_tasks_yaml_content_reload() -> String {
     r#"programs:
     reload:
         cmd: "sleep 30"
-        numprocs: 2
+        num-procs: 2
         umask: 0o022
-        workingdir: /tmp
-        autostart: true
-        exitcodes:
+        working-dir: /tmp
+        auto-start: true
+        exit-codes:
         - 0
         - 2
-        startretries: 5
-        starttime: 0
-        stopsignal: SIGTERM
-        stoptime: 10
-        clearenv: true
+        start-retries: 5
+        start-time: 0
+        stop-signal: SIGTERM
+        stop-time: 10
+        clear-env: true
         env:
             STARTED_BY: taskmaster
             ANSWER: 42"#
@@ -56,18 +56,18 @@ fn create_tasks_alternate_yaml_content_minus_1_proc() -> String {
     r#"programs:
     reload:
         cmd: "sleep 30"
-        numprocs: 1
+        num-procs: 1
         umask: 0o022
-        workingdir: /tmp
-        autostart: true
-        exitcodes:
+        working-dir: /tmp
+        auto-start: true
+        exit-codes:
         - 0
         - 2
-        startretries: 5
-        starttime: 0
-        stopsignal: SIGTERM
-        stoptime: 10
-        clearenv: true
+        start-retries: 5
+        start-time: 0
+        stop-signal: SIGTERM
+        stop-time: 10
+        clear-env: true
         env:
             STARTED_BY: taskmaster
             ANSWER: 42"#
@@ -78,18 +78,18 @@ fn create_tasks_alternate_yaml_content_plus_1_proc() -> String {
     r#"programs:
     reload:
         cmd: "sleep 30"
-        numprocs: 3
+        num-procs: 3
         umask: 0o022
-        workingdir: /tmp
-        autostart: true
-        exitcodes:
+        working-dir: /tmp
+        auto-start: true
+        exit-codes:
         - 0
         - 2
-        startretries: 5
-        starttime: 0
-        stopsignal: SIGTERM
-        stoptime: 10
-        clearenv: true
+        start-retries: 5
+        start-time: 0
+        stop-signal: SIGTERM
+        stop-time: 10
+        clear-env: true
         env:
             STARTED_BY: taskmaster
             ANSWER: 42"#
@@ -259,18 +259,18 @@ async fn task_manager_reload_keeps_unchanged_program() {
     let initial_content = r#"programs:
     keep:
         cmd: "sleep 30"
-        autostart: true
+        auto-start: true
     remove:
         cmd: "sleep 30"
-        autostart: true"#;
+        auto-start: true"#;
 
     let new_content = r#"programs:
     keep:
         cmd: "sleep 30"
-        autostart: true
+        auto-start: true
     add:
         cmd: "sleep 30"
-        autostart: true"#;
+        auto-start: true"#;
 
     let handle = Routine::spawn(ConfigState::from_content(initial_content.to_string()));
 

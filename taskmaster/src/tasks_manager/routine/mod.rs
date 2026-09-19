@@ -159,11 +159,11 @@ mod tests {
         let current_yaml = r#"programs:
   testprog:
     cmd: "sleep 30"
-    numprocs: 2"#;
+    num-procs: 2"#;
         let new_yaml = r#"programs:
   testprog:
     cmd: "sleep 31"
-    numprocs: 2"#;
+    num-procs: 2"#;
 
         let current = program_from_yaml(current_yaml, "testprog");
         let new = program_from_yaml(new_yaml, "testprog");
@@ -172,15 +172,15 @@ mod tests {
     }
 
     #[test]
-    fn test_program_diff_numprocs_changed() {
+    fn test_program_diff_num_procs_changed() {
         let current_yaml = r#"programs:
   testprog:
     cmd: "sleep 30"
-    numprocs: 2"#;
+    num-procs: 2"#;
         let new_yaml = r#"programs:
   testprog:
     cmd: "sleep 30"
-    numprocs: 3"#;
+    num-procs: 3"#;
 
         let current = program_from_yaml(current_yaml, "testprog");
         let new = program_from_yaml(new_yaml, "testprog");
@@ -199,13 +199,13 @@ mod tests {
         let current_yaml = r#"programs:
   testprog:
     cmd: "sleep 30"
-    numprocs: 2
-    autostart: false"#;
+    num-procs: 2
+    auto-start: false"#;
         let new_yaml = r#"programs:
   testprog:
     cmd: "sleep 30"
-    numprocs: 2
-    autostart: true"#;
+    num-procs: 2
+    auto-start: true"#;
 
         let current = program_from_yaml(current_yaml, "testprog");
         let new = program_from_yaml(new_yaml, "testprog");
