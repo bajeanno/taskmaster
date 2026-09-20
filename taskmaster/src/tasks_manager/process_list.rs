@@ -20,7 +20,7 @@ impl ProcessList {
     pub fn push(&mut self, program_config: &Arc<ProgramConfig>, list: Vec<NominativeStatus>) {
         let list = StatusList {
             list,
-            name: program_config.name().clone(),
+            task_name: program_config.name().clone(),
             command: program_config.cmd().to_string(),
         };
         self.list.push(list);
@@ -35,7 +35,7 @@ impl Display for ProcessList {
             self.list.iter().fold(String::new(), |acc, list| {
                 acc + format!(
                     "{:35} {}\n",
-                    format!("{} ({}):", list.name, list.command),
+                    format!("{} ({}):", list.task_name, list.command),
                     list
                 )
                 .as_str()
@@ -48,7 +48,7 @@ impl Display for ProcessList {
 #[derive(Debug)]
 pub(super) struct StatusList {
     pub(super) list: Vec<NominativeStatus>,
-    name: String,
+    task_name: String,
     command: String,
 }
 
@@ -161,7 +161,7 @@ mod tests {
         ];
         let list = StatusList {
             list: vec,
-            name: "nginx".to_string(),
+            task_name: "nginx".to_string(),
             command: "/bin/nginx".to_string(),
         };
         assert_eq!(list.to_string(), "NotRunning -> 4".to_string())
