@@ -144,7 +144,7 @@ async fn task_manager_start_already_started() {
         .await
         .unwrap();
     let after = receiver.await.expect("Receiver failed");
-    assert_eq!(before, after);
+    assert_eq!(before.to_string(), after.to_string());
     handle.stop().await;
 }
 
@@ -297,11 +297,15 @@ async fn task_manager_reload_keeps_unchanged_program() {
     let processes = receiver.await.expect("Receiver failed");
 
     let process_names: Vec<String> = processes
-        .iter()
-        .flatten()
-        .map(|nstatus| nstatus.process_id.to_string())
+        .list
+        .into_iter()
+        .flat_map(|(_, _, status_list)| {
+            status_list
+                .list
+                .into_iter()
+                .map(|status| status.process_id.to_string())
+        })
         .collect();
-
     assert!(
         process_names.contains(&"keep-0".to_string()),
         "unchanged program must survive a reload"
