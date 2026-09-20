@@ -33,8 +33,10 @@ impl Display for ProcessList {
             f,
             "{}",
             self.list.iter().fold(String::new(), |acc, list| {
-                let line_start = format!("{} ({}):", list.task_name, list.command);
-                format!("{acc}{}\n\t{}\n\n", line_start, list)
+                format!(
+                    "{acc}{} ({}):\n\t{}\n\n",
+                    list.task_name, list.command, list
+                )
             })
         )
     }
