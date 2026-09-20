@@ -30,8 +30,6 @@ pub enum Status {
     },
 }
 
-// nginx:
-
 impl Status {
     pub fn is_running(&self) -> bool {
         matches!(self, Status::Starting | Status::Running)
