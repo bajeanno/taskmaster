@@ -8,7 +8,7 @@ use crate::{
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct ProcessList {
-    pub(super) list: Vec<(String, String, StatusList)>,
+    pub(super) list: Vec<StatusList>,
 }
 
 #[allow(dead_code)]
@@ -18,12 +18,12 @@ impl ProcessList {
     }
 
     pub fn push(&mut self, program_config: &Arc<ProgramConfig>, list: Vec<NominativeStatus>) {
-        let list = StatusList { list };
-        self.list.push((
-            program_config.name().clone(),
-            program_config.cmd().to_string(),
+        let list = StatusList {
             list,
-        ));
+            name: program_config.name().clone(),
+            command: program_config.cmd().to_string(),
+        };
+        self.list.push(list);
     }
 }
 
@@ -32,11 +32,14 @@ impl Display for ProcessList {
         write!(
             f,
             "{}",
-            self.list
-                .iter()
-                .fold(String::new(), |acc, (name, cmd, list)| {
-                    acc + format!("{:35} {}\n", format!("{name} ({cmd}):"), list).as_str()
-                })
+            self.list.iter().fold(String::new(), |acc, list| {
+                acc + format!(
+                    "{:35} {}\n",
+                    format!("{} ({}):", list.name, list.command),
+                    list
+                )
+                .as_str()
+            })
         )
     }
 }
@@ -45,18 +48,12 @@ impl Display for ProcessList {
 #[derive(Debug)]
 pub(super) struct StatusList {
     pub(super) list: Vec<NominativeStatus>,
+    name: String,
+    command: String,
 }
 
 #[allow(unused)]
 impl StatusList {
-    pub fn new(list: Vec<NominativeStatus>) -> Self {
-        Self { list }
-    }
-
-    pub fn from(list: Vec<NominativeStatus>) -> Self {
-        Self { list }
-    }
-
     fn collect_statuses(&self) -> String {
         let mut not_running_count = 0;
         let mut routine_starting_count = 0;
@@ -158,7 +155,11 @@ fn status_list_print() {
             status: Status::NotRunning,
         },
     ];
-    let list = StatusList::from(vec);
+    let list = StatusList {
+        list: vec,
+        name: "nginx".to_string(),
+        command: "/bin/nginx".to_string(),
+    };
     assert_eq!(list.to_string(), "NotRunning -> 4".to_string())
 }
 

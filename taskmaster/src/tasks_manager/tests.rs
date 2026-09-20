@@ -299,7 +299,7 @@ async fn task_manager_reload_keeps_unchanged_program() {
     let process_names: Vec<String> = processes
         .list
         .into_iter()
-        .flat_map(|(_, _, status_list)| {
+        .flat_map(|status_list| {
             status_list
                 .list
                 .into_iter()
