@@ -98,12 +98,6 @@ impl Display for ProgramConfig {
     }
 }
 
-impl Display for Command {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {:?}", self.exec, self.args)
-    }
-}
-
 impl ProgramConfig {
     pub(super) fn name_mut(&mut self) -> &mut String {
         &mut self.name

@@ -1,4 +1,5 @@
 mod handle;
+mod process_list;
 mod process_registry;
 mod routine;
 
@@ -7,7 +8,7 @@ mod tests;
 
 use crate::{
     config_state::{InitFileError, ReloadArgs},
-    process_handler::NominativeStatus,
+    tasks_manager::process_list::ProcessList,
 };
 use routine::Client;
 use thiserror::Error;
@@ -27,7 +28,7 @@ pub enum ServerCommandError {
 }
 
 pub enum TaskManagerCommand {
-    ListProcesses(oneshot::Sender<Vec<Vec<NominativeStatus>>>),
+    ListProcesses(oneshot::Sender<ProcessList>),
     Reload(ReloadArgs),
     StartProgram {
         program_name: String,

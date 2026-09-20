@@ -4,9 +4,9 @@ use tokio::sync::{Mutex, mpsc::UnboundedSender};
 
 use crate::{
     config::ProgramConfig,
-    process::{Process, ProcessId},
+    process::Process,
     process_handler::{LogSender, NominativeStatus, Status},
-    tasks_manager::ServerCommandError,
+    tasks_manager::{ServerCommandError, process_list::ProcessList},
 };
 
 // TODO: remove that
@@ -100,25 +100,25 @@ impl ProcessRegistry {
         }
     }
 
-    pub async fn list_processes(&self) -> Vec<Vec<NominativeStatus>> {
-        self.0
-            .lock()
-            .await
-            .iter()
-            .map(|(name, processes)| {
+    pub async fn list_processes(&self) -> ProcessList {
+        self.0.lock().await.values().fold(ProcessList::new(), |mut list, processes| {
+            let Some(first_process) = processes.iter().next() else {
+                unreachable!(
+                    "Should always have at least one process. Having 0 should lead to a parsing \
+                     error"
+                );
+            };
+
+            list.push(
+                &first_process.program_config(),
                 processes
                     .iter()
-                    .enumerate()
-                    .map(|(id, process)| NominativeStatus {
-                        process_id: ProcessId {
-                            id,
-                            task_name: name.clone(),
-                        },
-                        status: process.nominative_status.status.clone(),
-                    })
-                    .collect()
-            })
-            .collect()
+                    .map(|process| process.nominative_status.clone())
+                    .collect(),
+            );
+
+            list
+        })
     }
 
     pub async fn update_processes_program_data(
