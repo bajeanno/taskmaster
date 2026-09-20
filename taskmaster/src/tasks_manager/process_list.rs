@@ -34,9 +34,8 @@ impl Display for ProcessList {
             "{}",
             self.list
                 .iter()
-                .fold(String::new(), |mut acc, (name, cmd, list)| {
-                    acc = acc + format!("{:35} {}\n", format!("{name} ({cmd}):"), list).as_str();
-                    acc
+                .fold(String::new(), |acc, (name, cmd, list)| {
+                    acc + format!("{:35} {}\n", format!("{name} ({cmd}):"), list).as_str()
                 })
         )
     }
@@ -98,11 +97,11 @@ impl StatusList {
 fn append_status(mut statuses: String, status_name: &str, status_count: usize) -> String {
     if status_count != 0 {
         if !statuses.is_empty() {
-            statuses = statuses + ", ";
+            statuses += ", ";
         }
-        statuses = statuses + status_name;
-        statuses = statuses + " -> ";
-        statuses = statuses + status_count.to_string().as_str();
+        statuses += status_name;
+        statuses += " -> ";
+        statuses += status_count.to_string().as_str();
     }
     statuses
 }

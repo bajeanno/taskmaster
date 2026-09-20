@@ -33,9 +33,8 @@ pub struct Command {
 
 impl Command {
     fn get_args(&self) -> String {
-        self.args.iter().fold(String::new(), |mut acc, arg|{
-            acc += " ";
-            acc + arg
+        self.args.iter().fold(String::new(), |acc, arg|{
+            acc + " " + arg
         })
     }
 }
