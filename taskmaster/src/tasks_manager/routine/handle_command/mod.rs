@@ -18,7 +18,7 @@ impl Routine {
         match command {
             TaskManagerCommand::ListProcesses(list_sender) => {
                 list_sender
-                    .send(self.processes.list_processes(&self.config_state).await)
+                    .send(self.processes.list_processes().await)
                     .expect("Receiver should never be dropped");
             }
 

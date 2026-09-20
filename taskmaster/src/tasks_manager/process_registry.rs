@@ -101,44 +101,25 @@ impl ProcessRegistry {
         }
     }
 
-    pub async fn list_processes(&self, config_state: &ConfigState) -> ProcessList {
-        let vec: Vec<(String, Vec<NominativeStatus>)> = self
-            .0
-            .lock()
-            .await
-            .iter()
-            .map(|(name, processes)| {
-                (
-                    name.clone(),
-                    processes
-                        .iter()
-                        .enumerate()
-                        .map(|(id, process)| NominativeStatus {
-                            process_id: ProcessId {
-                                id,
-                                task_name: name.clone(),
-                            },
-                            status: process.nominative_status.status.clone(),
-                        })
-                        .collect(),
-                )
-            })
-            .collect();
-        let mut list = ProcessList::new();
-        let Active {
-            config,
-            config_file_path: _,
-        } = config_state
-        else {
-            return list;
-        };
-        vec.iter().for_each(|process| {
-            let Some(program_config) = config.programs.get(&process.0) else {
-                return;
+    pub async fn list_processes(&self) -> ProcessList {
+        self.0.lock().await.values().fold(ProcessList::new(), |mut list, processes| {
+            let Some(first_process) = processes.iter().next() else {
+                unreachable!(
+                    "Should always have at least one process. Having 0 should lead to a parsing \
+                     error"
+                );
             };
-            list.push(program_config, process.1.clone());
-        });
-        list
+
+            list.push(
+                first_process.program_config(),
+                processes
+                    .iter()
+                    .map(|process| process.nominative_status.clone())
+                    .collect(),
+            );
+
+            list
+        })
     }
 
     pub async fn update_processes_program_data(
