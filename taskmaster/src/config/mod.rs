@@ -31,17 +31,16 @@ pub struct Command {
     pub args: Vec<String>,
 }
 
-impl Command {
-    fn get_args(&self) -> String {
-        self.args
-            .iter()
-            .fold(String::new(), |acc, arg| acc + " " + arg)
-    }
-}
-
 impl Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}", self.exec, self.get_args())
+        write!(
+            f,
+            "{}{}",
+            self.exec,
+            self.args
+                .iter()
+                .fold(String::new(), |acc, arg| { acc + " " + arg })
+        )
     }
 }
 
