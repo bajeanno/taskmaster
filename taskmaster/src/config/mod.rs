@@ -37,9 +37,11 @@ impl Display for Command {
             f,
             "{}{}",
             self.exec,
-            (!self.args.is_empty())
-                .then(|| format!(" {:?}", self.args))
-                .unwrap_or_else(String::new)
+            if !self.args.is_empty() {
+                format!(" {:?}", self.args)
+            } else {
+                String::new()
+            }
         )
     }
 }

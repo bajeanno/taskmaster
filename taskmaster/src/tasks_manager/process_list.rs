@@ -33,12 +33,8 @@ impl Display for ProcessList {
             f,
             "{}",
             self.list.iter().fold(String::new(), |acc, list| {
-                acc + format!(
-                    "{}\n\t{}\n\n",
-                    format!("{} ({}):", list.task_name, list.command),
-                    list
-                )
-                .as_str()
+                let line_start = format!("{} ({}):", list.task_name, list.command);
+                format!("{acc}{}\n\t{}\n\n", line_start, list)
             })
         )
     }
@@ -237,7 +233,7 @@ mod tests {
         println!("{}", process_list.to_string());
         assert_eq!(
             process_list.to_string(),
-           "nginx (/usr/bin/nginx [\"-conf\", \"/etc/nginx.conf\"]):\n\tRoutineStarting -> 1, Starting -> 2, Running -> 1\n\npostgres (/usr/bin/postgres):\n\tStarting -> 1, Running -> 3\n\n"
+            "nginx (/usr/bin/nginx [\"-conf\", \"/etc/nginx.conf\"]):\n\tRoutineStarting -> 1, Starting -> 2, Running -> 1\n\npostgres (/usr/bin/postgres):\n\tStarting -> 1, Running -> 3\n\n"
         )
     }
 }
