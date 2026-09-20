@@ -52,7 +52,6 @@ pub(super) struct StatusList {
     command: String,
 }
 
-#[allow(unused)]
 impl StatusList {
     fn collect_statuses(&self) -> String {
         let mut not_running_count = 0;
@@ -244,4 +243,3 @@ postgres (/usr/bin/postgres --shell): Starting -> 1, Running -> 3
         )
     }
 }
-
