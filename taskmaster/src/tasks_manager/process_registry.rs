@@ -4,8 +4,7 @@ use tokio::sync::{Mutex, mpsc::UnboundedSender};
 
 use crate::{
     config::ProgramConfig,
-    config_state::ConfigState::{self, Active},
-    process::{Process, ProcessId},
+    process::Process,
     process_handler::{LogSender, NominativeStatus, Status},
     tasks_manager::{ServerCommandError, process_list::ProcessList},
 };
@@ -111,7 +110,7 @@ impl ProcessRegistry {
             };
 
             list.push(
-                first_process.program_config(),
+                &first_process.program_config(),
                 processes
                     .iter()
                     .map(|process| process.nominative_status.clone())
