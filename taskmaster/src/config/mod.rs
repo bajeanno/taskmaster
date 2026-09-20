@@ -10,6 +10,7 @@ pub use error::{CreatingDefaultConfigFileError, ParseError};
 use serde::de::Error;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt::Display;
 use std::fs::File;
 use std::sync::Arc;
 
@@ -28,6 +29,21 @@ pub enum AutoRestart {
 pub struct Command {
     pub exec: String,
     pub args: Vec<String>,
+}
+
+impl Command {
+    fn get_args(&self) -> String {
+        self.args.iter().fold(String::new(), |mut acc, arg|{
+            acc += " ";
+            acc + arg
+        })
+    }
+}
+
+impl Display for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.exec, self.get_args())
+    }
 }
 
 #[derive(Debug)]
@@ -130,11 +146,11 @@ mod tests {
     fn template_test() {
         //TmpConfig is the same type as Config but with no Arc inside the HashMap
         let content = serde_yaml::to_string(&TmpConfig::template()).unwrap();
-        let mut _config: TmpConfig = serde_yaml::from_str(&content).unwrap();
+        let mut config: TmpConfig = serde_yaml::from_str(&content).unwrap();
 
-        for (name, program) in _config.programs.iter_mut() {
+        for (name, program) in config.programs.iter_mut() {
             *program.name_mut() = name.clone();
         }
-        assert_eq!(_config, TmpConfig::template());
+        assert_eq!(config, TmpConfig::template());
     }
 }

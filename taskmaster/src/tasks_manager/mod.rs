@@ -7,7 +7,8 @@ mod routine;
 mod tests;
 
 use crate::{
-    config_state::{InitFileError, ReloadArgs}, tasks_manager::process_list::ProcessList,
+    config_state::{InitFileError, ReloadArgs},
+    tasks_manager::process_list::ProcessList,
 };
 use routine::Client;
 use thiserror::Error;

@@ -35,7 +35,7 @@ impl Display for ProcessList {
             self.list
                 .iter()
                 .fold(String::new(), |mut acc, (name, cmd, list)| {
-                    acc = acc + format!("{:35} {}\n", format!("{name}({cmd}):"), list).as_str();
+                    acc = acc + format!("{:35} {}\n", format!("{name} ({cmd}):"), list).as_str();
                     acc
                 })
         )
@@ -116,12 +116,12 @@ impl Display for StatusList {
 #[cfg(test)]
 fn create_tasks_yaml_content() -> String {
     r#"programs:
-    nginix:
-        cmd: "/usr/bin/nginix"
-        numprocs: 4
+    nginx:
+        cmd: "/usr/bin/nginx -conf /etc/nginx.conf"
+        num-procs: 4
     postgres:
-        cmd: "/usr/bin/postgres"
-        numprocs: 4"#
+        cmd: "/usr/bin/postgres --shell"
+        num-procs: 4"#
         .to_string()
 }
 
@@ -230,13 +230,13 @@ fn process_list_print() {
     let content = create_tasks_yaml_content();
     let config = crate::config::Config::from_reader(std::io::Cursor::new(content)).unwrap();
     let mut process_list = ProcessList::new();
-    process_list.push(&config.programs.get("nginix").unwrap(), list);
+    process_list.push(&config.programs.get("nginx").unwrap(), list);
     process_list.push(&config.programs.get("postgres").unwrap(), list2);
 
     assert_eq!(
         process_list.to_string(),
-        r#"nginix(/usr/bin/nginix []):         RoutineStarting -> 1, Starting -> 2, Running -> 1
-postgres(/usr/bin/postgres []):     Starting -> 1, Running -> 3
+        r#"nginx (/usr/bin/nginx -conf /etc/nginx.conf): RoutineStarting -> 1, Starting -> 2, Running -> 1
+postgres (/usr/bin/postgres --shell): Starting -> 1, Running -> 3
 "#
     )
 }

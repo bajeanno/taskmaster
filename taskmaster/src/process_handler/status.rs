@@ -30,7 +30,7 @@ pub enum Status {
     },
 }
 
-// nginx: 
+// nginx:
 
 impl Status {
     pub fn is_running(&self) -> bool {

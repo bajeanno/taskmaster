@@ -3,7 +3,11 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, mpsc::UnboundedSender};
 
 use crate::{
-    config::ProgramConfig, config_state::ConfigState::{self, Active}, process::{Process, ProcessId}, process_handler::{LogSender, NominativeStatus, Status}, tasks_manager::{ServerCommandError, process_list::ProcessList},
+    config::ProgramConfig,
+    config_state::ConfigState::{self, Active},
+    process::{Process, ProcessId},
+    process_handler::{LogSender, NominativeStatus, Status},
+    tasks_manager::{ServerCommandError, process_list::ProcessList},
 };
 
 // TODO: remove that
@@ -98,25 +102,34 @@ impl ProcessRegistry {
     }
 
     pub async fn list_processes(&self, config_state: &ConfigState) -> ProcessList {
-        let vec: Vec<(String, Vec<NominativeStatus>)> = self.0
+        let vec: Vec<(String, Vec<NominativeStatus>)> = self
+            .0
             .lock()
             .await
             .iter()
             .map(|(name, processes)| {
-                (name.clone(), processes
-                    .iter()
-                    .enumerate() .map(|(id, process)| NominativeStatus {
-                        process_id: ProcessId {
-                            id,
-                            task_name: name.clone(),
-                        },
-                        status: process.nominative_status.status.clone(),
-                    })
-                    .collect())
+                (
+                    name.clone(),
+                    processes
+                        .iter()
+                        .enumerate()
+                        .map(|(id, process)| NominativeStatus {
+                            process_id: ProcessId {
+                                id,
+                                task_name: name.clone(),
+                            },
+                            status: process.nominative_status.status.clone(),
+                        })
+                        .collect(),
+                )
             })
             .collect();
         let mut list = ProcessList::new();
-        let Active{config, config_file_path: _} = config_state else {
+        let Active {
+            config,
+            config_file_path: _,
+        } = config_state
+        else {
             return list;
         };
         vec.iter().for_each(|process| {
