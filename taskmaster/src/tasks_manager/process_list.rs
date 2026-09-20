@@ -110,137 +110,138 @@ impl Display for StatusList {
 }
 
 #[cfg(test)]
-fn create_tasks_yaml_content() -> String {
-    r#"programs:
+mod tests {
+    use crate::{
+        process::ProcessId,
+        process_handler::{NominativeStatus, Status},
+        tasks_manager::process_list::{ProcessList, StatusList},
+    };
+
+    fn create_tasks_yaml_content() -> String {
+        r#"programs:
     nginx:
         cmd: "/usr/bin/nginx -conf /etc/nginx.conf"
         num-procs: 4
     postgres:
         cmd: "/usr/bin/postgres --shell"
         num-procs: 4"#
-        .to_string()
-}
+            .to_string()
+    }
 
-#[test]
-fn status_list_print() {
-    use crate::process::ProcessId;
+    #[test]
+    fn status_list_print() {
+        let vec = vec![
+            NominativeStatus {
+                process_id: ProcessId {
+                    task_name: "nginix".to_string(),
+                    id: 0,
+                },
+                status: Status::NotRunning,
+            },
+            NominativeStatus {
+                process_id: ProcessId {
+                    task_name: "nginix".to_string(),
+                    id: 0,
+                },
+                status: Status::NotRunning,
+            },
+            NominativeStatus {
+                process_id: ProcessId {
+                    task_name: "nginix".to_string(),
+                    id: 0,
+                },
+                status: Status::NotRunning,
+            },
+            NominativeStatus {
+                process_id: ProcessId {
+                    task_name: "nginix".to_string(),
+                    id: 0,
+                },
+                status: Status::NotRunning,
+            },
+        ];
+        let list = StatusList {
+            list: vec,
+            name: "nginx".to_string(),
+            command: "/bin/nginx".to_string(),
+        };
+        assert_eq!(list.to_string(), "NotRunning -> 4".to_string())
+    }
 
-    let vec = vec![
-        NominativeStatus {
-            process_id: ProcessId {
-                task_name: "nginix".to_string(),
-                id: 0,
+    #[test]
+    fn process_list_print() {
+        let list = vec![
+            NominativeStatus {
+                process_id: ProcessId {
+                    task_name: "nginix".to_string(),
+                    id: 0,
+                },
+                status: Status::Running,
             },
-            status: Status::NotRunning,
-        },
-        NominativeStatus {
-            process_id: ProcessId {
-                task_name: "nginix".to_string(),
-                id: 0,
+            NominativeStatus {
+                process_id: ProcessId {
+                    task_name: "nginix".to_string(),
+                    id: 1,
+                },
+                status: Status::Starting,
             },
-            status: Status::NotRunning,
-        },
-        NominativeStatus {
-            process_id: ProcessId {
-                task_name: "nginix".to_string(),
-                id: 0,
+            NominativeStatus {
+                process_id: ProcessId {
+                    task_name: "nginix".to_string(),
+                    id: 2,
+                },
+                status: Status::Starting,
             },
-            status: Status::NotRunning,
-        },
-        NominativeStatus {
-            process_id: ProcessId {
-                task_name: "nginix".to_string(),
-                id: 0,
+            NominativeStatus {
+                process_id: ProcessId {
+                    task_name: "nginix".to_string(),
+                    id: 3,
+                },
+                status: Status::RoutineStarting,
             },
-            status: Status::NotRunning,
-        },
-    ];
-    let list = StatusList {
-        list: vec,
-        name: "nginx".to_string(),
-        command: "/bin/nginx".to_string(),
-    };
-    assert_eq!(list.to_string(), "NotRunning -> 4".to_string())
-}
+        ];
+        let list2 = vec![
+            NominativeStatus {
+                process_id: ProcessId {
+                    task_name: "postgres".to_string(),
+                    id: 0,
+                },
+                status: Status::Running,
+            },
+            NominativeStatus {
+                process_id: ProcessId {
+                    task_name: "postgres".to_string(),
+                    id: 1,
+                },
+                status: Status::Running,
+            },
+            NominativeStatus {
+                process_id: ProcessId {
+                    task_name: "postgres".to_string(),
+                    id: 2,
+                },
+                status: Status::Running,
+            },
+            NominativeStatus {
+                process_id: ProcessId {
+                    task_name: "postgres".to_string(),
+                    id: 3,
+                },
+                status: Status::Starting,
+            },
+        ];
+        let content = create_tasks_yaml_content();
+        let config = crate::config::Config::from_reader(std::io::Cursor::new(content)).unwrap();
+        let mut process_list = ProcessList::new();
+        process_list.push(&config.programs.get("nginx").unwrap(), list);
+        process_list.push(&config.programs.get("postgres").unwrap(), list2);
 
-#[test]
-fn process_list_print() {
-    use crate::process::ProcessId;
-
-    let list = vec![
-        NominativeStatus {
-            process_id: ProcessId {
-                task_name: "nginix".to_string(),
-                id: 0,
-            },
-            status: Status::Running,
-        },
-        NominativeStatus {
-            process_id: ProcessId {
-                task_name: "nginix".to_string(),
-                id: 1,
-            },
-            status: Status::Starting,
-        },
-        NominativeStatus {
-            process_id: ProcessId {
-                task_name: "nginix".to_string(),
-                id: 2,
-            },
-            status: Status::Starting,
-        },
-        NominativeStatus {
-            process_id: ProcessId {
-                task_name: "nginix".to_string(),
-                id: 3,
-            },
-            status: Status::RoutineStarting,
-        },
-    ];
-    let list2 = vec![
-        NominativeStatus {
-            process_id: ProcessId {
-                task_name: "postgres".to_string(),
-                id: 0,
-            },
-            status: Status::Running,
-        },
-        NominativeStatus {
-            process_id: ProcessId {
-                task_name: "postgres".to_string(),
-                id: 1,
-            },
-            status: Status::Running,
-        },
-        NominativeStatus {
-            process_id: ProcessId {
-                task_name: "postgres".to_string(),
-                id: 2,
-            },
-            status: Status::Running,
-        },
-        NominativeStatus {
-            process_id: ProcessId {
-                task_name: "postgres".to_string(),
-                id: 3,
-            },
-            status: Status::Starting,
-        },
-    ];
-    let content = create_tasks_yaml_content();
-    let config = crate::config::Config::from_reader(std::io::Cursor::new(content)).unwrap();
-    let mut process_list = ProcessList::new();
-    process_list.push(&config.programs.get("nginx").unwrap(), list);
-    process_list.push(&config.programs.get("postgres").unwrap(), list2);
-
-    assert_eq!(
-        process_list.to_string(),
-        r#"nginx (/usr/bin/nginx -conf /etc/nginx.conf): RoutineStarting -> 1, Starting -> 2, Running -> 1
+        assert_eq!(
+            process_list.to_string(),
+            r#"nginx (/usr/bin/nginx -conf /etc/nginx.conf): RoutineStarting -> 1, Starting -> 2, Running -> 1
 postgres (/usr/bin/postgres --shell): Starting -> 1, Running -> 3
 "#
-    )
+        )
+    }
 }
 
-// nginx (/bin/nginx): Running -> 6, Exited -> 2
-// caddy (/bin/caddy): Running -> 7, Exited -> 1
-// wordpress (/bin/wordpress): Running -> 7, Exited -> 1
