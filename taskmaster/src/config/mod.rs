@@ -37,9 +37,9 @@ impl Display for Command {
             f,
             "{}{}",
             self.exec,
-            self.args
-                .iter()
-                .fold(String::new(), |acc, arg| { acc + " " + arg })
+            (!self.args.is_empty())
+                .then(|| format!(" {:?}", self.args))
+                .unwrap_or_else(String::new)
         )
     }
 }

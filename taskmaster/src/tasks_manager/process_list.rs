@@ -34,7 +34,7 @@ impl Display for ProcessList {
             "{}",
             self.list.iter().fold(String::new(), |acc, list| {
                 acc + format!(
-                    "{:35} {}\n",
+                    "{}\n\t{}\n\n",
                     format!("{} ({}):", list.task_name, list.command),
                     list
                 )
@@ -122,7 +122,7 @@ mod tests {
         cmd: "/usr/bin/nginx -conf /etc/nginx.conf"
         num-procs: 4
     postgres:
-        cmd: "/usr/bin/postgres --shell"
+        cmd: "/usr/bin/postgres"
         num-procs: 4"#
             .to_string()
     }
@@ -234,12 +234,10 @@ mod tests {
         let mut process_list = ProcessList::new();
         process_list.push(&config.programs.get("nginx").unwrap(), list);
         process_list.push(&config.programs.get("postgres").unwrap(), list2);
-
+        println!("{}", process_list.to_string());
         assert_eq!(
             process_list.to_string(),
-            r#"nginx (/usr/bin/nginx -conf /etc/nginx.conf): RoutineStarting -> 1, Starting -> 2, Running -> 1
-postgres (/usr/bin/postgres --shell): Starting -> 1, Running -> 3
-"#
+           "nginx (/usr/bin/nginx [\"-conf\", \"/etc/nginx.conf\"]):\n\tRoutineStarting -> 1, Starting -> 2, Running -> 1\n\npostgres (/usr/bin/postgres):\n\tStarting -> 1, Running -> 3\n\n"
         )
     }
 }
