@@ -1,5 +1,5 @@
 use crate::TestDir;
-use std::io;
+use std::{assert_matches, io};
 use std::sync::Arc;
 
 use super::{ConfigState, DEFAULT_TASKS_FILE, InitFile, InitFileError, ReloadArgs};
@@ -46,14 +46,14 @@ fn test_from_content_activates_config() {
 fn test_take_returns_previous_state_and_resets_to_uninitialized() {
     let mut state = ConfigState::from_content(VALID_YAML.to_string());
     let taken = state.take();
-    assert!(matches!(
+    assert_matches!(
         taken,
         ConfigState::Active {
             config: _,
             config_file_path: _
         }
-    ));
-    assert!(matches!(state, ConfigState::Uninitialized));
+    );
+    assert_matches!(state, ConfigState::Uninitialized);
 }
 
 #[test]
@@ -160,5 +160,5 @@ fn test_load_config_invalid_yaml_returns_load_error() {
     let state = ConfigState::default()
         .load_config(ReloadArgs::TempConfig(tasks_path))
         .unwrap();
-    assert!(matches!(state, ConfigState::LoadError { .. }));
+    assert_matches!(state, ConfigState::LoadError { .. });
 }

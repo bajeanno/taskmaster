@@ -139,7 +139,8 @@ impl Routine {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::assert_matches;
+use std::sync::Arc;
 
     use crate::config::program::ProgramDiff;
     use crate::config_state::ConfigState;
@@ -168,7 +169,7 @@ mod tests {
         let current = program_from_yaml(current_yaml, "testprog");
         let new = program_from_yaml(new_yaml, "testprog");
 
-        assert!(matches!(current.diff(&new), ProgramDiff::NeedRestart));
+        assert_matches!(current.diff(&new), ProgramDiff::NeedRestart);
     }
 
     #[test]
@@ -210,6 +211,6 @@ mod tests {
         let current = program_from_yaml(current_yaml, "testprog");
         let new = program_from_yaml(new_yaml, "testprog");
 
-        assert!(matches!(current.diff(&new), ProgramDiff::Other));
+        assert_matches!(current.diff(&new), ProgramDiff::Other);
     }
 }
