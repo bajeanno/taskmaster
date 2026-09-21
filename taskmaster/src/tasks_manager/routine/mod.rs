@@ -140,7 +140,7 @@ impl Routine {
 #[cfg(test)]
 mod tests {
     use std::assert_matches;
-use std::sync::Arc;
+    use std::sync::Arc;
 
     use crate::config::program::ProgramDiff;
     use crate::config_state::ConfigState;

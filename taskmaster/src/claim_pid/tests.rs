@@ -1,5 +1,7 @@
 use std::{
-    assert_matches, sync::{Mutex, mpsc}, time::Duration,
+    assert_matches,
+    sync::{Mutex, mpsc},
+    time::Duration,
 };
 
 use crate::{
@@ -35,10 +37,7 @@ fn test_read_pid_returns_error_for_invalid_content() {
     let _guard = PID_TEST_LOCK.lock().unwrap();
     set_pid_file_content("taskmaster");
     let mut pid_file = PidFile::open().unwrap();
-    assert_matches!(
-        pid_file.read_pid(),
-        Err(Error::Pid(PidError::Parse(_)))
-    );
+    assert_matches!(pid_file.read_pid(), Err(Error::Pid(PidError::Parse(_))));
 }
 
 #[test]

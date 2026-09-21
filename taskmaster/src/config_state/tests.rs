@@ -1,6 +1,6 @@
 use crate::TestDir;
-use std::{assert_matches, io};
 use std::sync::Arc;
+use std::{assert_matches, io};
 
 use super::{ConfigState, DEFAULT_TASKS_FILE, InitFile, InitFileError, ReloadArgs};
 
