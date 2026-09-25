@@ -10,6 +10,11 @@ use std::{
 
 pub static SIGNAL_CHANNEL: LazyLock<SignalChannel> = LazyLock::new(SignalChannel::new);
 
+#[allow(unused)] // This function is implemented inside interface.c file (this is C code linking with the Rust binary)
+unsafe extern "C" {
+    pub fn declare_sighandlers() -> c_int;
+}
+
 pub struct SignalChannel {
     sender: Sender<c_int>,
     receiver: Mutex<Receiver<c_int>>,
@@ -36,11 +41,6 @@ impl SignalChannel {
     fn send(signal: i32) -> Result<(), SendError<i32>> {
         SIGNAL_CHANNEL.sender.send(signal)
     }
-}
-
-#[allow(unused)] // This function is implemented inside interface.c file (this is C code linking with the Rust binary)
-unsafe extern "C" {
-    pub fn declare_sighandlers() -> c_int;
 }
 
 #[allow(unused)]
