@@ -83,7 +83,7 @@ async fn react_to_signal(signum: c_int, handle: &Arc<Handle>) -> bool {
         match signal {
             Signal::SIGHUP => {
                 let _ = handle
-                    .send(TaskManagerCommand::Reload(ReloadArgs::UseDefault))
+                    .send(TaskManagerCommand::Reload(ReloadArgs::UseCurrent))
                     .await; // TODO: maybe error handling
             }
 
