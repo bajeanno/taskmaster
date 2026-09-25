@@ -63,6 +63,7 @@ pub extern "C" fn on_signal(signum: c_int) {
 #[allow(unused)] // TODO: remove that
 async fn handle_signal(handle: &Handle) -> Result<(), SigActionError> {
     unsafe {
+        // declare sighandler for SIGHUP and SIGINT
         let errno = declare_sighandlers();
         if !errno.is_null() {
             return Err(SigActionError(CStr::from_ptr(errno).to_owned()));
@@ -116,7 +117,7 @@ mod test {
     use tokio::time::sleep;
 
     async fn test_loop() {
-        SignalChannel::recv().unwrap();
+        assert_eq!(SignalChannel::recv().unwrap(), 1);
     }
 
     async fn run_loop_and_assert_result() {
@@ -133,7 +134,7 @@ mod test {
     async fn test_signal_handling() {
         unsafe {
             // declare sighandler for SIGHUP and SIGINT
-            declare_sighandlers();
+            assert!(!declare_sighandlers().is_null());
         }
 
         let handle = tokio::spawn(run_loop_and_assert_result());
