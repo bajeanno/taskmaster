@@ -9,18 +9,18 @@ use std::{
 };
 use thiserror::Error;
 
-pub static SIGNAL_CHANNEL: LazyLock<SignalChannel> = LazyLock::new(SignalChannel::new);
+static SIGNAL_CHANNEL: LazyLock<SignalChannel> = LazyLock::new(SignalChannel::new);
 
 #[allow(unused)] // This function is implemented inside interface.c file (this is C code linking with the Rust binary)
 unsafe extern "C" {
-    pub fn declare_sighandlers() -> c_int;
+    fn declare_sighandlers() -> c_int;
 }
 
 #[derive(Debug, Error)]
 #[error("error binding signal handler")]
 pub struct SigActionError;
 
-pub struct SignalChannel {
+struct SignalChannel {
     sender: Sender<c_int>,
     receiver: Mutex<Receiver<c_int>>,
 }
@@ -35,7 +35,7 @@ impl SignalChannel {
     }
 
     #[allow(unused)] // TODO: remove that
-    pub fn recv() -> Result<i32, RecvError> {
+    fn recv() -> Result<i32, RecvError> {
         SIGNAL_CHANNEL
             .receiver
             .lock()
