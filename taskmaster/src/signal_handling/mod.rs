@@ -84,13 +84,13 @@ async fn react_to_signal(signum: c_int, handle: &Arc<Handle>) -> bool {
             Signal::SIGHUP => {
                 let _ = handle
                     .send(TaskManagerCommand::Reload(ReloadArgs::UseCurrent))
-                    .await; // TODO: maybe error handling
+                    .await;
             }
 
             Signal::SIGINT => {
-                let _ = handle.send(TaskManagerCommand::Exit).await; // TODO: maybe error handling
+                let _ = handle.send(TaskManagerCommand::Exit).await;
                 return true;
-            } // same exit code as cat on ctrl+c
+            }
 
             _ => {
                 eprintln!(
