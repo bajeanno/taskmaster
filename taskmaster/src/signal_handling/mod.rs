@@ -2,8 +2,8 @@ use crate::config_state::ReloadArgs;
 use crate::tasks_manager::{Handle, TaskManagerCommand};
 use signal::Signal;
 use std::ffi::{CStr, CString, c_char};
+use std::sync::PoisonError;
 use std::sync::mpsc::{self, Receiver, RecvError, SendError, Sender};
-use std::sync::{Arc, PoisonError};
 use std::{
     ffi::c_int,
     sync::{LazyLock, Mutex},
