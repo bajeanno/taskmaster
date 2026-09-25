@@ -1,5 +1,6 @@
 #include <signal.h>
 #include <string.h>
+#include <errno.h>
 
 extern void on_signal(int);
 
@@ -9,15 +10,15 @@ static int register_sighandler(int signal, void(*handler)(int)) {
 	memset(&action, 0, sizeof(struct sigaction));
 	action.sa_handler = handler;
 	action.sa_flags = SA_RESTART;
-	sigaction(signal, &action, NULL);
-	return 0;
+	return sigaction(signal, &action, NULL);
 }
 
 int declare_sighandlers() {
-	int result;
-	result = register_sighandler(SIGINT, on_signal);
-	if (result != 0) {
-		return result;
+	if (register_sighandler(SIGINT, on_signal) != 0) {
+		return errno;
 	}
-	return register_sighandler(SIGHUP, on_signal);
+	if (register_sighandler(SIGHUP, on_signal) != 0) {
+		return errno;
+	}
+	return 0;
 }
