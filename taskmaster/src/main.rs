@@ -5,6 +5,7 @@ mod error;
 mod output_file;
 mod process;
 mod process_handler;
+mod signal_handling;
 mod tasks_manager;
 
 #[cfg(test)]
