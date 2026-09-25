@@ -61,7 +61,7 @@ pub extern "C" fn on_signal(signum: c_int) {
 }
 
 #[allow(unused)] // TODO: remove that
-async fn handle_signal(handle: &Arc<Handle>) -> Result<(), SigActionError> {
+async fn handle_signal(handle: &Handle) -> Result<(), SigActionError> {
     unsafe {
         let errno = declare_sighandlers();
         if !errno.is_null() {
@@ -78,7 +78,7 @@ async fn handle_signal(handle: &Arc<Handle>) -> Result<(), SigActionError> {
 
 /// Returns false if we should continue listening for signals
 #[allow(unused)] // TODO: remove that
-async fn react_to_signal(signum: c_int, handle: &Arc<Handle>) -> bool {
+async fn react_to_signal(signum: c_int, handle: &Handle) -> bool {
     if let Ok(signal) = Signal::from_c_int(signum) {
         match signal {
             Signal::SIGHUP => {
