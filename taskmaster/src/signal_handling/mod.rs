@@ -102,9 +102,11 @@ async fn react_to_signal(signum: c_int, handle: &Handle) -> bool {
             }
         }
     } else {
-        eprintln!("Received signal {signum} and didn't recognized it, taskmaster will ignore it. \
+        eprintln!(
+            "Received signal {signum} and didn't recognized it, taskmaster will ignore it. \
             Please open an issue with the signal name or a pull \
-            request with the solution to this issue");
+            request with the solution to this issue"
+        );
     }
     false
 }
