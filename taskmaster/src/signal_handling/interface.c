@@ -3,7 +3,7 @@
 
 extern void on_signal(int);
 
-int register_sighandler(int signal, void(*handler)(int)) {
+static int register_sighandler(int signal, void(*handler)(int)) {
 	struct sigaction action;
 
 	memset(&action, 0, sizeof(struct sigaction));
