@@ -16,14 +16,16 @@ use tokio::sync::oneshot;
 
 #[derive(Debug, Error)]
 pub enum ServerCommandError {
-    #[error("{0}")]
+    #[error("Task not found in current config: {0}")]
     NoSuchProgram(String),
+
     #[error("error loading config from file '{config_file_path}': {error}")]
     FailedToLoadNewConfig {
         error: String,
         config_file_path: String,
     },
-    #[error("{0}")]
+
+    #[error("{0}")] // Error message is already contained in sub-type
     InitFileError(#[from] InitFileError),
 }
 
