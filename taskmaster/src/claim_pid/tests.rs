@@ -1,4 +1,5 @@
 use std::{
+    assert_matches,
     sync::{Mutex, mpsc},
     time::Duration,
 };
@@ -36,10 +37,7 @@ fn test_read_pid_returns_error_for_invalid_content() {
     let _guard = PID_TEST_LOCK.lock().unwrap();
     set_pid_file_content("taskmaster");
     let mut pid_file = PidFile::open().unwrap();
-    assert!(matches!(
-        pid_file.read_pid(),
-        Err(Error::Pid(PidError::Parse(_)))
-    ));
+    assert_matches!(pid_file.read_pid(), Err(Error::Pid(PidError::Parse(_))));
 }
 
 #[test]
@@ -56,7 +54,7 @@ fn test_claim_fails_when_pid_present() {
     let _guard = PID_TEST_LOCK.lock().unwrap();
     set_pid_file_content("999999");
     let err = Claim::new().unwrap_err();
-    assert!(matches!(err, Error::Pid(PidError::OtherInstanceRunning)));
+    assert_matches!(err, Error::Pid(PidError::OtherInstanceRunning));
 }
 
 #[test]

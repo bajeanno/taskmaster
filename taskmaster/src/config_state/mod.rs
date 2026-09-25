@@ -16,7 +16,7 @@ pub const DEFAULT_TASKS_FILE: &str = "/etc/taskmaster.d/taskmaster.yaml";
 mod tests;
 
 #[allow(dead_code)]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub enum ConfigState {
     Active {
         config: Arc<Config>,
