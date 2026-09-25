@@ -7,6 +7,7 @@ use std::{
     ffi::c_int,
     sync::{LazyLock, Mutex},
 };
+use thiserror::Error;
 
 pub static SIGNAL_CHANNEL: LazyLock<SignalChannel> = LazyLock::new(SignalChannel::new);
 
@@ -14,6 +15,10 @@ pub static SIGNAL_CHANNEL: LazyLock<SignalChannel> = LazyLock::new(SignalChannel
 unsafe extern "C" {
     pub fn declare_sighandlers() -> c_int;
 }
+
+#[derive(Debug, Error)]
+#[error("error binding signal handler")]
+pub struct SigActionError;
 
 pub struct SignalChannel {
     sender: Sender<c_int>,
@@ -50,15 +55,16 @@ pub extern "C" fn on_signal(signum: c_int) {
 }
 
 #[allow(unused)] // TODO: remove that
-async fn handle_signal(handle: &Arc<Handle>) {
-    unsafe {
-        declare_sighandlers();
+async fn handle_signal(handle: &Arc<Handle>) -> Result<(), SigActionError> {
+    if unsafe { declare_sighandlers() } != 0 {
+        return Err(SigActionError);
     }
     while let Ok(signum) = SignalChannel::recv() {
         if react_to_signal(signum, handle).await {
             break;
         }
     }
+    Ok(())
 }
 
 /// Returns false if we should continue listening for signals
