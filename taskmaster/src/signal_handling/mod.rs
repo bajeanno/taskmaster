@@ -115,9 +115,10 @@ mod test {
     use libc::signal::kill;
     use std::time::Duration;
     use tokio::time::sleep;
+    const SIGNAL: c_int = 1;
 
     async fn test_loop() {
-        assert_eq!(SignalChannel::recv().unwrap(), 1);
+        assert_eq!(SignalChannel::recv().unwrap(), SIGNAL);
     }
 
     async fn run_loop_and_assert_result() {
@@ -141,7 +142,7 @@ mod test {
 
         let pid = std::process::id();
         unsafe {
-            kill(pid as i32, 1);
+            kill(pid as i32, SIGNAL);
         }
         let _ = handle.await;
     }
