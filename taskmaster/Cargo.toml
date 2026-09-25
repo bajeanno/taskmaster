@@ -20,3 +20,6 @@ signal = "0.7.0"
 serde_with = "3.16.1"
 toml = "1.1.4"
 ron = "0.12.2"
+
+[build-dependencies]
+cc = "1.5.1"

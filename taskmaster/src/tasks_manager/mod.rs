@@ -13,6 +13,7 @@ use crate::{
 use routine::Client;
 use thiserror::Error;
 use tokio::sync::oneshot;
+pub use handle::Handle;
 
 #[derive(Debug, Error)]
 pub enum ServerCommandError {

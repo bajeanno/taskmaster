@@ -6,6 +6,7 @@ mod output_file;
 mod process;
 mod process_handler;
 mod tasks_manager;
+mod signal_handling;
 
 #[cfg(test)]
 mod tests;
