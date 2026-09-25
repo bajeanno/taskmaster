@@ -10,10 +10,10 @@ use crate::{
     config_state::{InitFileError, ReloadArgs},
     tasks_manager::process_list::ProcessList,
 };
+pub use handle::Handle;
 use routine::Client;
 use thiserror::Error;
 use tokio::sync::oneshot;
-pub use handle::Handle;
 
 #[derive(Debug, Error)]
 pub enum ServerCommandError {

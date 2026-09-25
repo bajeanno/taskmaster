@@ -8,7 +8,7 @@ use std::{
     sync::{LazyLock, Mutex},
 };
 
-pub static SIGNAL_CHANNEL: LazyLock<SignalChannel> = LazyLock::new(|| SignalChannel::new());
+pub static SIGNAL_CHANNEL: LazyLock<SignalChannel> = LazyLock::new(SignalChannel::new);
 
 pub struct SignalChannel {
     sender: Sender<c_int>,
