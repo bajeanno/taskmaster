@@ -13,12 +13,10 @@ static int register_sighandler(int signal, void(*handler)(int)) {
 	return sigaction(signal, &action, NULL);
 }
 
-int declare_sighandlers() {
-	if (register_sighandler(SIGINT, on_signal) != 0) {
-		return errno;
-	}
-	if (register_sighandler(SIGHUP, on_signal) != 0) {
-		return errno;
+char *declare_sighandlers() {
+	if (register_sighandler(SIGINT, on_signal) != 0
+		|| register_sighandler(SIGHUP, on_signal) != 0) {
+		return strerror(errno);
 	}
 	return 0;
 }

@@ -1,6 +1,7 @@
 use crate::config_state::ReloadArgs;
 use crate::tasks_manager::{Handle, TaskManagerCommand};
 use signal::Signal;
+use std::ffi::{CStr, CString, c_char};
 use std::sync::mpsc::{self, Receiver, RecvError, SendError, Sender};
 use std::sync::{Arc, PoisonError};
 use std::{
@@ -11,14 +12,19 @@ use thiserror::Error;
 
 static SIGNAL_CHANNEL: LazyLock<SignalChannel> = LazyLock::new(SignalChannel::new);
 
-#[allow(unused)] // This function is implemented inside interface.c file (this is C code linking with the Rust binary)
+#[allow(unused)]
 unsafe extern "C" {
-    fn declare_sighandlers() -> c_int;
+    /// This function is implemented inside interface.c file (this is C code linking with the Rust binary)
+    ///
+    /// # Return value
+    /// - On Success -> `NULL`
+    /// - On Failure -> Result of `strerror(errno)` that doesn't need to be freed
+    fn declare_sighandlers() -> *const c_char;
 }
 
 #[derive(Debug, Error)]
-#[error("error binding signal handler")]
-pub struct SigActionError;
+#[error("error binding signal handler: sigaction failed: {0:?}")]
+pub struct SigActionError(CString);
 
 struct SignalChannel {
     sender: Sender<c_int>,
@@ -56,8 +62,11 @@ pub extern "C" fn on_signal(signum: c_int) {
 
 #[allow(unused)] // TODO: remove that
 async fn handle_signal(handle: &Arc<Handle>) -> Result<(), SigActionError> {
-    if unsafe { declare_sighandlers() } != 0 {
-        return Err(SigActionError);
+    unsafe {
+        let errno = declare_sighandlers();
+        if !errno.is_null() {
+            return Err(SigActionError(CStr::from_ptr(errno).to_owned()));
+        }
     }
     while let Ok(signum) = SignalChannel::recv() {
         if react_to_signal(signum, handle).await {
