@@ -94,12 +94,16 @@ async fn react_to_signal(signum: c_int, handle: &Handle) -> bool {
 
             _ => {
                 eprintln!(
-                    "Received signal {signum}, this signal is not meant to be handled by taskmaster, please open an issue with the signal name or a pull request with the solution to this issue"
+                    "Received signal {signum}, this signal is not meant to be handled by \
+                    taskmaster, please open an issue with the signal name or a pull \
+                    request with the solution to this issue"
                 );
             }
         }
     } else {
-        eprintln!("Received signal {signum} and didn't recognized it, taskmaster will ignore it.");
+        eprintln!("Received signal {signum} and didn't recognized it, taskmaster will ignore it. \
+            Please open an issue with the signal name or a pull \
+            request with the solution to this issue");
     }
     false
 }
