@@ -15,8 +15,6 @@ use crate::{commands::placeholder::PlaceHolderError, session::Session};
 pub enum CommandExecutionError {
     #[error("No such program: `{0}`")]
     NoSuchProgram(String),
-    #[error("`{0}`")]
-    RequestError(#[from] connection::Error),
     #[error("PlaceHolder error: `{0}`")]
     PlaceHolderError(PlaceHolderError),
 }

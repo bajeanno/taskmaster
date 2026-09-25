@@ -1,11 +1,6 @@
-use commands::{ClientCommand, ServerCommand};
-use connection::Connection;
 use std::io;
-use tokio::net::TcpStream;
 
-pub struct Session {
-    pub _stream: Connection<TcpStream, ClientCommand, ServerCommand>,
-}
+pub struct Session {}
 
 use thiserror::Error;
 
@@ -17,11 +12,6 @@ pub enum ConnectError {
 
 impl Session {
     pub async fn new() -> Result<Self, ConnectError> {
-        let socket = TcpStream::connect("localhost:4444")
-            .await
-            .map_err(ConnectError::ConnectionFailure)?;
-        Ok(Self {
-            _stream: Connection::new(socket, 1024),
-        })
+        Ok(Self {})
     }
 }
