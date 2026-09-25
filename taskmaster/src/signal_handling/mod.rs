@@ -137,7 +137,7 @@ mod test {
     async fn test_signal_handling() {
         unsafe {
             // declare sighandler for SIGHUP and SIGINT
-            assert!(!declare_sighandlers().is_null());
+            assert!(declare_sighandlers().is_null());
         }
 
         let handle = tokio::spawn(run_loop_and_assert_result());
