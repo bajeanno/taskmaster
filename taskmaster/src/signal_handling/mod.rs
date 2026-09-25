@@ -125,7 +125,7 @@ mod test {
         tokio::select! {
             _ = test_loop() => {
             },
-            _ = sleep(Duration::from_secs(10)) => {
+            _ = sleep(Duration::from_secs(1)) => {
                 assert!(false);
             },
         }
