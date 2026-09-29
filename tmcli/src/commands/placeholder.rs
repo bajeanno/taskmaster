@@ -1,6 +1,6 @@
 // TODO remove this file
 
-use crate::session::Session;
+use shared_code::rpc::ClientHandle;
 
 pub struct PlaceHolder<T> {
     return_value: T,
@@ -22,7 +22,7 @@ impl<T> PlaceHolder<T> {
         Self { return_value }
     }
 
-    pub async fn call(self, _conn: &Session) -> Result<T, PlaceHolderError> {
+    pub async fn call(self, _client: &ClientHandle) -> Result<T, PlaceHolderError> {
         Ok(self.return_value)
     }
 }

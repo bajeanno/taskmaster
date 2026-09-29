@@ -1,20 +1,17 @@
-use std::{fmt::Display, num::ParseIntError};
+use std::num::ParseIntError;
 
+use shared_code::rpc::StartServerError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    PortArgumentIsNotAnInteger {
-        input: String,
-        error: std::num::ParseIntError,
-    },
-
-    #[allow(dead_code)] //TODO: remove that
+    #[error("Failed to daemonize process")]
     FailedToDaemonize(daemonize::Error),
 
-    #[allow(dead_code)] //TODO: remove that
-    TaskServerFailure,
+    #[error("Failed to start daemon server")]
+    TaskServerFailure(#[from] StartServerError),
 
+    #[error("Failed to claim taskmaster daemon instance")]
     Pid(#[from] PidError),
 }
 
@@ -30,20 +27,6 @@ pub enum PidError {
     Parse(ParseIntError),
     #[error("Another instance of Taskmaster is already running")]
     OtherInstanceRunning,
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::PortArgumentIsNotAnInteger { input, error } => {
-                write!(
-                    f,
-                    "Failed to parse port number from input: '{input}': {error}"
-                )
-            }
-            _ => write!(f, "{self:#?}"),
-        }
-    }
 }
 
 impl From<daemonize::Error> for Error {

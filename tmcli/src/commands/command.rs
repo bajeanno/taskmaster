@@ -1,4 +1,5 @@
-use crate::Session;
+use shared_code::rpc::ClientHandle;
+
 use crate::commands::placeholder::*;
 
 #[derive(Debug)]
@@ -12,29 +13,29 @@ pub enum Command {
 }
 
 impl Command {
-    pub async fn send(&self, _conn: &Session) -> Result<(), PlaceHolderError> {
+    pub async fn send(&self, _client: &ClientHandle) -> Result<(), PlaceHolderError> {
         match self {
             Command::ListTasks => {
                 list_tasks()
-                    .call(_conn)
+                    .call(_client)
                     .await?
                     .into_iter()
                     .for_each(|item| println!("\t{item}"));
             }
             Command::StartProgram(task) => {
-                start(task.to_owned()).call(_conn).await?.unwrap(); //TODO: check value at unwrap
+                start(task.to_owned()).call(_client).await?.unwrap(); //TODO: check value at unwrap
             }
             Command::StopProgram(task) => {
-                stop(task.to_owned()).call(_conn).await?.unwrap(); //TODO: check value at unwrap
+                stop(task.to_owned()).call(_client).await?.unwrap(); //TODO: check value at unwrap
             }
             Command::RestartProgram(task) => {
-                restart(task.to_owned()).call(_conn).await?.unwrap(); //TODO: check value at unwrap
+                restart(task.to_owned()).call(_client).await?.unwrap(); //TODO: check value at unwrap
             }
             Command::ReloadConfigFile => {
-                reload().call(_conn).await?.unwrap(); //TODO: check value at unwrap
+                reload().call(_client).await?.unwrap(); //TODO: check value at unwrap
             }
             Command::StopDaemon => {
-                shutdown().call(_conn).await?.unwrap(); //TODO: check value at unwrap
+                shutdown().call(_client).await?.unwrap(); //TODO: check value at unwrap
             }
         }
         Ok(())

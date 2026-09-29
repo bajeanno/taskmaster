@@ -1,11 +1,9 @@
 use rustyline::{Editor, error::ReadlineError};
+use shared_code::rpc::ClientHandle;
 
-use crate::{
-    commands::{parsing::parse_command, send_command},
-    session::Session,
-};
+use crate::commands::{parsing::parse_command, send_command};
 
-pub async fn run(session: Session) -> Result<(), ()> {
+pub async fn run(client: ClientHandle) -> Result<(), ()> {
     let mut rl = Editor::<()>::new();
     loop {
         let prompt = match rl.readline("tmcli> ") {
@@ -38,7 +36,7 @@ pub async fn run(session: Session) -> Result<(), ()> {
                 continue;
             }
         };
-        if let Err(err) = send_command(cmd, &session).await {
+        if let Err(err) = send_command(cmd, &client).await {
             eprintln!("{err}");
         }
     }

@@ -5,10 +5,11 @@ pub mod parsing;
 mod placeholder;
 
 use command::Command;
+use shared_code::rpc::ClientHandle;
 #[allow(unused_imports)]
 use thiserror::Error;
 
-use crate::{commands::placeholder::PlaceHolderError, session::Session};
+use crate::commands::placeholder::PlaceHolderError;
 
 #[derive(Error, Debug)]
 #[allow(dead_code)] //TODO: Remove that
@@ -19,8 +20,11 @@ pub enum CommandExecutionError {
     PlaceHolderError(PlaceHolderError),
 }
 
-pub async fn send_command(cmd: Command, session: &Session) -> Result<(), CommandExecutionError> {
-    cmd.send(session)
+pub async fn send_command(
+    cmd: Command,
+    client: &ClientHandle,
+) -> Result<(), CommandExecutionError> {
+    cmd.send(client)
         .await
         .map_err(CommandExecutionError::PlaceHolderError)?;
     Ok(())

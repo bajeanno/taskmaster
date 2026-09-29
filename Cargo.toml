@@ -1,8 +1,19 @@
 [workspace]
+resolver = "3"
 members = [
     "taskmaster",
     "tmcli",
     "crates/daemonize",
     "crates/libc",
+    "crates/shared-code",
+    "vendor/rpc-genie/rpc-genie",
+    "vendor/rpc-genie/rpc-genie-macros",
 ]
-resolver = "2"
+
+[patch.crates-io]
+rpc-genie = { path = "vendor/rpc-genie/rpc-genie" }
+rpc-genie-macros = { path = "vendor/rpc-genie/rpc-genie-macros" }
+
+[workspace.dependencies]
+tokio = "1"
+thiserror = "2"
