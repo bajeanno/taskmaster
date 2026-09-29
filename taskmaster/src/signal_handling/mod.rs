@@ -80,17 +80,14 @@ pub async fn handle_signal(handle: &Handle) -> Result<(), SigActionError> {
         }
     }
 
-    eprintln!("hey");
-    while let Ok(signum) = tokio::task::spawn_blocking(|| SignalChannel::recv())
+    while let Ok(signum) = tokio::task::spawn_blocking(SignalChannel::recv)
         .await
         .expect("task panicked")
     {
-        eprintln!("sig: {signum}");
         if react_to_signal(signum, handle).await {
             break;
         }
     }
-    eprintln!("bye");
     Ok(())
 }
 

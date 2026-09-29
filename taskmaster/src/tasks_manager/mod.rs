@@ -11,8 +11,8 @@ use crate::{
     tasks_manager::process_list::ProcessList,
 };
 pub use handle::Handle;
-use routine::Client;
-pub use routine::Routine;
+#[allow(unused_imports)] // TODO: remove that
+use routine::{Client, Routine};
 use thiserror::Error;
 use tokio::sync::oneshot;
 
