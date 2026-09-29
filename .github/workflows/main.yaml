@@ -12,6 +12,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+        with: submodules: true
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
@@ -24,6 +25,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+        with: submodules: true
 
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
@@ -37,6 +39,9 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with: submodules: true
+
       - name: Format
         run: cargo fmt -- --check
