@@ -17,7 +17,7 @@ unsafe extern "C" {
     /// # Return value
     /// - On Success -> `NULL`
     /// - On Failure -> Result of `strerror(errno)` that doesn't need to be freed
-    pub fn declare_sighandlers() -> *const c_char;
+    fn declare_sighandlers() -> *const c_char;
 }
 
 #[derive(Debug, Error)]
@@ -73,7 +73,7 @@ pub extern "C" fn on_signal(signum: c_int) {
 #[allow(unused)] // TODO: remove that
 pub async fn handle_signal(handle: &Handle) -> Result<(), SigActionError> {
     unsafe {
-        // declare sighandler for sighup and sigint
+        // declare sighandler for SIGHUP and SIGINT
         let errno = declare_sighandlers();
         if !errno.is_null() {
             return Err(SigActionError(CStr::from_ptr(errno).to_owned()));
@@ -104,7 +104,6 @@ async fn react_to_signal(signum: c_int, handle: &Handle) -> bool {
 
             Signal::SIGINT => {
                 let _ = handle.send(TaskManagerCommand::Exit).await;
-                println!("received SIGINT");
                 return true;
             }
 
