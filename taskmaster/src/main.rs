@@ -14,7 +14,9 @@ mod tests;
 #[cfg(test)]
 use tests::TestDir;
 
-use crate::{claim_pid::Claim, config_state::ConfigState, tasks_manager::ServerCommandError};
+use crate::{
+    config_state::ConfigState, tasks_manager::ServerCommandError,
+};
 use config::ProgramConfig;
 use error::Error;
 use tasks_manager::TaskManagerCommand;
@@ -34,7 +36,7 @@ fn main() {
 }
 
 fn entrypoint() -> Result<(), Error> {
-    let pid_file_claim = Claim::new()?;
+    let pid_file_claim = claim_pid::Claim::new()?;
 
     if !cfg!(debug_assertions) {
         daemonize()?
@@ -56,11 +58,15 @@ fn daemonize() -> Result<(), Error> {
 }
 
 fn start_server() -> Result<(), Error> {
-    let _config_manager = ConfigState::from_default_config_file();
+    let _config_state = match ConfigState::from_default_config_file() {
+        Ok(config_state) => config_state,
+        Err(err) => todo!("{err}"), // TODO: handle InitFileError
+    };
 
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
         .block_on(async {
+            // TODO: spawn task manager and create signal handling task
             shared_code::rpc::start_server()
                 .await?
                 .wait_until_stopped()

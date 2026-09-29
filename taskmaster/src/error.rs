@@ -25,7 +25,13 @@ pub enum PidError {
     WriteFile(std::io::Error),
     #[error("Failed to parse pid file content: {0}")]
     Parse(ParseIntError),
-    #[error("Another instance of Taskmaster is already running")]
+    #[error(
+        "The taskmaster PID file is containing a pid meaning another instance of the server is \
+        running.
+If taskmaster was killed unexpectedly last time, or if you're sure taskmaster is
+not running on this machine, feel free to delete the taskmaster pidfile under
+/var/run/taskmaster.d/taskmaster.pid and restart it"
+    )]
     OtherInstanceRunning,
 }
 
