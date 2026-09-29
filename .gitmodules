@@ -1,0 +1,3 @@
+[submodule "vendor/rpc-genie"]
+	path = vendor/rpc-genie
+	url = git@github.com:V-Fries/rpc-genie.git

@@ -7,14 +7,15 @@ edition = "2024"
 # Internal crates
 daemonize = { path = "../crates/daemonize" }
 libc = { path = "../crates/libc" }
+shared-code = { path = "../crates/shared-code" }
 
 # External crates
-tokio = { version = "1.43.1", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
+thiserror.workspace = true
 serde = { version = "1.0.217", features = ["derive", "rc"] }
 serde_yaml = "0.9.34"
 mockall = "0.13.1"
 derive-getters = "0.5.0"
-thiserror = "2.0.17"
 shell-words = "1.1.0"
 signal = "0.7.0"
 serde_with = "3.16.1"

@@ -1,10 +1,9 @@
-use crate::{
-    Session,
-    commands::{
-        CommandExecutionError,
-        parsing::{ParseError, parse_command},
-        send_command,
-    },
+use shared_code::rpc::ClientHandle;
+
+use crate::commands::{
+    CommandExecutionError,
+    parsing::{ParseError, parse_command},
+    send_command,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -17,14 +16,14 @@ enum Error {
     EmptyCommand,
 }
 
-pub async fn run(session: Session) -> Result<(), ()> {
+pub async fn run(client: ClientHandle) -> Result<(), ()> {
     let Some(command) =
         parse_command(std::env::args().skip(1)).map_err(|err| eprintln!("{err}"))?
     else {
         eprintln!("{}", Error::EmptyCommand);
         return Err(());
     };
-    send_command(command, &session)
+    send_command(command, &client)
         .await
         .map_err(|err| eprintln!("{err}"))
 }

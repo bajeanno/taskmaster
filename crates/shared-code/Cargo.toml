@@ -1,0 +1,8 @@
+[package]
+name = "shared-code"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio.workspace = true
+rpc-genie = "0.1"
