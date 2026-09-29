@@ -11,8 +11,8 @@ use crate::{
     tasks_manager::process_list::ProcessList,
 };
 pub use handle::Handle;
-pub use routine::Routine;
 use routine::Client;
+pub use routine::Routine;
 use thiserror::Error;
 use tokio::sync::oneshot;
 

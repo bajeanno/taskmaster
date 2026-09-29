@@ -14,9 +14,7 @@ mod tests;
 #[cfg(test)]
 use tests::TestDir;
 
-use crate::{
-    config_state::ConfigState, tasks_manager::ServerCommandError,
-};
+use crate::{config_state::ConfigState, tasks_manager::ServerCommandError};
 use config::ProgramConfig;
 use error::Error;
 use tasks_manager::TaskManagerCommand;
