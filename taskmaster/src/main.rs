@@ -56,10 +56,7 @@ fn daemonize() -> Result<(), Error> {
 }
 
 fn start_server() -> Result<(), Error> {
-    let _config_state = match ConfigState::from_default_config_file() {
-        Ok(config_state) => config_state,
-        Err(err) => todo!("{err}"), // TODO: handle InitFileError
-    };
+    let _config_manager = ConfigState::from_default_config_file();
 
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
