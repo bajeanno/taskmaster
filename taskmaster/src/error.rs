@@ -20,7 +20,7 @@ pub enum Error {
     Pid(#[from] PidError),
 
     #[error("Failed to initiate signal handler")]
-    SignalError(#[from] SigActionError),
+    Signal(#[from] SigActionError),
 }
 
 #[derive(Debug, Error)]
@@ -31,8 +31,8 @@ pub enum PidError {
     ReadFile(std::io::Error),
     #[error("Failed to write to pid file: {0}")]
     WriteFile(std::io::Error),
-    #[error("Failed to lock pid file: {0}")]
-    Flock(std::io::Error),
+    #[error("Failed to lock pid file (flock called with bad file descriptor)")]
+    Flock,
     #[error("Failed to parse pid file content: {0}")]
     Parse(ParseIntError),
     #[error(

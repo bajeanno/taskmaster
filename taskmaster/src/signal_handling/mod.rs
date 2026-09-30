@@ -34,7 +34,11 @@ impl SignalChannel {
     /// Creates the self-pipe. MUST be called before the signal handlers are installed so that
     /// `on_signal` never has to allocate or take a lock.
     fn init() -> Self {
-        assert_eq!( WRITE_FD.load(Ordering::SeqCst), -1, "programmatic error: SignalChannel is already initialized, SignalChannel::init() was called twice");
+        assert_eq!(
+            WRITE_FD.load(Ordering::SeqCst),
+            -1,
+            "programmatic error: SignalChannel is already initialized, SignalChannel::init() was called twice"
+        );
 
         let (reader, writer) = io::pipe().expect("Signal channel failed to create pipe");
         READ_FD.store(reader.as_raw_fd(), Ordering::SeqCst);
@@ -85,7 +89,6 @@ impl SignalChannel {
 extern "C" fn on_signal(signum: c_int) {
     SignalChannel::send(signum);
 }
-
 
 /// Creates the self-pipe and installs taskmaster's signal handlers. The pipe is created first so
 /// that the handler installed below is only ever able to perform a raw `write`.

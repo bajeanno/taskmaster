@@ -66,9 +66,9 @@ fn start_server() -> Result<(), Error> {
             let server_handle = shared_code::rpc::start_server().await?;
 
             signal_handling::handle_signal(&handle).await?;
-            
+
             server_handle.stop();
-            
+
             Ok(())
         })
 }
