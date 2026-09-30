@@ -26,6 +26,8 @@ pub enum Error {
 pub enum ClaimError {
     #[error("Failed to open pid file")]
     OpenFile(#[source] std::io::Error),
+    #[error("Failed to lock pid file")]
+    Flock(#[source] std::io::Error),
     #[error("Failed to read pid file")]
     ReadFile(#[source] std::io::Error),
     #[error("Failed to write to pid file")]
