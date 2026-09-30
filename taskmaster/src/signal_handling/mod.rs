@@ -2,12 +2,10 @@ use crate::config_state::ReloadArgs;
 use crate::tasks_manager::{Handle, TaskManagerCommand};
 use signal::Signal;
 use std::ffi::{CStr, CString, c_char};
-use std::sync::PoisonError;
-use std::sync::mpsc::{self, Receiver, RecvError, SendError, Sender};
-use std::{
-    ffi::c_int,
-    sync::{LazyLock, Mutex},
-};
+use std::io::{self, Read, Write, pipe};
+use std::mem::MaybeUninit;
+use std::sync::{Mutex, PoisonError};
+use std::{ffi::c_int, sync::LazyLock};
 use thiserror::Error;
 
 static SIGNAL_CHANNEL: LazyLock<SignalChannel> = LazyLock::new(SignalChannel::new);
@@ -27,41 +25,53 @@ unsafe extern "C" {
 pub struct SigActionError(CString);
 
 struct SignalChannel {
-    sender: Sender<c_int>,
-    receiver: Mutex<Receiver<c_int>>,
+    reader: Mutex<io::PipeReader>,
+    writer: Mutex<io::PipeWriter>,
 }
 
 impl SignalChannel {
     fn new() -> Self {
-        let (s, r) = mpsc::channel();
+        let (reader, writer) = pipe().expect("Signal channel failed to create pipe");
         Self {
-            sender: s,
-            receiver: Mutex::new(r),
+            reader: Mutex::new(reader),
+            writer: Mutex::new(writer),
         }
     }
 
     #[allow(unused)] // TODO: remove that
-    fn recv() -> Result<i32, RecvError> {
+    fn recv() -> Result<i32, io::Error> {
+        let mut buf: [MaybeUninit<u8>; 4] = unsafe { MaybeUninit::uninit().assume_init() };
+
         SIGNAL_CHANNEL
-            .receiver
+            .reader
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .recv()
+            .read_exact(unsafe {
+                std::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, 4)
+            })?;
+
+        let buf: [u8; 4] = unsafe { std::mem::transmute(buf) };
+
+        Ok(i32::from_ne_bytes(buf))
     }
 
-    fn send(signal: i32) -> Result<(), SendError<i32>> {
-        SIGNAL_CHANNEL.sender.send(signal)
+    fn send(signal: i32) -> Result<(), io::Error> {
+        SIGNAL_CHANNEL
+            .writer
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .write_all(&signal.to_ne_bytes())
     }
 }
 
 #[allow(unused)]
 #[unsafe(no_mangle)]
-pub extern "C" fn on_signal(signum: c_int) {
+extern "C" fn on_signal(signum: c_int) {
     SignalChannel::send(signum);
 }
 
 #[allow(unused)] // TODO: remove that
-async fn handle_signal(handle: &Handle) -> Result<(), SigActionError> {
+pub async fn handle_signal(handle: &Handle) -> Result<(), SigActionError> {
     unsafe {
         // declare sighandler for SIGHUP and SIGINT
         let errno = declare_sighandlers();
@@ -69,7 +79,11 @@ async fn handle_signal(handle: &Handle) -> Result<(), SigActionError> {
             return Err(SigActionError(CStr::from_ptr(errno).to_owned()));
         }
     }
-    while let Ok(signum) = SignalChannel::recv() {
+
+    while let Ok(signum) = tokio::task::spawn_blocking(SignalChannel::recv)
+        .await
+        .expect("task panicked")
+    {
         if react_to_signal(signum, handle).await {
             break;
         }
@@ -117,7 +131,7 @@ mod test {
     use libc::signal::kill;
     use std::time::Duration;
     use tokio::time::sleep;
-    const SIGNAL: c_int = 1;
+    const SIGNAL: c_int = 2;
 
     async fn test_loop() {
         assert_eq!(SignalChannel::recv().unwrap(), SIGNAL);
