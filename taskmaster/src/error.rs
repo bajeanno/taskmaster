@@ -3,16 +3,24 @@ use std::num::ParseIntError;
 use shared_code::rpc::StartServerError;
 use thiserror::Error;
 
+use crate::{config_state, signal_handling::SigActionError};
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Failed to daemonize process")]
     FailedToDaemonize(daemonize::Error),
+
+    #[error("Failed to initialize config state")]
+    ConfigStateInit(#[from] config_state::InitFileError),
 
     #[error("Failed to start daemon server")]
     TaskServerFailure(#[from] StartServerError),
 
     #[error("Failed to claim taskmaster daemon instance")]
     Pid(#[from] PidError),
+
+    #[error("Failed to initiate signal handler")]
+    Signal(#[from] SigActionError),
 }
 
 #[derive(Debug, Error)]
@@ -23,6 +31,8 @@ pub enum PidError {
     ReadFile(std::io::Error),
     #[error("Failed to write to pid file: {0}")]
     WriteFile(std::io::Error),
+    #[error("Failed to lock pid file (flock called with bad file descriptor)")]
+    Flock,
     #[error("Failed to parse pid file content: {0}")]
     Parse(ParseIntError),
     #[error(

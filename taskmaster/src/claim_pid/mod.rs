@@ -2,8 +2,8 @@
 mod tests;
 
 use crate::error::{
-    Error,
-    PidError::{self, OtherInstanceRunning},
+    Error::{self, Pid},
+    PidError::{self, Flock, OtherInstanceRunning},
 };
 
 #[cfg(test)]
@@ -70,7 +70,9 @@ impl PidFile {
             .truncate(false)
             .open(PID_FILE)
             .map_err(PidError::OpenFile)?;
-        unsafe { flock(file.as_raw_fd(), LOCK_EX) };
+        if unsafe { flock(file.as_raw_fd(), LOCK_EX) } == -1 {
+            return Err(Pid(Flock));
+        }
         Ok(Self { file })
     }
 

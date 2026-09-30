@@ -2,3 +2,4 @@
 
 server_output
 taskmaster.yaml
+taskmaster/target/tests

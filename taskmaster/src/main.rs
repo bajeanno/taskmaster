@@ -56,17 +56,18 @@ fn daemonize() -> Result<(), Error> {
 }
 
 fn start_server() -> Result<(), Error> {
-    let _config_manager = ConfigState::from_default_config_file();
+    let config_state = ConfigState::from_default_config_file()?;
 
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
         .block_on(async {
-            // TODO: spawn task manager and create signal handling task
-            shared_code::rpc::start_server()
-                .await?
-                .wait_until_stopped()
-                .await
-                .unwrap();
+            let handle = tasks_manager::Routine::spawn(config_state);
+
+            let server_handle = shared_code::rpc::start_server().await?;
+
+            signal_handling::handle_signal(&handle).await?;
+
+            server_handle.stop();
 
             Ok(())
         })
