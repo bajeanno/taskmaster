@@ -24,7 +24,7 @@ unsafe extern "C" {
 #[error("error binding signal handler: sigaction failed: {0:?}")]
 pub struct SigActionError(CString);
 
-pub struct SignalChannel {
+struct SignalChannel {
     reader: Mutex<io::PipeReader>,
     writer: Mutex<io::PipeWriter>,
 }
@@ -39,7 +39,7 @@ impl SignalChannel {
     }
 
     #[allow(unused)] // TODO: remove that
-    pub fn recv() -> Result<i32, io::Error> {
+    fn recv() -> Result<i32, io::Error> {
         let mut buf: [MaybeUninit<u8>; 4] = unsafe { MaybeUninit::uninit().assume_init() };
 
         SIGNAL_CHANNEL
@@ -66,7 +66,7 @@ impl SignalChannel {
 
 #[allow(unused)]
 #[unsafe(no_mangle)]
-pub extern "C" fn on_signal(signum: c_int) {
+extern "C" fn on_signal(signum: c_int) {
     SignalChannel::send(signum);
 }
 
