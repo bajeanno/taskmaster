@@ -14,6 +14,7 @@ use std::{
     fs::{File, OpenOptions},
     io::{Read, Write},
     os::fd::AsRawFd,
+    path::PathBuf,
 };
 
 #[cfg(not(test))]
