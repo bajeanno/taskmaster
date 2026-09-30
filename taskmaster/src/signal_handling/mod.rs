@@ -6,7 +6,6 @@ use std::io::{self, Read, Write, pipe};
 use std::mem::MaybeUninit;
 use std::sync::{Mutex, PoisonError};
 use std::{ffi::c_int, sync::LazyLock};
-use thiserror::Error;
 
 static SIGNAL_CHANNEL: LazyLock<SignalChannel> = LazyLock::new(SignalChannel::new);
 
@@ -20,7 +19,7 @@ unsafe extern "C" {
     fn declare_sighandlers() -> *const c_char;
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 #[error("error binding signal handler: sigaction failed: {0:?}")]
 pub struct SigActionError(CString);
 

@@ -1,52 +1,34 @@
-use thiserror::Error;
-
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum ParseError {
-    #[error(
-        "Error opening taskmaster config file: {file}: {error}\n\
-        Consider making a reload request after fixing the issue"
-    )]
+    #[error("Error opening taskmaster config file: {file}")]
     OpeningFile {
         file: String,
-        #[source]
-        error: std::io::Error,
+        source: std::io::Error,
     },
-    #[error(
-        "Error parsing taskmaster config file: {file}: {error}\n\
-        Consider making a reload request after fixing the issue"
-    )]
+    #[error("Error parsing taskmaster config file: {file}")]
     InvalidConfig {
         file: String,
-        #[source]
-        error: serde_yaml::Error,
+        source: serde_yaml::Error,
     },
-    #[error("{0}")]
+    #[error("Error creating default config file")]
     CreatingDefaultConfigFileError(#[from] CreatingDefaultConfigFileError),
 }
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum CreatingDefaultConfigFileError {
-    #[error(
-        "Error writing default taskmaster config file: {file}: {error}\n\
-        Consider making a reload request after fixing the issue"
-    )]
-    UnableToWrite {
-        file: String,
-        #[source]
-        error: serde_yaml::Error,
-    },
-    #[error(
-        "Error creating default taskmaster config file: {file}: {error}\n\
-        Consider making a reload request after fixing the issue"
-    )]
+    #[error("Failed to create file: {file}")]
     UnableToCreate {
         file: String,
-        #[source]
-        error: std::io::Error,
+        source: std::io::Error,
+    },
+    #[error("Failed to write to file: {file}")]
+    UnableToWrite {
+        file: String,
+        source: serde_yaml::Error,
     },
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum CommandError {
     #[error("Empty command")]
     EmptyCommand,

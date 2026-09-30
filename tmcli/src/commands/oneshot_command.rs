@@ -8,9 +8,9 @@ use crate::commands::{
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
-    #[error("Failed to parse command: {0}")]
+    #[error("Failed to parse command")]
     Parsing(#[from] ParseError),
-    #[error("Failed to execute command: {0}")]
+    #[error("Failed to execute command")]
     Execution(#[from] CommandExecutionError),
     #[error("Command is empty")]
     EmptyCommand,

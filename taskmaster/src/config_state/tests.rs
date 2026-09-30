@@ -1,4 +1,5 @@
 use crate::TestDir;
+use std::error::Error;
 use std::sync::Arc;
 use std::{assert_matches, io};
 
@@ -75,24 +76,27 @@ fn test_error_display_messages() {
     let open_err = InitFileError::Open(io::Error::other("boom"));
     assert_eq!(
         open_err.to_string(),
-        "Failed to open taskmaster configuration file: boom"
+        "Failed to open taskmaster configuration file"
     );
+    assert_eq!(open_err.source().unwrap().to_string(), "boom");
     let read_err = InitFileError::Read(io::Error::other("boom"));
     assert_eq!(
         read_err.to_string(),
-        "Failed to read taskmaster configuration file: boom"
+        "Failed to read taskmaster configuration file"
     );
+    assert_eq!(read_err.source().unwrap().to_string(), "boom");
     let write_err = InitFileError::Write(io::Error::other("boom"));
     assert_eq!(
         write_err.to_string(),
-        "Failed to write taskmaster configuration file: boom"
+        "Failed to write taskmaster configuration file"
     );
+    assert_eq!(write_err.source().unwrap().to_string(), "boom");
     let parse_err = InitFileError::from(ron::from_str::<InitFile>("[").unwrap_err());
-    assert!(
-        parse_err
-            .to_string()
-            .starts_with("Failed to parse taskmaster configuration file:")
+    assert_eq!(
+        parse_err.to_string(),
+        "Failed to parse taskmaster configuration file"
     );
+    assert!(parse_err.source().is_some());
 }
 
 #[test]

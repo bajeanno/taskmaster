@@ -1,7 +1,6 @@
 use ron::ser::PrettyConfig;
 use serde::Deserialize;
 use serde::Serialize;
-use thiserror::Error;
 
 use crate::config::Config;
 use crate::config_state::ConfigState::Active;
@@ -96,16 +95,16 @@ impl From<String> for InitFile {
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum InitFileError {
-    #[error("Failed to parse taskmaster configuration file: {0}")]
+    #[error("Failed to parse taskmaster configuration file")]
     Parse(#[from] ron::de::SpannedError),
-    #[error("Failed to open taskmaster configuration file: {0}")]
-    Open(io::Error),
-    #[error("Failed to read taskmaster configuration file: {0}")]
-    Read(io::Error),
-    #[error("Failed to write taskmaster configuration file: {0}")]
-    Write(io::Error),
+    #[error("Failed to open taskmaster configuration file")]
+    Open(#[source] io::Error),
+    #[error("Failed to read taskmaster configuration file")]
+    Read(#[source] io::Error),
+    #[error("Failed to write taskmaster configuration file")]
+    Write(#[source] io::Error),
 }
 
 impl ConfigState {
