@@ -4,14 +4,18 @@ use crate::daemon::{
 };
 use signal::Signal;
 use std::ffi::{CStr, CString, c_char};
-use std::io::{self, Read, Write, pipe};
-use std::mem::MaybeUninit;
-use std::sync::{Mutex, PoisonError};
-use std::{ffi::c_int, sync::LazyLock};
+use std::io::{self, PipeReader, PipeWriter};
+use std::os::fd::AsRawFd;
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::{ffi::c_int, mem::size_of};
 
-static SIGNAL_CHANNEL: LazyLock<SignalChannel> = LazyLock::new(SignalChannel::new);
+/// Read end of the self-pipe used to hand signals received in the signal handler over to the
+/// async signal loop. `-1` means the pipe hasn't been created yet.
+static READ_FD: AtomicI32 = AtomicI32::new(-1);
+/// Write end of the self-pipe, written to by the signal handler. `-1` means the pipe hasn't been
+/// created yet.
+static WRITE_FD: AtomicI32 = AtomicI32::new(-1);
 
-#[allow(unused)]
 unsafe extern "C" {
     /// This function is implemented inside interface.c file (this is C code linking with the Rust binary)
     ///
@@ -25,43 +29,55 @@ unsafe extern "C" {
 #[error("error binding signal handler: sigaction failed: {0:?}")]
 pub struct SigActionError(CString);
 
-struct SignalChannel {
-    reader: Mutex<io::PipeReader>,
-    writer: Mutex<io::PipeWriter>,
-}
+struct SignalChannel(#[allow(unused)] PipeReader, #[allow(unused)] PipeWriter);
 
 impl SignalChannel {
-    fn new() -> Self {
-        let (reader, writer) = pipe().expect("Signal channel failed to create pipe");
-        Self {
-            reader: Mutex::new(reader),
-            writer: Mutex::new(writer),
-        }
+    /// Creates the self-pipe. MUST be called before the signal handlers are installed so that
+    /// `on_signal` never has to allocate or take a lock.
+    fn init() -> Self {
+        assert_eq!( WRITE_FD.load(Ordering::SeqCst), -1, "programmatic error: SignalChannel is already initialized, SignalChannel::init() was called twice");
+
+        let (reader, writer) = io::pipe().expect("Signal channel failed to create pipe");
+        READ_FD.store(reader.as_raw_fd(), Ordering::SeqCst);
+        WRITE_FD.store(writer.as_raw_fd(), Ordering::SeqCst);
+        Self(reader, writer)
     }
 
-    #[allow(unused)] // TODO: remove that
     fn recv() -> Result<i32, io::Error> {
-        let mut buf: [MaybeUninit<u8>; 4] = unsafe { MaybeUninit::uninit().assume_init() };
+        let fd = READ_FD.load(Ordering::SeqCst);
+        let mut buf = [0u8; size_of::<i32>()];
+        let mut filled = 0;
 
-        SIGNAL_CHANNEL
-            .reader
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .read_exact(unsafe {
-                std::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, 4)
-            })?;
+        while filled < buf.len() {
+            let read = unsafe {
+                libc::unistd::read(fd, buf[filled..].as_mut_ptr().cast(), buf.len() - filled)
+            };
 
-        let buf: [u8; 4] = unsafe { std::mem::transmute(buf) };
+            match read {
+                -1 => {
+                    let err = io::Error::last_os_error();
+                    if err.kind() == io::ErrorKind::Interrupted {
+                        continue;
+                    }
+                    return Err(err);
+                }
+                0 => return Err(io::ErrorKind::UnexpectedEof.into()),
+                read => filled += read as usize,
+            }
+        }
 
         Ok(i32::from_ne_bytes(buf))
     }
 
-    fn send(signal: i32) -> Result<(), io::Error> {
-        SIGNAL_CHANNEL
-            .writer
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .write_all(&signal.to_ne_bytes())
+    /// Async-signal-safe: only performs a single raw `write`.
+    fn send(signal: i32) {
+        let fd = WRITE_FD.load(Ordering::SeqCst);
+        if fd == -1 {
+            return;
+        }
+
+        let bytes = signal.to_ne_bytes();
+        unsafe { libc::unistd::write(fd, bytes.as_ptr().cast(), bytes.len()) };
     }
 }
 
@@ -71,8 +87,12 @@ extern "C" fn on_signal(signum: c_int) {
     SignalChannel::send(signum);
 }
 
-#[allow(unused)] // TODO: remove that
-pub async fn handle_signal(handle: &Handle) -> Result<(), SigActionError> {
+
+/// Creates the self-pipe and installs taskmaster's signal handlers. The pipe is created first so
+/// that the handler installed below is only ever able to perform a raw `write`.
+fn install_sighandlers() -> Result<SignalChannel, SigActionError> {
+    let channel = SignalChannel::init();
+
     unsafe {
         // declare sighandler for SIGHUP and SIGINT
         let errno = declare_sighandlers();
@@ -80,6 +100,12 @@ pub async fn handle_signal(handle: &Handle) -> Result<(), SigActionError> {
             return Err(SigActionError(CStr::from_ptr(errno).to_owned()));
         }
     }
+
+    Ok(channel)
+}
+
+pub async fn handle_signal(handle: &Handle) -> Result<(), SigActionError> {
+    let channel = install_sighandlers()?;
 
     while let Ok(signum) = tokio::task::spawn_blocking(SignalChannel::recv)
         .await
@@ -89,11 +115,11 @@ pub async fn handle_signal(handle: &Handle) -> Result<(), SigActionError> {
             break;
         }
     }
+    drop(channel);
     Ok(())
 }
 
 /// Returns false if we should continue listening for signals
-#[allow(unused)] // TODO: remove that
 async fn react_to_signal(signum: c_int, handle: &Handle) -> bool {
     if let Ok(signal) = Signal::from_c_int(signum) {
         match signal {
@@ -150,10 +176,10 @@ mod test {
 
     #[tokio::test]
     async fn test_signal_handling() {
-        unsafe {
-            // declare sighandler for SIGHUP and SIGINT
-            assert!(declare_sighandlers().is_null());
-        }
+        assert!(
+            install_sighandlers().is_ok(),
+            "installing signal handlers must succeed"
+        );
 
         let handle = tokio::spawn(run_loop_and_assert_result());
 
