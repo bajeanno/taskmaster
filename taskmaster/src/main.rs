@@ -11,6 +11,9 @@ mod tasks_manager;
 #[cfg(test)]
 mod tests;
 
+use std::process::ExitCode;
+
+use shared_code::utils;
 #[cfg(test)]
 use tests::TestDir;
 
@@ -29,11 +32,17 @@ pub type CommandSender = mpsc::UnboundedSender<(
     oneshot::Sender<Result<(), ServerCommandError>>,
 )>;
 
-fn main() {
-    let _ = entrypoint().inspect_err(|err| eprintln!("{err}"));
+fn main() -> ExitCode {
+    match start_daemon() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            utils::print_error(&err);
+            ExitCode::FAILURE
+        }
+    }
 }
 
-fn entrypoint() -> Result<(), Error> {
+fn start_daemon() -> Result<(), Error> {
     let pid_file_claim = claim_pid::Claim::new()?;
 
     if !cfg!(debug_assertions) {

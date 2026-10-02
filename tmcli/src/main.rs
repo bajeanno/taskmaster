@@ -3,12 +3,20 @@ mod shell;
 
 use std::process::ExitCode;
 
+use shared_code::{rpc, utils};
+
+#[derive(Debug, thiserror::Error)]
+enum Error {
+    #[error("Failed to connect to taskmaster daemon")]
+    ConnectingToDaemon(#[from] rpc::ConnectClientError),
+}
+
 #[tokio::main]
 async fn main() -> ExitCode {
-    let client = match shared_code::rpc::connect_client().await {
+    let client = match rpc::connect_client().await {
         Ok(client) => client,
         Err(err) => {
-            eprintln!("Failed to connect to taskmaster daemon: {err}");
+            utils::print_error(&Error::ConnectingToDaemon(err));
             return ExitCode::FAILURE;
         }
     };

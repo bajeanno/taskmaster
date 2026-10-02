@@ -12,7 +12,6 @@ use signal::Signal;
 use std::panic;
 use std::process::Stdio;
 use std::sync::Arc;
-use thiserror::Error;
 use tokio::process::Command;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::{
@@ -35,7 +34,7 @@ pub struct Routine {
     instance_id: usize,
 }
 
-#[derive(Error, Debug, Clone)]
+#[derive(thiserror::Error, Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub enum RoutineSpawnError {
     #[error("Failed to open stdout file: {0}")]

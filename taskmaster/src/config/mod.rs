@@ -111,7 +111,7 @@ impl Config {
                         File::create(file_name).map_err(|err| {
                             CreatingDefaultConfigFileError::UnableToCreate {
                                 file: file_name.to_string(),
-                                error: err,
+                                source: err,
                             }
                         })?,
                         &TmpConfig::template(),
@@ -119,7 +119,7 @@ impl Config {
                     .map_err(|err| {
                         CreatingDefaultConfigFileError::UnableToWrite {
                             file: file_name.to_string(),
-                            error: err,
+                            source: err,
                         }
                     })?;
                     File::open(file_name)
@@ -128,12 +128,12 @@ impl Config {
         }
         .map_err(|err| ParseError::OpeningFile {
             file: file_name.to_string(),
-            error: err,
+            source: err,
         })?;
 
         Self::from_reader(file).map_err(|err| ParseError::InvalidConfig {
             file: file_name.to_string(),
-            error: err,
+            source: err,
         })
     }
 }

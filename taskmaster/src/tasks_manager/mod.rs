@@ -13,10 +13,9 @@ use crate::{
 pub use handle::Handle;
 #[allow(unused_imports)] // TODO: remove that
 use routine::{Client, Routine};
-use thiserror::Error;
 use tokio::sync::oneshot;
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum ServerCommandError {
     #[error("Task not found in current config: {0}")]
     NoSuchProgram(String),
@@ -27,7 +26,7 @@ pub enum ServerCommandError {
         config_file_path: String,
     },
 
-    #[error("{0}")] // Error message is already contained in sub-type
+    #[error("Failed to load configuration from init file")]
     InitFileError(#[from] InitFileError),
 }
 

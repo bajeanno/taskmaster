@@ -1,11 +1,10 @@
-use thiserror::Error;
-
 use super::command::Command;
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum ParseError {
     #[error(
-        "Bad command name: `{command}`\naccepted command names are :\n\
+        "Bad command name: `{command}`\n\
+         accepted command names are :\n\
             \tstatus\n\
             \tstop\n\
             \tstart\n\

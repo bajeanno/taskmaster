@@ -6,12 +6,10 @@ mod placeholder;
 
 use command::Command;
 use shared_code::rpc::ClientHandle;
-#[allow(unused_imports)]
-use thiserror::Error;
 
 use crate::commands::placeholder::PlaceHolderError;
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 #[allow(dead_code)] //TODO: Remove that
 pub enum CommandExecutionError {
     #[error("No such program: `{0}`")]
