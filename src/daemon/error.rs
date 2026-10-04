@@ -32,6 +32,8 @@ pub enum ClaimError {
     ReadFile(#[source] std::io::Error),
     #[error("Failed to write to pid file")]
     WriteFile(#[source] std::io::Error),
+    #[error("Failed to lock pid file")]
+    Flock,
     #[error("Failed to parse pid file content")]
     Parse(#[source] ParseIntError),
     #[error(
