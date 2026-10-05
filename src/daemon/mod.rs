@@ -2,6 +2,7 @@ mod claim_pid;
 mod config;
 mod config_state;
 mod error;
+mod logging;
 mod output_file;
 mod process;
 mod process_handler;
@@ -20,6 +21,7 @@ use crate::daemon::{
 };
 use config::ProgramConfig;
 use error::Error;
+pub use logging::log as tm_log;
 use tasks_manager::TaskManagerCommand;
 use tokio::sync::{mpsc, oneshot};
 
@@ -41,6 +43,7 @@ pub fn is_daemon_started() -> Result<bool, ClaimError> {
 /// Only call when it is safe to call fork()
 pub unsafe fn run() -> Result<Daemonized, Error> {
     let pid_file_claim = claim_pid::Claim::new()?;
+    logging::inspect_log_file_error()?;
 
     if !cfg!(debug_assertions) {
         match unsafe { daemonize()? } {
