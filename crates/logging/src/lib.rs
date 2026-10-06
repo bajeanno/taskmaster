@@ -1,4 +1,5 @@
 pub mod logging;
+pub use logging::LogLevel;
 pub use logging::time;
 
 fn format_error(error: &dyn core::error::Error) -> String {
@@ -14,17 +15,12 @@ fn format_error(error: &dyn core::error::Error) -> String {
     str
 }
 
-pub fn print_error(error: &dyn core::error::Error) {
+pub fn print_log(error: &dyn core::error::Error, log_level: LogLevel) {
     let str = format_error(error);
-    error!("{str}");
-}
-
-pub fn print_warning(error: &dyn core::error::Error) {
-    let str = format_error(error);
-    warning!("{str}");
-}
-
-pub fn print_debug(error: &dyn core::error::Error) {
-    let str = format_error(error);
-    debug!("{str}");
+    match log_level {
+        LogLevel::Debug => debug!("{str}"),
+        LogLevel::Error => error!("{str}"),
+        LogLevel::Warning => warning!("{str}"),
+        LogLevel::Info => info!("{str}"),
+    }
 }

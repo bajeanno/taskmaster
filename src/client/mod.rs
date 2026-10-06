@@ -3,6 +3,8 @@ mod shell;
 
 use std::process::ExitCode;
 
+use logging::LogLevel;
+
 use crate::rpc;
 
 #[derive(Debug, thiserror::Error)]
@@ -18,7 +20,7 @@ pub fn start_client(maybe_rl: Option<rustyline::DefaultEditor>) -> ExitCode {
             let client = match rpc::connect_client().await {
                 Ok(client) => client,
                 Err(err) => {
-                    logging::print_error(&Error::ConnectingToDaemon(err));
+                    logging::print_log(&Error::ConnectingToDaemon(err), LogLevel::Error);
                     return ExitCode::FAILURE;
                 }
             };

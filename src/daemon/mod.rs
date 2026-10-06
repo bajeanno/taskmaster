@@ -12,7 +12,6 @@ mod tasks_manager;
 mod tests;
 
 use daemonize::Daemonized;
-use std::process::ExitCode;
 
 #[cfg(test)]
 use tests::TestDir;
@@ -24,8 +23,6 @@ use config::ProgramConfig;
 use error::Error;
 use tasks_manager::TaskManagerCommand;
 use tokio::sync::{mpsc, oneshot};
-
-use logging::print_error;
 
 pub type CommandReceiver = mpsc::UnboundedReceiver<(
     TaskManagerCommand,
