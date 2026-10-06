@@ -17,6 +17,7 @@ const DAYS_IN_AUG: u64 = 31;
 const DAYS_IN_SEP: u64 = 30;
 const DAYS_IN_OCT: u64 = 31;
 const DAYS_IN_NOV: u64 = 30;
+const DAYS_IN_DEC: u64 = 31;
 
 enum Month {
     Jan,
@@ -70,7 +71,7 @@ impl Month {
             Month::Sep => DAYS_IN_SEP,
             Month::Oct => DAYS_IN_OCT,
             Month::Nov => DAYS_IN_NOV,
-            Month::Dec => 31,
+            Month::Dec => DAYS_IN_DEC,
         }
     }
 
