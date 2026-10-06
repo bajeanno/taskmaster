@@ -16,7 +16,7 @@ fn format_error(error: &dyn core::error::Error) -> String {
 
 pub fn print_log(error: &dyn core::error::Error, log_level: LogLevel) {
     use crate as logging;
-    
+
     let str = format_error(error);
     match log_level {
         LogLevel::Debug => debug!("{str}"),
@@ -32,7 +32,6 @@ pub enum LogLevel {
     Warning,
     Info,
 }
-
 
 #[macro_export]
 macro_rules! debug {
