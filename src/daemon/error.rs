@@ -12,9 +12,6 @@ pub enum Error {
 
     #[error("Failed to claim taskmaster daemon instance")]
     Claim(#[from] ClaimError),
-
-    #[error("Failed to open taskmaster log file")]
-    LogFile(std::io::Error),
 }
 
 #[derive(Debug, thiserror::Error)]
