@@ -5,6 +5,8 @@ mod utils;
 
 use std::process::ExitCode;
 
+use daemonize::Daemonized;
+
 use crate::{
     client::start_client,
     daemon::{is_daemon_started, start_daemon},
@@ -32,9 +34,13 @@ fn main() -> ExitCode {
 
         maybe_rl = Some(rl);
 
-        if let Err(err) = start_daemon() {
-            utils::print_error(&err);
-            return ExitCode::FAILURE;
+        match unsafe { start_daemon() } {
+            Ok(Daemonized::IsInsideDaemon) => return ExitCode::SUCCESS,
+            Ok(Daemonized::IsOutsideDaemon) => {}
+            Err(err) => {
+                utils::print_error(&err);
+                return ExitCode::FAILURE;
+            }
         }
     }
 

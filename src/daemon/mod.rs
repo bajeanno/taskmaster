@@ -11,6 +11,7 @@ mod tasks_manager;
 #[cfg(test)]
 mod tests;
 
+use daemonize::Daemonized;
 #[cfg(test)]
 use tests::TestDir;
 
@@ -35,26 +36,31 @@ pub fn is_daemon_started() -> Result<bool, ClaimError> {
     claim_pid::Claim::is_claimed()
 }
 
-pub fn start_daemon() -> Result<(), Error> {
+pub unsafe fn start_daemon() -> Result<Daemonized, Error> {
     let pid_file_claim = claim_pid::Claim::new()?;
 
     if !cfg!(debug_assertions) {
-        daemonize()?
+        match unsafe { daemonize()? } {
+            Daemonized::IsInsideDaemon => {}
+            Daemonized::IsOutsideDaemon => return Ok(Daemonized::IsOutsideDaemon),
+        }
     }
 
     let result = start_server();
+
     pid_file_claim.release_claim();
-    result
+
+    result.map(|()| Daemonized::IsInsideDaemon)
 }
 
-fn daemonize() -> Result<(), Error> {
+unsafe fn daemonize() -> Result<Daemonized, Error> {
     unsafe {
         daemonize::Daemonize::new()
             .stdout("./server_output")
             .stderr("./server_output")
-            .start()?
+            .start()
+            .map_err(Into::into)
     }
-    Ok(())
 }
 
 fn start_server() -> Result<(), Error> {
