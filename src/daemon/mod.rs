@@ -36,6 +36,9 @@ pub fn is_daemon_started() -> Result<bool, ClaimError> {
     claim_pid::Claim::is_claimed()
 }
 
+/// # Safety
+///
+/// Only call when it is safe to call fork()
 pub unsafe fn run() -> Result<Daemonized, Error> {
     let pid_file_claim = claim_pid::Claim::new()?;
 
@@ -53,6 +56,9 @@ pub unsafe fn run() -> Result<Daemonized, Error> {
     result.map(|()| Daemonized::IsInsideDaemon)
 }
 
+/// # Safety
+///
+/// Only call when it is safe to call fork()
 unsafe fn daemonize() -> Result<Daemonized, Error> {
     unsafe {
         daemonize::Daemonize::new()
