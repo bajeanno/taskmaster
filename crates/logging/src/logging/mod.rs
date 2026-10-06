@@ -8,7 +8,6 @@ pub enum LogLevel {
     Info,
 }
 
-#[allow(unused)] // TODO: remove that
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)*) => {{
@@ -17,7 +16,6 @@ macro_rules! debug {
     }};
 }
 
-#[allow(unused)] // TODO: remove that
 #[macro_export]
 macro_rules! warning {
     ($($arg:tt)*) => {{
@@ -26,7 +24,6 @@ macro_rules! warning {
     }};
 }
 
-#[allow(unused)] // TODO: remove that
 #[macro_export]
 macro_rules! info {
     ($($arg:tt)*) => {{
@@ -35,7 +32,6 @@ macro_rules! info {
     }};
 }
 
-#[allow(unused)] // TODO: remove that
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)*) => {{
@@ -43,10 +39,3 @@ macro_rules! error {
         eprintln!("{} Error: {}", time::get_current_time(), &format!($($arg)*));
     }};
 }
-
-// #[test]
-// fn debug() {
-//     debug!("test {}", 42);
-//     warning!("test {}", 42);
-//     error!("test {}", 42);
-// }
