@@ -36,7 +36,7 @@ pub fn is_daemon_started() -> Result<bool, ClaimError> {
     claim_pid::Claim::is_claimed()
 }
 
-pub unsafe fn start_daemon() -> Result<Daemonized, Error> {
+pub unsafe fn run() -> Result<Daemonized, Error> {
     let pid_file_claim = claim_pid::Claim::new()?;
 
     if !cfg!(debug_assertions) {

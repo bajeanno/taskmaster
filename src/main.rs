@@ -7,11 +7,7 @@ use std::process::ExitCode;
 
 use daemonize::Daemonized;
 
-use crate::{
-    client::start_client,
-    daemon::{is_daemon_started, start_daemon},
-    utils::print_error,
-};
+use crate::{client::start_client, daemon::is_daemon_started, utils::print_error};
 
 fn main() -> ExitCode {
     let mut maybe_rl = None;
@@ -34,7 +30,7 @@ fn main() -> ExitCode {
 
         maybe_rl = Some(rl);
 
-        match unsafe { start_daemon() } {
+        match unsafe { daemon::run() } {
             Ok(Daemonized::IsInsideDaemon) => return ExitCode::SUCCESS,
             Ok(Daemonized::IsOutsideDaemon) => {}
             Err(err) => {
