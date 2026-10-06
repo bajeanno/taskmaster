@@ -142,7 +142,7 @@ pub fn get_current_time() -> String {
         days -= year_len(year);
         year += 1;
     }
-    // converting the numbers of days passed in this month to the index of this day in the month
+    // converting the numbers of days to calendar day representation
     days += 1;
 
     let month = Month::from_days(&mut days, year);
