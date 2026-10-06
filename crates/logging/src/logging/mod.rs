@@ -1,7 +1,6 @@
 #[allow(dead_code)]
 pub mod time;
 
-
 #[allow(unused)] // TODO: remove that
 #[macro_export]
 macro_rules! debug {

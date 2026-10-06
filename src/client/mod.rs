@@ -3,7 +3,7 @@ mod shell;
 
 use std::process::ExitCode;
 
-use crate::{rpc, utils};
+use crate::rpc;
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
@@ -18,7 +18,7 @@ pub fn start_client(maybe_rl: Option<rustyline::DefaultEditor>) -> ExitCode {
             let client = match rpc::connect_client().await {
                 Ok(client) => client,
                 Err(err) => {
-                    utils::print_error(&Error::ConnectingToDaemon(err));
+                    logging::print_error(&Error::ConnectingToDaemon(err));
                     return ExitCode::FAILURE;
                 }
             };
