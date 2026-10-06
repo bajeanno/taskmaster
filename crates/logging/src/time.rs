@@ -19,6 +19,13 @@ const DAYS_IN_OCT: u64 = 31;
 const DAYS_IN_NOV: u64 = 30;
 const DAYS_IN_DEC: u64 = 31;
 
+const SECS_IN_HOUR: u64 = 3600;
+const SECS_IN_MINUTE: u64 = 60;
+const HOURS_IN_DAY: u64 = 24;
+const DAYS_IN_YEAR: u64 = 365;
+const DAYS_IN_LEAP_YEAR: u64 = 366;
+const YEAR_0: u64 = 1970;
+
 enum Month {
     Jan,
     Feb,
@@ -113,7 +120,11 @@ impl Display for Month {
 }
 
 fn year_len(year: u64) -> u64 {
-    if year.is_multiple_of(4) { 366 } else { 365 }
+    if year.is_multiple_of(4) {
+        DAYS_IN_LEAP_YEAR
+    } else {
+        DAYS_IN_YEAR
+    }
 }
 
 pub fn get_current_time() -> String {
@@ -121,20 +132,29 @@ pub fn get_current_time() -> String {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap();
     apply_timezone(&mut duration);
-    let total_days = duration.as_secs() / 3600 / 24;
-    duration -= Duration::from_hours(24 * total_days);
-    let mut year = 1970u64;
+
+    let total_days = duration.as_secs() / SECS_IN_HOUR / HOURS_IN_DAY;
+    duration -= Duration::from_hours(HOURS_IN_DAY * total_days);
+
+    let mut year = YEAR_0;
     let mut days = total_days;
     while days >= year_len(year) {
         days -= year_len(year);
         year += 1;
     }
+    // converting the numbers of days passed in this month to the index of this day in the month
+    days += 1;
+
     let month = Month::from_days(&mut days, year);
-    let hours = duration.as_secs() / 3600;
+
+    let hours = duration.as_secs() / SECS_IN_HOUR;
     duration -= Duration::from_hours(hours);
-    let minutes = duration.as_secs() / 60;
+
+    let minutes = duration.as_secs() / SECS_IN_MINUTE;
     duration -= Duration::from_mins(minutes);
+
     let secs = duration.as_secs();
+
     format!("[{year}-{month}-{days} {hours}h{minutes}m{secs}s]")
 }
 
