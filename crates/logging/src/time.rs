@@ -3,8 +3,6 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-const TIMEZONE: i32 = 2;
-
 const DAYS_IN_JAN: u64 = 31;
 const DAYS_IN_FEB: u64 = 28;
 const DAYS_IN_FEB_BIS: u64 = 29;
@@ -131,7 +129,6 @@ pub fn get_current_time() -> String {
     let mut duration = SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap();
-    apply_timezone(&mut duration);
 
     let total_days = duration.as_secs() / SECS_IN_HOUR / HOURS_IN_DAY;
     duration -= Duration::from_hours(HOURS_IN_DAY * total_days);
@@ -156,15 +153,4 @@ pub fn get_current_time() -> String {
     let secs = duration.as_secs();
 
     format!("[{year}-{month}-{days} {hours}h{minutes}m{secs}s]")
-}
-
-fn apply_timezone(duration: &mut Duration) {
-    let tz;
-    if TIMEZONE < 0 {
-        tz = (-TIMEZONE) as u64;
-        *duration -= Duration::from_hours(tz)
-    } else {
-        tz = TIMEZONE as u64;
-        *duration += Duration::from_hours(tz)
-    }
 }
