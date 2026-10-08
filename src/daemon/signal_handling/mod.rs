@@ -1,6 +1,9 @@
-use crate::daemon::{
+use crate::{
+    daemon::{
     config_state::ReloadArgs,
     tasks_manager::{Handle, TaskManagerCommand},
+    },
+    utils::print_error,
 };
 use signal::Signal;
 use std::ffi::{CStr, CString, c_char};
@@ -81,7 +84,13 @@ impl SignalChannel {
         }
 
         let bytes = signal.to_ne_bytes();
-        unsafe { libc::unistd::write(fd, bytes.as_ptr().cast(), bytes.len()) };
+        let write = unsafe { libc::unistd::write(fd, bytes.as_ptr().cast(), bytes.len()) };
+        match write {
+            -1 => {
+                print_error(&io::Error::last_os_error());
+            }
+            _ => {}
+        }
     }
 }
 
