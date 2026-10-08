@@ -7,12 +7,6 @@ use logging::LogLevel;
 
 use crate::rpc;
 
-#[derive(Debug, thiserror::Error)]
-enum Error {
-    #[error("Failed to connect to taskmaster daemon")]
-    ConnectingToDaemon(#[from] rpc::ConnectClientError),
-}
-
 pub fn start_client(maybe_rl: Option<rustyline::DefaultEditor>) -> ExitCode {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
@@ -20,7 +14,11 @@ pub fn start_client(maybe_rl: Option<rustyline::DefaultEditor>) -> ExitCode {
             let client = match rpc::connect_client().await {
                 Ok(client) => client,
                 Err(err) => {
-                    logging::print_log(&Error::ConnectingToDaemon(err), LogLevel::Error);
+                    logging::log_with_msg(
+                        "Failed to connect to taskmaster daemon",
+                        &err,
+                        LogLevel::Error,
+                    );
                     return ExitCode::FAILURE;
                 }
             };

@@ -35,7 +35,7 @@ fn main() -> ExitCode {
             Ok(Daemonized::IsInsideDaemon) => return ExitCode::SUCCESS,
             Ok(Daemonized::IsOutsideDaemon) => {}
             Err(err) => {
-                logging::print_log(&err, LogLevel::Error);
+                logging::log(&err, LogLevel::Error);
                 return ExitCode::FAILURE;
             }
         }
