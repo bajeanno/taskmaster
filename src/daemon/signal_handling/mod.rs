@@ -1,7 +1,7 @@
 use crate::{
     daemon::{
-    config_state::ReloadArgs,
-    tasks_manager::{Handle, TaskManagerCommand},
+        config_state::ReloadArgs,
+        tasks_manager::{Handle, TaskManagerCommand},
     },
     utils::print_error,
 };
@@ -85,11 +85,8 @@ impl SignalChannel {
 
         let bytes = signal.to_ne_bytes();
         let write = unsafe { libc::unistd::write(fd, bytes.as_ptr().cast(), bytes.len()) };
-        match write {
-            -1 => {
-                print_error(&io::Error::last_os_error());
-            }
-            _ => {}
+        if write == -1 {
+            print_error(&io::Error::last_os_error());
         }
     }
 }
