@@ -6,6 +6,7 @@ mod utils;
 use std::process::ExitCode;
 
 use daemonize::Daemonized;
+use logging::LogLevel;
 
 use crate::{client::start_client, daemon::is_daemon_started, utils::print_error};
 
@@ -34,7 +35,7 @@ fn main() -> ExitCode {
             Ok(Daemonized::IsInsideDaemon) => return ExitCode::SUCCESS,
             Ok(Daemonized::IsOutsideDaemon) => {}
             Err(err) => {
-                utils::print_error(&err);
+                logging::log(&err, LogLevel::Error);
                 return ExitCode::FAILURE;
             }
         }

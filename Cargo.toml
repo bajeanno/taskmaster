@@ -3,8 +3,11 @@ resolver = "3"
 members = [
     "crates/daemonize",
     "crates/libc",
+    "crates/logging",
     "vendor/rpc-genie/rpc-genie",
     "vendor/rpc-genie/rpc-genie-macros",
+    "crates/logging",
+    "crates/time",
 ]
 
 [patch.crates-io]
@@ -20,6 +23,7 @@ edition = "2024"
 # Internal crates
 daemonize = { path = "crates/daemonize" }
 libc = { path = "crates/libc" }
+logging = { path = "crates/logging" }
 
 # External crates
 rpc-genie = "0.1"

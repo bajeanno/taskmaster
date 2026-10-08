@@ -3,13 +3,9 @@ mod shell;
 
 use std::process::ExitCode;
 
-use crate::{rpc, utils};
+use logging::LogLevel;
 
-#[derive(Debug, thiserror::Error)]
-enum Error {
-    #[error("Failed to connect to taskmaster daemon")]
-    ConnectingToDaemon(#[from] rpc::ConnectClientError),
-}
+use crate::rpc;
 
 pub fn start_client(maybe_rl: Option<rustyline::DefaultEditor>) -> ExitCode {
     tokio::runtime::Runtime::new()
@@ -18,7 +14,11 @@ pub fn start_client(maybe_rl: Option<rustyline::DefaultEditor>) -> ExitCode {
             let client = match rpc::connect_client().await {
                 Ok(client) => client,
                 Err(err) => {
-                    utils::print_error(&Error::ConnectingToDaemon(err));
+                    logging::log_with_msg(
+                        "Failed to connect to taskmaster daemon",
+                        &err,
+                        LogLevel::Error,
+                    );
                     return ExitCode::FAILURE;
                 }
             };

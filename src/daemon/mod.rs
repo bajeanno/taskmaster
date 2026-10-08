@@ -12,6 +12,7 @@ mod tasks_manager;
 mod tests;
 
 use daemonize::Daemonized;
+
 #[cfg(test)]
 use tests::TestDir;
 
@@ -62,8 +63,8 @@ pub unsafe fn run() -> Result<Daemonized, Error> {
 unsafe fn daemonize() -> Result<Daemonized, Error> {
     unsafe {
         daemonize::Daemonize::new()
-            .stdout("./server_output")
-            .stderr("./server_output")
+            .stdout("/var/log/taskmaster.log")
+            .stderr("/var/log/taskmaster.log")
             .start()
             .map_err(Into::into)
     }
