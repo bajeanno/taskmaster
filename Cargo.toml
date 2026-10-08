@@ -6,6 +6,8 @@ members = [
     "crates/logging",
     "vendor/rpc-genie/rpc-genie",
     "vendor/rpc-genie/rpc-genie-macros",
+    "crates/logging",
+    "crates/time",
 ]
 
 [patch.crates-io]

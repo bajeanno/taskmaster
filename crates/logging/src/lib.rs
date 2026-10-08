@@ -1,6 +1,3 @@
-#[doc(hidden)]
-pub mod time;
-
 fn format_error(error: &dyn core::error::Error) -> String {
     let mut str = String::new();
     str += &error.to_string();
@@ -15,8 +12,6 @@ fn format_error(error: &dyn core::error::Error) -> String {
 }
 
 pub fn print_log(error: &dyn core::error::Error, log_level: LogLevel) {
-    use crate as logging;
-
     let str = format_error(error);
     match log_level {
         LogLevel::Debug => debug!("{str}"),
@@ -36,7 +31,6 @@ pub enum LogLevel {
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)*) => {{
-        use logging::time;
         println!("{} Debug: {}", time::get_current_time(), &format!($($arg)*));
     }};
 }
@@ -44,7 +38,6 @@ macro_rules! debug {
 #[macro_export]
 macro_rules! warning {
     ($($arg:tt)*) => {{
-        use logging::time;
         println!("{} Warning: {}", time::get_current_time(), &format!($($arg)*));
     }};
 }
@@ -52,7 +45,6 @@ macro_rules! warning {
 #[macro_export]
 macro_rules! info {
     ($($arg:tt)*) => {{
-        use logging::time;
         println!("{} Info: {}", time::get_current_time(), &format!($($arg)*));
     }};
 }
@@ -60,7 +52,6 @@ macro_rules! info {
 #[macro_export]
 macro_rules! error {
     ($($arg:tt)*) => {{
-        use logging::time;
         eprintln!("{} Error: {}", time::get_current_time(), &format!($($arg)*));
     }};
 }
