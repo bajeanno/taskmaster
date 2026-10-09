@@ -121,7 +121,7 @@ mod tests {
     use signal::Signal;
 
     use crate::daemon::{
-        config::{AutoRestart, Command},
+        config::program::{AutoRestart, Command},
         config_state::{ConfigState, DEFAULT_TASKS_FILE},
         process_handler::{LogReceiver, Status, StatusReceiver},
         tasks_manager::{process_registry::ProcessRegistry, routine::Routine},

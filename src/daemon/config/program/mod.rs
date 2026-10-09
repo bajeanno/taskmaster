@@ -1,22 +1,21 @@
+mod auto_restart;
+mod command;
+mod default;
+mod deserialize;
+mod serialize;
+
 #[cfg(test)]
 mod tests;
 
-use super::default::{
-    default_exit_codes, default_num_procs, default_signal, default_umask, default_work_dir,
-};
-use super::deserialize::{
-    deserialize_num_procs, deserialize_signal, deserialize_stderr_file, deserialize_stdout_file,
-    deserialize_umask,
-};
-use super::serialize::{serialize_signal, serialize_umask};
-use super::{AutoRestart, Command};
-pub use crate::daemon::{config::error::CommandError, output_file::OutputFile};
-use derive_getters::Getters;
+use crate::daemon::{config::error::CommandError, output_file::OutputFile};
+pub use auto_restart::AutoRestart;
+pub use command::Command;
 use libc::unistd::mode_t;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use signal::Signal;
-use std::sync::Arc;
-use std::{collections::HashMap, fmt::Display, str::FromStr};
+use std::{collections::HashMap, fmt::Display, str::FromStr, sync::Arc};
+
+use derive_getters::Getters;
 
 #[derive(Debug)]
 pub enum ProgramDiff {
@@ -33,21 +32,21 @@ pub struct ProgramConfig {
     name: String,
 
     #[serde(
-        default = "default_umask",
-        deserialize_with = "deserialize_umask",
-        serialize_with = "serialize_umask"
+        default = "default::umask",
+        deserialize_with = "deserialize::umask",
+        serialize_with = "serialize::umask"
     )]
     umask: mode_t, //restart
 
     pub cmd: Command, //restart
 
     #[serde(
-        default = "default_num_procs",
-        deserialize_with = "deserialize_num_procs"
+        default = "default::num_procs",
+        deserialize_with = "deserialize::num_procs"
     )]
     num_procs: u8,
 
-    #[serde(default = "default_work_dir")]
+    #[serde(default = "default::work_dir")]
     working_dir: String, //restart
 
     #[serde(default)]
@@ -59,7 +58,7 @@ pub struct ProgramConfig {
     #[serde(default)]
     auto_restart: AutoRestart,
 
-    #[serde(default = "default_exit_codes")]
+    #[serde(default = "default::exit_codes")]
     exit_codes: Vec<u8>,
 
     #[serde(default)]
@@ -69,19 +68,19 @@ pub struct ProgramConfig {
     start_time: u32,
 
     #[serde(
-        default = "default_signal",
-        deserialize_with = "deserialize_signal",
-        serialize_with = "serialize_signal"
+        default = "default::signal",
+        deserialize_with = "deserialize::signal",
+        serialize_with = "serialize::signal"
     )]
     stop_signal: Signal,
 
     #[serde(default)]
     stop_time: u32,
 
-    #[serde(default, deserialize_with = "deserialize_stdout_file")]
+    #[serde(default, deserialize_with = "deserialize::stdout_file")]
     stdout: Arc<OutputFile>,
 
-    #[serde(default, deserialize_with = "deserialize_stderr_file")]
+    #[serde(default, deserialize_with = "deserialize::stderr_file")]
     stderr: Arc<OutputFile>,
 
     #[serde(default)]
@@ -132,7 +131,7 @@ impl ProgramConfig {
                 args: vec!["Hello World!".to_string()],
             },
             num_procs: 1,
-            working_dir: default_work_dir(),
+            working_dir: default::work_dir(),
             auto_start: true,
             auto_start_on_reload: false,
             auto_restart: AutoRestart::default(),

@@ -1,25 +1,20 @@
-use super::KillCommandReceiver;
-use super::LogSender;
-use super::ReloadEventReceiver;
-use super::{Handle, NominativeStatus, Status, StatusSender, command};
+use super::{
+    Handle, KillCommandReceiver, LogSender, NominativeStatus, ReloadEventReceiver, Status,
+    StatusSender, command,
+};
 use crate::daemon::{
-    config::{AutoRestart, ProgramConfig},
+    config::{ProgramConfig, program::AutoRestart},
     output_file::OutputFile,
     process::ProcessId,
     process_handler::{Log, LogType, Outputs},
 };
-use libc::signal::kill;
-use libc::unistd::umask;
+use libc::{signal::kill, unistd::umask};
 use signal::Signal;
-use std::panic;
-use std::process::Stdio;
-use std::sync::Arc;
-use tokio::process::Command;
-use tokio::sync::mpsc::UnboundedSender;
+use std::{panic, process::Stdio, sync::Arc};
 use tokio::{
     io::{AsyncBufRead, AsyncBufReadExt, Error},
-    process::Child,
-    sync::mpsc,
+    process::{Child, Command},
+    sync::mpsc::{self, UnboundedSender},
     time::Duration,
 };
 
