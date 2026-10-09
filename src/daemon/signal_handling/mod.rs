@@ -1,17 +1,13 @@
+mod signal_channel;
+
 use crate::daemon::{
     config_state::ReloadArgs,
     tasks_manager::{Handle, TaskManagerCommand},
 };
 use signal::Signal;
-use std::ffi::{CStr, CString, c_char};
-use std::io::{self, Read, Write, pipe};
-use std::mem::MaybeUninit;
-use std::sync::{Mutex, PoisonError};
-use std::{ffi::c_int, sync::LazyLock};
+use signal_channel::SignalChannel;
+use std::ffi::{CStr, CString, c_char, c_int};
 
-static SIGNAL_CHANNEL: LazyLock<SignalChannel> = LazyLock::new(SignalChannel::new);
-
-#[allow(unused)]
 unsafe extern "C" {
     /// This function is implemented inside interface.c file (this is C code linking with the Rust binary)
     ///
@@ -22,78 +18,59 @@ unsafe extern "C" {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("error binding signal handler: sigaction failed: {0:?}")]
-pub struct SigActionError(CString);
+pub enum SignalError {
+    #[error("error binding signal handler: sigaction failed: {0:?}")]
+    SigAction(CString),
 
-struct SignalChannel {
-    reader: Mutex<io::PipeReader>,
-    writer: Mutex<io::PipeWriter>,
-}
-
-impl SignalChannel {
-    fn new() -> Self {
-        let (reader, writer) = pipe().expect("Signal channel failed to create pipe");
-        Self {
-            reader: Mutex::new(reader),
-            writer: Mutex::new(writer),
-        }
-    }
-
-    #[allow(unused)] // TODO: remove that
-    fn recv() -> Result<i32, io::Error> {
-        let mut buf: [MaybeUninit<u8>; 4] = unsafe { MaybeUninit::uninit().assume_init() };
-
-        SIGNAL_CHANNEL
-            .reader
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .read_exact(unsafe {
-                std::slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut u8, 4)
-            })?;
-
-        let buf: [u8; 4] = unsafe { std::mem::transmute(buf) };
-
-        Ok(i32::from_ne_bytes(buf))
-    }
-
-    fn send(signal: i32) -> Result<(), io::Error> {
-        SIGNAL_CHANNEL
-            .writer
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .write_all(&signal.to_ne_bytes())
-    }
+    #[error("Signal channel was broken")]
+    Channel(#[from] signal_channel::ChannelError),
 }
 
 #[allow(unused)]
 #[unsafe(no_mangle)]
 extern "C" fn on_signal(signum: c_int) {
-    SignalChannel::send(signum);
+    unsafe {
+        SignalChannel::send(signum);
+    };
 }
 
-#[allow(unused)] // TODO: remove that
-pub async fn handle_signal(handle: &Handle) -> Result<(), SigActionError> {
+/// Creates the self-pipe and installs taskmaster's signal handlers. The pipe is created first so
+/// that the handler installed below is only ever able to perform a raw `write`.
+fn install_sighandlers() -> Result<SignalChannel, SignalError> {
+    let channel = SignalChannel::init();
+
     unsafe {
         // declare sighandler for SIGHUP and SIGINT
         let errno = declare_sighandlers();
         if !errno.is_null() {
-            return Err(SigActionError(CStr::from_ptr(errno).to_owned()));
+            return Err(SignalError::SigAction(CStr::from_ptr(errno).to_owned()));
         }
     }
 
-    while let Ok(signum) = tokio::task::spawn_blocking(SignalChannel::recv)
-        .await
-        .expect("task panicked")
-    {
-        if react_to_signal(signum, handle).await {
-            break;
+    Ok(channel)
+}
+
+pub async fn handle_signal(handle: &Handle) -> Result<(), SignalError> {
+    let channel = install_sighandlers()?;
+
+    loop {
+        match tokio::task::spawn_blocking(|| unsafe { SignalChannel::recv() })
+            .await
+            .expect("task panicked")
+        {
+            Ok(signum) => {
+                if react_to_signal(signum, handle).await {
+                    break; // signum was 1: SIGINT meaning "exit"
+                }
+            }
+            Err(err) => return Err(err.into()),
         }
     }
+    drop(channel);
     Ok(())
 }
 
 /// Returns false if we should continue listening for signals
-#[allow(unused)] // TODO: remove that
 async fn react_to_signal(signum: c_int, handle: &Handle) -> bool {
     if let Ok(signal) = Signal::from_c_int(signum) {
         match signal {
@@ -132,10 +109,10 @@ mod test {
     use libc::signal::kill;
     use std::time::Duration;
     use tokio::time::sleep;
-    const SIGNAL: c_int = 2;
+    const TEST_SIGNAL: c_int = 2;
 
     async fn test_loop() {
-        assert_eq!(SignalChannel::recv().unwrap(), SIGNAL);
+        assert_eq!(unsafe { SignalChannel::recv().unwrap() }, TEST_SIGNAL);
     }
 
     async fn run_loop_and_assert_result() {
@@ -150,16 +127,16 @@ mod test {
 
     #[tokio::test]
     async fn test_signal_handling() {
-        unsafe {
-            // declare sighandler for SIGHUP and SIGINT
-            assert!(declare_sighandlers().is_null());
-        }
+        assert!(
+            install_sighandlers().is_ok(),
+            "installing signal handlers must succeed"
+        );
 
         let handle = tokio::spawn(run_loop_and_assert_result());
 
         let pid = std::process::id();
         unsafe {
-            kill(pid as i32, SIGNAL);
+            kill(pid as i32, TEST_SIGNAL);
         }
         let _ = handle.await;
     }

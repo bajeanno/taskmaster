@@ -9,7 +9,7 @@ use crate::daemon::TestDir;
 use libc::sys::file::{LOCK_EX, LOCK_UN, flock};
 use std::{
     fs::{File, OpenOptions},
-    io::{Read, Write},
+    io::{self, Read, Write},
     os::fd::AsRawFd,
 };
 
@@ -75,7 +75,9 @@ impl PidFile {
             .truncate(false)
             .open(PID_FILE)
             .map_err(ClaimError::OpenFile)?;
-        unsafe { flock(file.as_raw_fd(), LOCK_EX) };
+        if unsafe { flock(file.as_raw_fd(), LOCK_EX) } == -1 {
+            return Err(ClaimError::Flock(io::Error::last_os_error()));
+        }
         Ok(Self { file })
     }
 

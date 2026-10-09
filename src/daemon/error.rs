@@ -2,22 +2,32 @@ use std::num::ParseIntError;
 
 use crate::rpc::StartServerError;
 
+use crate::daemon::{config_state, signal_handling::SignalError};
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Failed to daemonize process")]
     FailedToDaemonize(#[from] daemonize::Error),
+
+    #[error("Failed to initialize config state")]
+    ConfigStateInit(#[from] config_state::InitFileError),
 
     #[error("Failed to start daemon server")]
     TaskServerFailure(#[from] StartServerError),
 
     #[error("Failed to claim taskmaster daemon instance")]
     Claim(#[from] ClaimError),
+
+    #[error("Failed to initiate signal handler")]
+    Signal(#[from] SignalError),
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum ClaimError {
     #[error("Failed to open pid file")]
     OpenFile(#[source] std::io::Error),
+    #[error("Failed to lock pid file")]
+    Flock(#[source] std::io::Error),
     #[error("Failed to read pid file")]
     ReadFile(#[source] std::io::Error),
     #[error("Failed to write to pid file")]
