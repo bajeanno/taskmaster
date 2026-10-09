@@ -98,9 +98,9 @@ impl From<String> for InitFile {
 
 #[derive(Debug, thiserror::Error)]
 pub enum InitFileError {
-    #[error("Failed to parse taskmaster configuration file")]
+    #[error("Failed to parse taskmaster init file at {INIT_FILE}")]
     Parse(#[from] ron::de::SpannedError),
-    #[error("Failed to open taskmaster configuration file")]
+    #[error("Failed to open taskmaster init file at {INIT_FILE}")]
     Open(#[source] io::Error),
 }
 
