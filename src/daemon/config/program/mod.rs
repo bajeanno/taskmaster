@@ -34,11 +34,11 @@ pub struct ProgramConfig {
     #[serde(skip)]
     name: String,
 
-    /// The permission mode the task will me running for interacting with the file system
+    /// The octal mask applied to permissions when interacting with the file system
     ///
     /// Needs restart of all the processes of the task on change
     ///
-    /// Defaults to 0o022
+    /// Defaults to `0o022`
     #[serde(
         default = "default::umask",
         deserialize_with = "deserialize::umask",
@@ -96,7 +96,7 @@ pub struct ProgramConfig {
     #[serde(default = "default::exit_codes")]
     exit_codes: Vec<u8>,
 
-    /// The number of times taskmaster should retry starting the task if it fails unexpectedly before <start-time> seconds
+    /// The number of times taskmaster should retry starting the task if it fails unexpectedly before `start-time` seconds
     ///
     /// Defaults to `0`
     #[serde(default)]
@@ -126,11 +126,15 @@ pub struct ProgramConfig {
 
     /// The path to stdout log file
     ///
+    /// Needs restart of all the processes of the task on change
+    ///
     /// Defaults to `/dev/null`
     #[serde(default, deserialize_with = "deserialize::stdout_file")]
     stdout: Arc<OutputFile>,
 
     /// The path to stderr log file
+    ///
+    /// Needs restart of all the processes of the task on change
     ///
     /// Defaults to `/dev/null`
     #[serde(default, deserialize_with = "deserialize::stderr_file")]
