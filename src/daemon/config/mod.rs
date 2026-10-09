@@ -1,50 +1,14 @@
 pub mod program;
 pub use program::ProgramConfig;
 
-mod default;
-mod deserialize;
 mod error;
-mod serialize;
 pub use error::{CreatingDefaultConfigFileError, ParseError};
 
 use serde::de::Error;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::Display;
 use std::fs::File;
 use std::sync::Arc;
-
-#[derive(Debug, Deserialize, Serialize, Default, PartialEq)]
-pub enum AutoRestart {
-    #[serde(rename = "true")]
-    True,
-    #[default]
-    #[serde(rename = "false")]
-    False,
-    #[serde(rename = "unexpected")]
-    OnFailure,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Command {
-    pub exec: String,
-    pub args: Vec<String>,
-}
-
-impl Display for Command {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}{}",
-            self.exec,
-            if !self.args.is_empty() {
-                format!(" {:?}", self.args)
-            } else {
-                String::new()
-            }
-        )
-    }
-}
 
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]

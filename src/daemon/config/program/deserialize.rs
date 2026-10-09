@@ -5,7 +5,7 @@ use std::{str::FromStr, sync::Arc};
 
 use crate::daemon::output_file::OutputFile;
 
-pub fn deserialize_signal<'de, D>(deserializer: D) -> Result<Signal, D::Error>
+pub fn signal<'de, D>(deserializer: D) -> Result<Signal, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -19,7 +19,7 @@ where
     Ok(signal)
 }
 
-pub fn deserialize_umask<'de, D>(deserializer: D) -> Result<mode_t, D::Error>
+pub fn umask<'de, D>(deserializer: D) -> Result<mode_t, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -44,7 +44,7 @@ where
     }
 }
 
-pub fn deserialize_num_procs<'de, D>(deserializer: D) -> Result<u8, D::Error>
+pub fn num_procs<'de, D>(deserializer: D) -> Result<u8, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -59,7 +59,7 @@ where
     }
 }
 
-pub fn deserialize_stderr_file<'de, D>(deserializer: D) -> Result<Arc<OutputFile>, D::Error>
+pub fn stderr_file<'de, D>(deserializer: D) -> Result<Arc<OutputFile>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -80,7 +80,7 @@ where
     ))
 }
 
-pub fn deserialize_stdout_file<'de, D>(deserializer: D) -> Result<Arc<OutputFile>, D::Error>
+pub fn stdout_file<'de, D>(deserializer: D) -> Result<Arc<OutputFile>, D::Error>
 where
     D: Deserializer<'de>,
 {
