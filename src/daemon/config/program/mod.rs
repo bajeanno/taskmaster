@@ -28,45 +28,89 @@ pub enum ProgramDiff {
 #[derive(Debug, Getters, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct ProgramConfig {
+    /// Name of the task
+    ///
+    /// *infered from the yaml section name*
     #[serde(skip)]
     name: String,
 
+    /// The octal mask applied to permissions when interacting with the file system
+    ///
+    /// Needs restart of all the processes of the task on change
+    ///
+    /// Defaults to `0o022`
     #[serde(
         default = "default::umask",
         deserialize_with = "deserialize::umask",
         serialize_with = "serialize::umask"
     )]
-    umask: mode_t, //restart
+    umask: mode_t,
 
-    pub cmd: Command, //restart
+    /// **Required field**
+    ///
+    /// The command the task will be running
+    ///
+    /// Needs restart of all the processes of the task on change
+    pub cmd: Command,
 
+    /// The number of processes the task will create
+    ///
+    /// Will shutdown or create new processes on change
+    ///
+    /// Defaults to `1`
     #[serde(
         default = "default::num_procs",
         deserialize_with = "deserialize::num_procs"
     )]
     num_procs: u8,
 
+    /// The working directory the task will spawn in
+    ///
+    /// Needs restart of all the processes of the task on change
+    ///
+    /// Defaults to `/`
     #[serde(default = "default::work_dir")]
-    working_dir: String, //restart
+    working_dir: String,
 
+    /// Whether the task starts automatically at daemon startup or not
+    ///
+    /// Defaults to `false`
     #[serde(default)]
     auto_start: bool,
 
+    /// Whether the task starts automatically at reload or not
+    ///
+    /// Defaults to `false`
     #[serde(default)]
     auto_start_on_reload: bool,
 
+    /// Whether the task restarts automatically, always, on failure, or never
+    ///
+    /// Defaults to `false`
     #[serde(default)]
     auto_restart: AutoRestart,
 
+    /// The exit codes that means the task finished expectedly
+    ///
+    /// Defaults to `[0]`
     #[serde(default = "default::exit_codes")]
     exit_codes: Vec<u8>,
 
+    /// The number of times taskmaster should retry starting the task if it fails unexpectedly before `start-time` seconds
+    ///
+    /// Defaults to `0`
     #[serde(default)]
     start_retries: u32,
 
+    /// The time the task is expected to take before considering it has started
+    ///
+    /// Defaults to `0`
     #[serde(default)]
     start_time: u32,
 
+    /// The signal that should be used to kill the process on first try
+    ///
+    /// Defaults to `SIGINT`
     #[serde(
         default = "default::signal",
         deserialize_with = "deserialize::signal",
@@ -74,20 +118,41 @@ pub struct ProgramConfig {
     )]
     stop_signal: Signal,
 
+    /// The time the task is expected to take while stopping before taskmaster tries to kill it with SIGKILL
+    ///
+    /// Defaults to `0`
     #[serde(default)]
     stop_time: u32,
 
+    /// The path to stdout log file
+    ///
+    /// Needs restart of all the processes of the task on change
+    ///
+    /// Defaults to `/dev/null`
     #[serde(default, deserialize_with = "deserialize::stdout_file")]
     stdout: Arc<OutputFile>,
 
+    /// The path to stderr log file
+    ///
+    /// Needs restart of all the processes of the task on change
+    ///
+    /// Defaults to `/dev/null`
     #[serde(default, deserialize_with = "deserialize::stderr_file")]
     stderr: Arc<OutputFile>,
 
+    /// Wether the environnement should be cleared before starting or not
+    ///
+    /// Defaults to `false`
     #[serde(default)]
     clear_env: bool,
 
+    /// The environnement variables the task will start with
+    ///
+    /// Needs restart of all the processes of the task on change
+    ///
+    /// Defaults to `[]`
     #[serde(default)]
-    env: HashMap<String, String>, //restart
+    env: HashMap<String, String>,
 }
 
 impl Display for ProgramConfig {
