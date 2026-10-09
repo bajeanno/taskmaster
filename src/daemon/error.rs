@@ -2,7 +2,7 @@ use std::num::ParseIntError;
 
 use crate::rpc::StartServerError;
 
-use crate::daemon::{config_state, signal_handling::SigActionError};
+use crate::daemon::{config_state, signal_handling::SignalError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -19,7 +19,7 @@ pub enum Error {
     Claim(#[from] ClaimError),
 
     #[error("Failed to initiate signal handler")]
-    Signal(#[from] SigActionError),
+    Signal(#[from] SignalError),
 }
 
 #[derive(Debug, thiserror::Error)]
