@@ -143,7 +143,7 @@ pub struct ProgramConfig {
     /// Wether the environnement should be cleared before starting or not
     ///
     /// Needs restart of all the processes of the task on change
-    /// 
+    ///
     /// Defaults to `false`
     #[serde(default)]
     clear_env: bool,
