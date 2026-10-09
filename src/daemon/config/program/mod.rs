@@ -142,8 +142,6 @@ pub struct ProgramConfig {
 
     /// Wether the environnement should be cleared before starting or not
     ///
-    /// Needs restart of all the processes of the task on change
-    ///
     /// Defaults to `false`
     #[serde(default)]
     clear_env: bool,
@@ -170,7 +168,6 @@ impl ProgramConfig {
 
     pub fn diff(self: &Arc<Self>, other: &Arc<ProgramConfig>) -> ProgramDiff {
         if self.cmd != other.cmd
-            || self.clear_env() != other.clear_env()
             || self.env() != other.env()
             || self.umask() != other.umask()
             || self.working_dir() != other.working_dir()
