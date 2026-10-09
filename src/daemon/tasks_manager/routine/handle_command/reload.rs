@@ -458,7 +458,7 @@ mod tests {
     stop-time: 2
     stop-signal: "SIGTERM"
     auto-restart: false
-    clear-env: false"#;
+    clear-env: true"#;
 
         let new_yaml = r#"programs:
   app:
