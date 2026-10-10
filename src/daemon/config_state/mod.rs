@@ -5,7 +5,6 @@ use serde::Serialize;
 use crate::daemon::{config::Config, config_state::ConfigState::Active};
 use std::fs::File;
 use std::io;
-use std::ops::Deref;
 use std::{fs::OpenOptions, sync::Arc};
 
 const INIT_FILE: &str = "/etc/taskmaster.d/taskmaster.ron";
@@ -121,13 +120,13 @@ pub enum InitFileError {
 
 impl ConfigState {
     #[cfg(test)]
-    pub fn from_content(content: String) -> Self {
+    pub fn from_content(content: String, file_path: String) -> Self {
         use std::io::Cursor;
 
         let config = Config::from_reader(Cursor::new(content)).expect("Parse error");
         Self::Active {
             config: Arc::new(config),
-            config_file_path: DEFAULT_TASKS_FILE.into(),
+            config_file_path: file_path,
         }
     }
 
@@ -187,10 +186,10 @@ impl ConfigState {
                     .truncate(true)
                     .open(config_file_path.as_str())
                     .map_err(|err| RestoreError::Open {
-                        err: err,
+                        err,
                         file_path: config_file_path.clone(),
                     })?;
-                config.deref().clone().to_writer(file)?;
+                config.to_writer(file)?;
             }
             ConfigState::Uninitialized
             | ConfigState::LoadError {

@@ -67,11 +67,11 @@ impl From<Config> for TmpConfig {
 }
 
 impl Config {
-    pub fn to_writer(self, file: impl std::io::Write) -> Result<(), serde_yaml::Error> {
-        serde_yaml::to_writer(file, &TmpConfig::from(self))?;
+    pub fn to_writer(&self, file: impl std::io::Write) -> Result<(), serde_yaml::Error> {
+        serde_yaml::to_writer(file, &TmpConfig::from(self.clone()))?;
         Ok(())
     }
-    
+
     pub fn from_reader(file: impl std::io::Read) -> Result<Config, serde_yaml::Error> {
         let tmp_config: TmpConfig = serde_yaml::from_reader(file)?;
         let config = Self {
@@ -168,7 +168,9 @@ mod tests {
         let mut expected_program = ProgramConfig::template();
         *expected_program.name_mut() = name.clone();
         expected_programs.insert(name, Arc::new(expected_program));
-        let expected_config = Config { programs: expected_programs };
+        let expected_config = Config {
+            programs: expected_programs,
+        };
 
         assert_eq!(final_config, expected_config);
     }

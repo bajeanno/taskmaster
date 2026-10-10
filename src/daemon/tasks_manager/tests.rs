@@ -4,7 +4,9 @@ use std::time::Duration;
 
 use super::routine::Routine;
 use crate::daemon::{
-    config_state::{ConfigState, DEFAULT_TASKS_FILE, ReloadArgs}, tasks_manager::TaskManagerCommand, tests::TestDir,
+    config_state::{ConfigState, ReloadArgs},
+    tasks_manager::TaskManagerCommand,
+    tests::TestDir,
 };
 use tokio::sync::oneshot;
 use tokio::time::sleep;
@@ -124,7 +126,10 @@ fn create_tasks_alternate_yaml_content_plus_1_proc() -> String {
 
 #[tokio::test]
 async fn task_manager_list_tasks() {
-    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content()));
+    let handle = Routine::spawn(ConfigState::from_content(
+        create_tasks_yaml_content(),
+        "".to_string(),
+    ));
     let (sender, receiver) = oneshot::channel();
     handle
         .send(TaskManagerCommand::ListProcesses(sender))
@@ -136,7 +141,10 @@ async fn task_manager_list_tasks() {
 
 #[tokio::test]
 async fn task_manager_stop() {
-    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content()));
+    let handle = Routine::spawn(ConfigState::from_content(
+        create_tasks_yaml_content(),
+        "".to_string(),
+    ));
     handle
         .send(TaskManagerCommand::StopProgram {
             program_name: String::from("taskmaster_test_task"),
@@ -148,7 +156,10 @@ async fn task_manager_stop() {
 
 #[tokio::test]
 async fn task_manager_start_already_started() {
-    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content()));
+    let handle = Routine::spawn(ConfigState::from_content(
+        create_tasks_yaml_content(),
+        "".to_string(),
+    ));
     sleep(Duration::from_millis(5)).await;
 
     let (sender, receiver) = oneshot::channel();
@@ -175,7 +186,10 @@ async fn task_manager_start_already_started() {
 
 #[tokio::test]
 async fn task_manager_stop_then_start() {
-    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content()));
+    let handle = Routine::spawn(ConfigState::from_content(
+        create_tasks_yaml_content(),
+        "".to_string(),
+    ));
     handle
         .send(TaskManagerCommand::StopProgram {
             program_name: String::from("taskmaster_test_task"),
@@ -193,7 +207,10 @@ async fn task_manager_stop_then_start() {
 
 #[tokio::test]
 async fn task_manager_restart() {
-    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content()));
+    let handle = Routine::spawn(ConfigState::from_content(
+        create_tasks_yaml_content(),
+        "".to_string(),
+    ));
 
     handle
         .send(TaskManagerCommand::RestartProgram {
@@ -206,7 +223,10 @@ async fn task_manager_restart() {
 
 #[tokio::test]
 async fn task_manager_reload_minus_1_proc() {
-    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content_reload()));
+    let handle = Routine::spawn(ConfigState::from_content(
+        create_tasks_yaml_content_reload(),
+        "".to_string(),
+    ));
     let new_content = create_tasks_alternate_yaml_content_minus_1_proc();
     let path = TestDir::new("reload-1");
     let new_file = path.join("taskmaster_task_manager_reload.yaml");
@@ -243,7 +263,10 @@ async fn task_manager_reload_minus_1_proc() {
 
 #[tokio::test]
 async fn task_manager_reload_plus_1_proc() {
-    let handle = Routine::spawn(ConfigState::from_content(create_tasks_yaml_content_reload()));
+    let handle = Routine::spawn(ConfigState::from_content(
+        create_tasks_yaml_content_reload(),
+        "".to_string(),
+    ));
     let new_content = create_tasks_alternate_yaml_content_plus_1_proc();
     let path = TestDir::new("reload+1");
     let new_file = path.join("taskmaster_task_manager_reload.yaml");
@@ -296,7 +319,10 @@ async fn task_manager_reload_keeps_unchanged_program() {
         cmd: "sleep 30"
         auto-start: true"#;
 
-    let handle = Routine::spawn(ConfigState::from_content(initial_content.to_string()));
+    let handle = Routine::spawn(ConfigState::from_content(
+        initial_content.to_string(),
+        "".to_string(),
+    ));
 
     let path = TestDir::new("reload_keeps_program_unchanged");
     let new_file = path.join("taskmaster_task_manager_reload.yaml");
@@ -349,17 +375,19 @@ async fn task_manager_reload_keeps_unchanged_program() {
 
 #[tokio::test]
 async fn task_manager_restore() {
+    let dir = TestDir::new("restore");
+    let path = dir.join("restore.yaml");
     let mut yaml_content = create_restore_yaml_content();
-    let handle = Routine::spawn(ConfigState::from_content(yaml_content.clone()));
+    let handle = Routine::spawn(ConfigState::from_content(
+        yaml_content.clone(),
+        path.to_string(),
+    ));
 
-    handle
-        .send(TaskManagerCommand::Restore)
-        .await
-        .unwrap();
+    handle.send(TaskManagerCommand::Restore).await.unwrap();
 
-    let mut restored_content = std::fs::read_to_string(DEFAULT_TASKS_FILE)
-        .expect("Failed to read restored config file");
-    
+    let mut restored_content =
+        std::fs::read_to_string(&path).expect("Failed to read restored config file");
+
     restored_content.retain(|c| !c.is_whitespace());
     yaml_content.retain(|c| !c.is_whitespace());
 

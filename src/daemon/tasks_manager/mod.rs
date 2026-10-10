@@ -7,7 +7,8 @@ mod routine;
 mod tests;
 
 use crate::daemon::{
-    config_state::{InitFileError, ReloadArgs, RestoreError}, tasks_manager::process_list::ProcessList,
+    config_state::{InitFileError, ReloadArgs, RestoreError},
+    tasks_manager::process_list::ProcessList,
 };
 pub use handle::Handle;
 use routine::Client;
