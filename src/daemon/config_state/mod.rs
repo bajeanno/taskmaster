@@ -5,6 +5,7 @@ use serde::Serialize;
 use crate::daemon::{config::Config, config_state::ConfigState::Active};
 use std::fs::File;
 use std::io;
+use std::ops::Deref;
 use std::{fs::OpenOptions, sync::Arc};
 
 const INIT_FILE: &str = "/etc/taskmaster.d/taskmaster.ron";
@@ -36,6 +37,20 @@ pub enum ReloadArgs {
     UseCurrent,
     NewDefault(String),
     TempConfig(String),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RestoreError {
+    #[error("Cannot serialize active config")]
+    Serialize(#[from] serde_yaml::Error),
+    #[error("Cannot open config file ({file_path})")]
+    Open {
+        #[source]
+        err: io::Error,
+        file_path: String,
+    },
+    #[error("Restore command called while no active config has been loaded")]
+    BadConfig,
 }
 
 // InitFile is the struct that is serialized to ron (Rust Object Notation)
@@ -158,6 +173,32 @@ impl ConfigState {
             }
             ReloadArgs::TempConfig(path) => path,
         })
+    }
+
+    pub fn restore_config_file(&self) -> Result<(), RestoreError> {
+        match self {
+            Active {
+                config,
+                config_file_path,
+            } => {
+                let file = OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .truncate(true)
+                    .open(config_file_path.as_str())
+                    .map_err(|err| RestoreError::Open {
+                        err: err,
+                        file_path: config_file_path.clone(),
+                    })?;
+                config.deref().clone().to_writer(file)?;
+            }
+            ConfigState::Uninitialized
+            | ConfigState::LoadError {
+                error: _,
+                config_file_path: _,
+            } => return Err(RestoreError::BadConfig),
+        }
+        Ok(())
     }
 
     pub fn take(&mut self) -> Self {

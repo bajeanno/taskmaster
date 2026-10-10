@@ -25,7 +25,7 @@ pub enum ProgramDiff {
 }
 
 #[allow(dead_code)] // TODO: remove this
-#[derive(Debug, Getters, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Clone, Getters, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
 pub struct ProgramConfig {
     /// Name of the task

@@ -8,9 +8,10 @@ use serde::de::Error;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
+use std::ops::Deref;
 use std::sync::Arc;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Config {
     pub programs: HashMap<String, Arc<ProgramConfig>>,
@@ -53,7 +54,24 @@ impl TmpConfig {
     }
 }
 
+impl From<Config> for TmpConfig {
+    fn from(config_from: Config) -> Self {
+        let mut config = Self {
+            programs: HashMap::new(),
+        };
+        for (name, program) in config_from.programs {
+            config.programs.insert(name, program.deref().clone());
+        }
+        config
+    }
+}
+
 impl Config {
+    pub fn to_writer(self, file: impl std::io::Write) -> Result<(), serde_yaml::Error> {
+        serde_yaml::to_writer(file, &TmpConfig::from(self))?;
+        Ok(())
+    }
+    
     pub fn from_reader(file: impl std::io::Read) -> Result<Config, serde_yaml::Error> {
         let tmp_config: TmpConfig = serde_yaml::from_reader(file)?;
         let config = Self {
@@ -116,5 +134,42 @@ mod tests {
             *program.name_mut() = name.clone();
         }
         assert_eq!(config, TmpConfig::template());
+    }
+
+    #[test]
+    fn from_config_serialization_test() {
+        let mut programs = HashMap::new();
+        let name = "task".to_string();
+        programs.insert(name.clone(), Arc::new(ProgramConfig::template()));
+
+        let original_config = Config { programs };
+
+        // Test From<Config> for TmpConfig
+        let tmp_config = TmpConfig::from(original_config);
+
+        // Serialize to YAML
+        let serialized = serde_yaml::to_string(&tmp_config).unwrap();
+
+        // Deserialize back to TmpConfig
+        let deserialized_tmp: TmpConfig = serde_yaml::from_str(&serialized).unwrap();
+
+        // Convert back to Config via from_reader logic and assert equality
+        let final_config = Config {
+            programs: deserialized_tmp
+                .programs()
+                .unwrap()
+                .into_iter()
+                .map(|(k, v)| (k, Arc::new(v)))
+                .collect(),
+        };
+
+        // Re-wrap original for comparison (re-creating to avoid move issues)
+        let mut expected_programs = HashMap::new();
+        let mut expected_program = ProgramConfig::template();
+        *expected_program.name_mut() = name.clone();
+        expected_programs.insert(name, Arc::new(expected_program));
+        let expected_config = Config { programs: expected_programs };
+
+        assert_eq!(final_config, expected_config);
     }
 }

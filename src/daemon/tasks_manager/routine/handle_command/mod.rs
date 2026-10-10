@@ -59,6 +59,10 @@ impl Routine {
                 self.processes.stop_and_join_all_processes().await
             }
 
+            TaskManagerCommand::Restore => {
+                self.config_state.restore_config_file()?;
+            }
+
             TaskManagerCommand::Exit => {
                 panic!("Exit command should be handled by Routine::event_listener")
             }

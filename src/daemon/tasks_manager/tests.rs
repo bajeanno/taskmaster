@@ -4,9 +4,7 @@ use std::time::Duration;
 
 use super::routine::Routine;
 use crate::daemon::{
-    config_state::{ConfigState, ReloadArgs},
-    tasks_manager::TaskManagerCommand,
-    tests::TestDir,
+    config_state::{ConfigState, DEFAULT_TASKS_FILE, ReloadArgs}, tasks_manager::TaskManagerCommand, tests::TestDir,
 };
 use tokio::sync::oneshot;
 use tokio::time::sleep;
@@ -30,6 +28,31 @@ fn create_tasks_yaml_content() -> String {
         env:
             STARTED_BY: taskmaster
             ANSWER: 42"#
+        .to_string()
+}
+
+fn create_restore_yaml_content() -> String {
+    r#"programs:
+    taskmaster_test_task:
+        umask: '0o22'
+        cmd: sleep "30"
+        num-procs: 2
+        working-dir: /tmp
+        auto-start: true
+        auto-start-on-reload: true
+        auto-restart: 'true'
+        exit-codes:
+        - 0
+        - 2
+        start-retries: 5
+        start-time: 0
+        stop-signal: SIGTERM
+        stop-time: 10
+        stdout: ''
+        stderr: ''
+        clear-env: true
+        env:
+            STARTED_BY: taskmaster"#
         .to_string()
 }
 
@@ -320,6 +343,27 @@ async fn task_manager_reload_keeps_unchanged_program() {
         !process_names.contains(&"remove-0".to_string()),
         "removed program must be stopped on reload"
     );
+
+    handle.stop().await;
+}
+
+#[tokio::test]
+async fn task_manager_restore() {
+    let mut yaml_content = create_restore_yaml_content();
+    let handle = Routine::spawn(ConfigState::from_content(yaml_content.clone()));
+
+    handle
+        .send(TaskManagerCommand::Restore)
+        .await
+        .unwrap();
+
+    let mut restored_content = std::fs::read_to_string(DEFAULT_TASKS_FILE)
+        .expect("Failed to read restored config file");
+    
+    restored_content.retain(|c| !c.is_whitespace());
+    yaml_content.retain(|c| !c.is_whitespace());
+
+    assert_eq!(restored_content, yaml_content);
 
     handle.stop().await;
 }
