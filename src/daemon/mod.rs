@@ -41,14 +41,14 @@ pub fn is_daemon_started() -> Result<bool, ClaimError> {
 ///
 /// Only call when it is safe to call fork()
 pub unsafe fn run() -> Result<Daemonized, Error> {
-    let pid_file_claim = claim_pid::Claim::new()?;
-
     if !cfg!(debug_assertions) {
         match unsafe { daemonize()? } {
             Daemonized::IsInsideDaemon => {}
             Daemonized::IsOutsideDaemon => return Ok(Daemonized::IsOutsideDaemon),
         }
     }
+
+    let pid_file_claim = claim_pid::Claim::new()?;
 
     let result = start_server();
 
