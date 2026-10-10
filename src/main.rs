@@ -3,7 +3,7 @@ mod daemon;
 mod rpc;
 mod utils;
 
-use std::process::ExitCode;
+use std::{process::ExitCode, thread::sleep, time::Duration};
 
 use daemonize::Daemonized;
 use logging::LogLevel;
@@ -33,7 +33,10 @@ fn main() -> ExitCode {
 
         match unsafe { daemon::run() } {
             Ok(Daemonized::IsInsideDaemon) => return ExitCode::SUCCESS,
-            Ok(Daemonized::IsOutsideDaemon) => {}
+            Ok(Daemonized::IsOutsideDaemon) => {
+                // waiting a bit for the daemon to start before starting client
+                sleep(Duration::from_millis(400));
+            }
             Err(err) => {
                 logging::log(&err, LogLevel::Error);
                 return ExitCode::FAILURE;
