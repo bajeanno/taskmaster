@@ -35,6 +35,7 @@ fn main() -> ExitCode {
             Ok(Daemonized::IsInsideDaemon) => return ExitCode::SUCCESS,
             Ok(Daemonized::IsOutsideDaemon) => {}
             Err(err) => {
+                // redirect_file error will log in the terminal in case of failure
                 logging::log(&err, LogLevel::Error);
                 return ExitCode::FAILURE;
             }
