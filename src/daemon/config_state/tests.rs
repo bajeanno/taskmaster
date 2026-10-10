@@ -76,13 +76,19 @@ fn test_error_display_messages() {
     let open_err = InitFileError::Open(io::Error::other("boom"));
     assert_eq!(
         open_err.to_string(),
-        "Failed to open taskmaster configuration file"
+        format!(
+            "Failed to open taskmaster init file at {}",
+            super::INIT_FILE
+        )
     );
     assert_eq!(open_err.source().unwrap().to_string(), "boom");
     let parse_err = InitFileError::from(ron::from_str::<InitFile>("[").unwrap_err());
     assert_eq!(
         parse_err.to_string(),
-        "Failed to parse taskmaster configuration file"
+        format!(
+            "Failed to parse taskmaster init file at {}",
+            super::INIT_FILE
+        )
     );
     assert!(parse_err.source().is_some());
 }
