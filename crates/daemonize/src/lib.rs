@@ -28,8 +28,11 @@ impl Daemonize {
     ///
     /// Only call when it is safe to call fork()
     pub unsafe fn start(self) -> Result<Daemonized> {
-        self.redirect_files()?;
-        unsafe { Self::fork() }
+        let daemonized = unsafe { Self::fork() }?;
+        if matches!(&daemonized, Daemonized::IsInsideDaemon) {
+            self.redirect_files()?;
+        }
+        Ok(daemonized)
     }
 
     unsafe fn fork() -> Result<Daemonized> {
