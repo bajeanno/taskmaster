@@ -24,7 +24,7 @@ pub async fn run(
         let command = match shell_words::split(&line) {
             Ok(command) => command,
             Err(err) => {
-                logging::log_with_msg("Failed to parse command", &err, LogLevel::Warning);
+                logging::log_with_msg("Failed to parse command", &err, LogLevel::Stderr);
                 continue;
             }
         };
@@ -33,7 +33,7 @@ pub async fn run(
             Ok(()) => {}
             Err(ParseError::EmptyCommand) => continue,
             Err(err) => {
-                logging::log_with_msg("Command Failed", &err, LogLevel::Warning);
+                logging::log_with_msg("Command Failed", &err, LogLevel::Stderr);
                 continue;
             }
         }
@@ -59,7 +59,7 @@ fn read_line(
                     logging::log_with_msg(
                         "Failed to add command to history",
                         &err,
-                        logging::LogLevel::Warning,
+                        logging::LogLevel::Stderr,
                     );
                 }
                 break Ok(Some((rl, line)));
