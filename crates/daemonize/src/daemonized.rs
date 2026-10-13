@@ -1,6 +1,6 @@
 use libc::sys::types::Pid;
 
-use crate::{InsideDaemonError, OutsideDaemonError};
+use crate::{ForkFailed, RedirectIOError};
 
 #[must_use = "InsideDaemon and OutsideDaemon variants may contain an error"]
 #[derive(Debug)]
@@ -14,7 +14,7 @@ pub enum DaemonizedOk<InsideDaemonOk, OutsideDaemonOk> {
     OutsideDaemon(OutsideDaemonOk),
 }
 
-pub type DefaultDaemonized = Daemonized<(), InsideDaemonError, Pid, OutsideDaemonError>;
+pub type DefaultDaemonized = Daemonized<(), RedirectIOError, Pid, ForkFailed>;
 
 /// Use this when you want the `?` operator behavior for a `Daemonized` value.
 ///

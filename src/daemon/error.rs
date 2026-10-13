@@ -6,11 +6,11 @@ use crate::daemon::{config_state, signal_handling::SignalError};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Failed to daemonize process")]
-    InsideDaemonFailedToDaemonize(#[from] daemonize::InsideDaemonError),
+    #[error("Daemon failed to redirect it's IO")]
+    RedirectingDaemonIO(#[from] daemonize::RedirectIOError),
 
     #[error("Failed to daemonize process")]
-    OutsideDaemonFailedToDaemonize(#[from] daemonize::OutsideDaemonError),
+    Fork(#[from] daemonize::ForkFailed),
 
     #[error("Failed to initialize config state")]
     ConfigStateInit(#[from] config_state::InitFileError),

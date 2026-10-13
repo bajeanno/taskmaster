@@ -4,21 +4,21 @@ pub use daemonized::{Daemonized, DaemonizedOk, DefaultDaemonized};
 use std::{fs, io, os::fd::AsRawFd};
 
 #[derive(Debug, thiserror::Error)]
-pub enum OutsideDaemonError {
+pub enum ForkFailed {
     #[error("Fork failed")]
     FailedToFork(#[source] io::Error),
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum InsideDaemonError {
+pub enum RedirectIOError {
     #[error("Failed to open file '{file_path}' while redirecting {redirected_io}")]
-    FailedToOpenFile {
+    OpenFile {
         file_path: String,
         redirected_io: &'static str,
         source: io::Error,
     },
     #[error("Failed to redirect {redirected_io} to '{file_path}'")]
-    FailedToRedirectFileUsingDup2 {
+    Dup2 {
         file_path: String,
         redirected_io: &'static str,
         source: io::Error,
@@ -50,15 +50,15 @@ impl Daemonize {
 
     unsafe fn fork() -> DefaultDaemonized {
         match unsafe { libc::unistd::fork() } {
-            pid if pid < 0 => Daemonized::OutsideDaemon(Err(OutsideDaemonError::FailedToFork(
-                io::Error::last_os_error(),
-            ))),
+            pid if pid < 0 => {
+                Daemonized::OutsideDaemon(Err(ForkFailed::FailedToFork(io::Error::last_os_error())))
+            }
             pid if pid > 0 => Daemonized::OutsideDaemon(Ok(pid)),
             _ => Daemonized::InsideDaemon(Ok(())),
         }
     }
 
-    fn redirect_files(self) -> Result<(), InsideDaemonError> {
+    fn redirect_files(self) -> Result<(), RedirectIOError> {
         const DEV_NULL: &str = "/dev/null";
 
         Self::redirect_file(self.stdin.as_deref().unwrap_or(DEV_NULL), 0, "stdin")?;
@@ -70,7 +70,7 @@ impl Daemonize {
         file_path: &str,
         fd: i32,
         redirected_io: &'static str,
-    ) -> Result<(), InsideDaemonError> {
+    ) -> Result<(), RedirectIOError> {
         let file = fs::OpenOptions::new()
             .read(fd == 0)
             .write(fd != 0)
@@ -78,14 +78,14 @@ impl Daemonize {
             .truncate(false)
             .append(true)
             .open(file_path)
-            .map_err(|source| InsideDaemonError::FailedToOpenFile {
+            .map_err(|source| RedirectIOError::OpenFile {
                 file_path: file_path.to_string(),
                 redirected_io,
                 source,
             })?;
 
         if unsafe { libc::unistd::dup2(file.as_raw_fd(), fd) } < 0 {
-            return Err(InsideDaemonError::FailedToRedirectFileUsingDup2 {
+            return Err(RedirectIOError::Dup2 {
                 file_path: file_path.to_string(),
                 redirected_io,
                 source: io::Error::last_os_error(),

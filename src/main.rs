@@ -36,7 +36,16 @@ fn main() -> ExitCode {
     match run() {
         Daemonized::InsideDaemon(Ok(())) | Daemonized::OutsideDaemon(Ok(())) => ExitCode::SUCCESS,
         Daemonized::InsideDaemon(Err(err)) => {
-            logging::log(&err, LogLevel::Error);
+            match &err {
+                Error::StartingDaemon(daemon::Error::RedirectingDaemonIO(err)) => {
+                    logging::log_with_msg(
+                        "Daemon failed to redirect it's IO",
+                        &err,
+                        LogLevel::Stderr,
+                    )
+                }
+                _ => logging::log(&err, LogLevel::Error),
+            }
             ExitCode::FAILURE
         }
         Daemonized::OutsideDaemon(Err(err)) => {
