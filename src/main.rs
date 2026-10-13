@@ -32,12 +32,16 @@ fn main() -> ExitCode {
         maybe_rl = Some(rl);
 
         match unsafe { daemon::run() } {
-            Ok(Daemonized::IsInsideDaemon) => return ExitCode::SUCCESS,
-            Ok(Daemonized::IsOutsideDaemon) => {
+            Daemonized::InsideDaemon(Ok(())) => return ExitCode::SUCCESS,
+            Daemonized::InsideDaemon(Err(err)) => {
+                logging::log(&err, LogLevel::Error);
+                return ExitCode::SUCCESS;
+            }
+            Daemonized::OutsideDaemon(Ok(_pid)) => {
                 // waiting a bit for the daemon to start before starting client
                 sleep(Duration::from_millis(400));
             }
-            Err(err) => {
+            Daemonized::OutsideDaemon(Err(err)) => {
                 logging::log(&err, LogLevel::Error);
                 return ExitCode::FAILURE;
             }

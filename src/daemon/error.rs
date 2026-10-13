@@ -7,7 +7,10 @@ use crate::daemon::{config_state, signal_handling::SignalError};
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Failed to daemonize process")]
-    FailedToDaemonize(#[from] daemonize::Error),
+    InsideDaemonFailedToDaemonize(#[from] daemonize::InsideDaemonError),
+
+    #[error("Failed to daemonize process")]
+    OutsideDaemonFailedToDaemonize(#[from] daemonize::OutsideDaemonError),
 
     #[error("Failed to initialize config state")]
     ConfigStateInit(#[from] config_state::InitFileError),
