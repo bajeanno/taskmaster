@@ -56,6 +56,6 @@ pub enum TaskManagerCommand {
         client: Client,
     },
     StopAllProcesses,
-    Restore,
+    RestoreConfigFile,
     Exit,
 }

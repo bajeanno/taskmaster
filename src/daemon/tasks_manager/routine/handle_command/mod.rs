@@ -59,7 +59,7 @@ impl Routine {
                 self.processes.stop_and_join_all_processes().await
             }
 
-            TaskManagerCommand::Restore => {
+            TaskManagerCommand::RestoreConfigFile => {
                 self.config_state.restore_config_file()?;
             }
 
