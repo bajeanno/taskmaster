@@ -11,7 +11,7 @@ mod tasks_manager;
 #[cfg(test)]
 mod tests;
 
-use daemonize::{Daemonized, DefaultDaemonized};
+use daemonize::{Daemonized, DaemonizedOk, DefaultDaemonized, try_daemonized};
 
 use libc::sys::types::Pid;
 #[cfg(test)]
@@ -41,13 +41,12 @@ pub fn is_daemon_started() -> Result<bool, ClaimError> {
 /// # Safety
 ///
 /// Only call when it is safe to call fork()
-pub unsafe fn run() -> Daemonized<Result<(), Error>, Result<Pid, Error>> {
+pub unsafe fn run() -> Daemonized<(), Error, Pid, Error> {
     if !cfg!(debug_assertions) {
-        match unsafe { daemonize() } {
-            Daemonized::InsideDaemon(Ok(())) => {}
-            Daemonized::InsideDaemon(Err(err)) => return Daemonized::InsideDaemon(Err(err.into())),
-            Daemonized::OutsideDaemon(a) => {
-                return Daemonized::OutsideDaemon(a.map_err(Into::into));
+        match try_daemonized!(unsafe { daemonize() }) {
+            DaemonizedOk::InsideDaemon(()) => {}
+            DaemonizedOk::OutsideDaemon(pid) => {
+                return Daemonized::OutsideDaemon(Ok(pid));
             }
         }
     }
