@@ -7,7 +7,7 @@ use std::{
 use crate::daemon::{
     claim_pid::{Claim, PidFile},
     error::ClaimError,
-    tests::TestDir,
+    test_utils::TestDir,
 };
 
 static PID_TEST_LOCK: Mutex<()> = Mutex::new(());

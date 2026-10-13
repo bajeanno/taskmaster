@@ -9,12 +9,12 @@ mod signal_handling;
 mod tasks_manager;
 
 #[cfg(test)]
-mod tests;
+mod test_utils;
 
 use daemonize::Daemonized;
 
 #[cfg(test)]
-use tests::TestDir;
+use test_utils::TestDir;
 
 use crate::daemon::{
     config_state::ConfigState, error::ClaimError, tasks_manager::ServerCommandError,

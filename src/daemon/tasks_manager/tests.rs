@@ -6,7 +6,7 @@ use super::routine::Routine;
 use crate::daemon::{
     config_state::{ConfigState, ReloadArgs},
     tasks_manager::TaskManagerCommand,
-    tests::TestDir,
+    test_utils::TestDir,
 };
 use tokio::sync::oneshot;
 use tokio::time::sleep;
