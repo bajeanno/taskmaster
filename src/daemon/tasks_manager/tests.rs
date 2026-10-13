@@ -383,7 +383,10 @@ async fn task_manager_restore() {
         path.to_string(),
     ));
 
-    handle.send(TaskManagerCommand::RestoreConfigFile).await.unwrap();
+    handle
+        .send(TaskManagerCommand::RestoreConfigFile)
+        .await
+        .unwrap();
 
     let mut restored_content =
         std::fs::read_to_string(&path).expect("Failed to read restored config file");
