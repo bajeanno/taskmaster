@@ -39,7 +39,7 @@ pub enum ReloadArgs {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum RestoreError {
+pub enum RestoreConfigFileError {
     #[error("Cannot serialize active config")]
     Serialize(#[from] serde_yaml::Error),
     #[error("Cannot open config file ({file_path})")]
@@ -172,7 +172,7 @@ impl ConfigState {
         })
     }
 
-    pub fn restore_config_file(&self) -> Result<(), RestoreError> {
+    pub fn restore_config_file(&self) -> Result<(), RestoreConfigFileError> {
         match self {
             Active {
                 config,
@@ -183,14 +183,14 @@ impl ConfigState {
                     .write(true)
                     .truncate(true)
                     .open(config_file_path.as_str())
-                    .map_err(|err| RestoreError::Open {
+                    .map_err(|err| RestoreConfigFileError::Open {
                         err,
                         file_path: config_file_path.clone(),
                     })?;
                 config.to_writer(file)?;
             }
             ConfigState::Uninitialized | ConfigState::LoadError { .. } => {
-                return Err(RestoreError::BadConfig);
+                return Err(RestoreConfigFileError::BadConfig);
             }
         }
         Ok(())
