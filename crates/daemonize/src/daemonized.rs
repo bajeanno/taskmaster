@@ -16,14 +16,14 @@ pub enum DaemonizedOk<InsideDaemonOk, OutsideDaemonOk> {
 
 pub type DefaultDaemonized = Daemonized<(), InsideDaemonError, Pid, OutsideDaemonError>;
 
-/// Unwraps a daemonized result and yields the successful value from either daemon branch.
+/// Use this when you want the `?` operator behavior for a `Daemonized` value.
 ///
-/// This is meant to be used like the `?` operator: it unwraps the successful value
-/// from a `Daemonized` and propagates the error by returning early from the current
-/// function with the same daemon branch converted via `Into`.
+/// The macro unwraps the successful value and returns early with the error in the
+/// same daemon branch when the inner result is an `Err`.
 ///
-/// In other words, inside a function that returns `Daemonized`, this macro lets you
-/// write the happy-path logic as though the `Daemonized` were a regular `Result`.
+/// This is especially useful inside a function that already returns a `Daemonized`:
+/// it lets the happy path read like ordinary Rust while preserving the daemon-aware
+/// error return semantics.
 ///
 /// # Examples
 ///
@@ -33,7 +33,7 @@ pub type DefaultDaemonized = Daemonized<(), InsideDaemonError, Pid, OutsideDaemo
 /// use daemonize::{try_daemonized, Daemonized, DaemonizedOk};
 ///
 /// fn try_daemonized_add_1_if_ok(
-///     value: Daemonized<i32, i32, i32, i32>
+///     value: Daemonized<i32, i32, i32, i32>,
 /// ) -> Daemonized<i32, i32, i32, i32> {
 ///     let value = try_daemonized!(value);
 ///     match value {
@@ -64,13 +64,91 @@ pub type DefaultDaemonized = Daemonized<(), InsideDaemonError, Pid, OutsideDaemo
 macro_rules! try_daemonized {
     ($expr:expr $(,)?) => {
         match $expr {
-            $crate::Daemonized::InsideDaemon(Ok(ok)) => $crate::DaemonizedOk::InsideDaemon(ok),
-            $crate::Daemonized::OutsideDaemon(Ok(ok)) => $crate::DaemonizedOk::OutsideDaemon(ok),
-            $crate::Daemonized::InsideDaemon(Err(err)) => {
-                return $crate::Daemonized::InsideDaemon(Err(::std::convert::From::from(err)));
+            $crate::Daemonized::InsideDaemon(::core::result::Result::Ok(ok)) => {
+                $crate::DaemonizedOk::InsideDaemon(ok)
             }
-            $crate::Daemonized::OutsideDaemon(Err(err)) => {
-                return $crate::Daemonized::OutsideDaemon(Err(::std::convert::From::from(err)));
+            $crate::Daemonized::OutsideDaemon(::core::result::Result::Ok(ok)) => {
+                $crate::DaemonizedOk::OutsideDaemon(ok)
+            }
+            $crate::Daemonized::InsideDaemon(::core::result::Result::Err(err)) => {
+                return $crate::Daemonized::InsideDaemon(::core::result::Result::Err(
+                    ::std::convert::From::from(err),
+                ));
+            }
+            $crate::Daemonized::OutsideDaemon(::core::result::Result::Err(err)) => {
+                return $crate::Daemonized::OutsideDaemon(::core::result::Result::Err(
+                    ::std::convert::From::from(err),
+                ));
+            }
+        }
+    };
+}
+
+/// Unwraps a `Result` and returns the successful value, propagating errors by
+/// returning a `Daemonized::OutsideDaemon(Err(...))` from the current function.
+///
+/// This behaves like the `?` operator for the outside-daemon branch: on `Ok(value)`,
+/// it yields `value`; on `Err(err)`, it returns early with the error converted via
+/// `From` into the outside-daemon error type.
+///
+/// # Examples
+///
+/// ```rust
+/// use std::assert_matches;
+/// use daemonize::Daemonized;
+///
+/// fn add_1_if_ok(value: Result<i32, i32>) -> Daemonized<i32, i32, i32, i32> {
+///     let value = daemonize::try_daemonized_outside!(value);
+///     Daemonized::OutsideDaemon(Ok(value + 1))
+/// }
+///
+/// assert_matches!(add_1_if_ok(Ok(42)), Daemonized::OutsideDaemon(Ok(43)));
+/// assert_matches!(add_1_if_ok(Err(42)), Daemonized::OutsideDaemon(Err(42)));
+/// ```
+#[macro_export]
+macro_rules! try_daemonized_outside {
+    ($expr:expr $(,)?) => {
+        match $expr {
+            ::core::result::Result::Ok(ok) => ok,
+            ::core::result::Result::Err(err) => {
+                return $crate::Daemonized::OutsideDaemon(::core::result::Result::Err(
+                    ::std::convert::From::from(err),
+                ))
+            }
+        }
+    };
+}
+
+/// Unwraps a `Result` and returns the successful value, propagating errors by
+/// returning a `Daemonized::InsideDaemon(Err(...))` from the current function.
+///
+/// This behaves like the `?` operator for the inside-daemon branch: on `Ok(value)`,
+/// it yields `value`; on `Err(err)`, it returns early with the error converted via
+/// `From` into the inside-daemon error type.
+///
+/// # Examples
+///
+/// ```rust
+/// use std::assert_matches;
+/// use daemonize::Daemonized;
+///
+/// fn add_1_if_ok(value: Result<i32, i32>) -> Daemonized<i32, i32, i32, i32> {
+///     let value = daemonize::try_daemonized_inside!(value);
+///     Daemonized::InsideDaemon(Ok(value + 1))
+/// }
+///
+/// assert_matches!(add_1_if_ok(Ok(42)), Daemonized::InsideDaemon(Ok(43)));
+/// assert_matches!(add_1_if_ok(Err(42)), Daemonized::InsideDaemon(Err(42)));
+/// ```
+#[macro_export]
+macro_rules! try_daemonized_inside {
+    ($expr:expr $(,)?) => {
+        match $expr {
+            ::core::result::Result::Ok(ok) => ok,
+            ::core::result::Result::Err(err) => {
+                return $crate::Daemonized::InsideDaemon(::core::result::Result::Err(
+                    ::std::convert::From::from(err),
+                ))
             }
         }
     };
