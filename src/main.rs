@@ -52,10 +52,8 @@ fn run() -> Daemonized<(), Error, (), Error> {
     let is_daemon_started = try_daemonized_outside!(is_daemon_started());
 
     if !is_daemon_started {
-        let mut rl = match rustyline::DefaultEditor::new() {
-            Ok(rl) => rl,
-            Err(err) => return Daemonized::OutsideDaemon(Err(Error::InitCliEditor(err))),
-        };
+        let mut rl =
+            try_daemonized_outside!(rustyline::DefaultEditor::new().map_err(Error::InitCliEditor));
 
         if !should_start_daemon(&mut rl) {
             return Daemonized::OutsideDaemon(Ok(()));
