@@ -4,7 +4,7 @@ use crate::daemon::{
         program::{AutoRestart, Command, CommandError, ProgramConfig},
     },
     output_file::OutputFile,
-    tests::TestDir,
+    test_utils::TestDir,
 };
 use libc::unistd::mode_t;
 use signal::Signal;

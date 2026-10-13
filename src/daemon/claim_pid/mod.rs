@@ -3,9 +3,6 @@ mod tests;
 
 use crate::daemon::error::ClaimError::{self, OtherInstanceRunning};
 
-#[cfg(test)]
-use crate::daemon::TestDir;
-
 use libc::sys::file::{LOCK_EX, LOCK_UN, flock};
 use std::{
     fs::{File, OpenOptions},
@@ -19,11 +16,13 @@ const PID_FILE: &str = "/var/run/taskmaster.d/taskmaster.pid";
 const PID_FILE: &str = "target/tests/pid/taskmaster.pid";
 
 #[derive(Debug)]
-pub struct Claim();
+pub struct Claim {
+    pid_file_path: String,
+}
 
 impl Claim {
     pub fn is_claimed() -> Result<bool, ClaimError> {
-        let mut pid_file = PidFile::open()?;
+        let mut pid_file = PidFile::open(PID_FILE.to_string())?;
         match pid_file.read_pid()? {
             Some(_claim) => Ok(true),
             None => Ok(false),
@@ -31,12 +30,16 @@ impl Claim {
     }
 
     pub fn new() -> Result<Self, ClaimError> {
-        let mut pid_file = PidFile::open()?;
+        Self::new_at(PID_FILE.to_string())
+    }
+
+    fn new_at(pid_file_path: String) -> Result<Self, ClaimError> {
+        let mut pid_file = PidFile::open(pid_file_path.clone())?;
         match pid_file.read_pid()? {
             Some(_) => Err(OtherInstanceRunning)?,
             None => {
                 pid_file.write_pid()?;
-                Ok(Claim())
+                Ok(Self { pid_file_path })
             }
         }
     }
@@ -49,11 +52,12 @@ impl Claim {
 
 impl Drop for Claim {
     fn drop(&mut self) {
-        match PidFile::open() {
+        match PidFile::open(self.pid_file_path.clone()) {
             Ok(mut file) => file.truncate(),
-            Err(err) => {
-                eprintln!("error: failed to open taskmaster's pid file at {PID_FILE}: {err}")
-            }
+            Err(err) => eprintln!(
+                "error: failed to open taskmaster's pid file at {}: {err}",
+                self.pid_file_path
+            ),
         }
     }
 }
@@ -64,16 +68,13 @@ struct PidFile {
 }
 
 impl PidFile {
-    fn open() -> Result<Self, ClaimError> {
-        #[cfg(test)]
-        TestDir::new("pid");
-
+    fn open(pid_file_path: String) -> Result<Self, ClaimError> {
         let file = OpenOptions::new()
             .create(true)
             .write(true)
             .read(true)
             .truncate(false)
-            .open(PID_FILE)
+            .open(pid_file_path)
             .map_err(ClaimError::OpenFile)?;
         if unsafe { flock(file.as_raw_fd(), LOCK_EX) } == -1 {
             return Err(ClaimError::Flock(io::Error::last_os_error()));
