@@ -19,6 +19,8 @@ pub fn log(error: &dyn core::error::Error, log_level: LogLevel) {
         LogLevel::Error => error!("{str}"),
         LogLevel::Warning => warning!("{str}"),
         LogLevel::Info => info!("{str}"),
+        LogLevel::Stderr => eprintln!("{str}"),
+        LogLevel::Stdout => println!("{str}"),
     }
 }
 
@@ -35,6 +37,8 @@ pub fn log_with_msg(
         LogLevel::Error => error!("{str}"),
         LogLevel::Warning => warning!("{str}"),
         LogLevel::Info => info!("{str}"),
+        LogLevel::Stderr => eprintln!("{str}"),
+        LogLevel::Stdout => println!("{str}"),
     }
 }
 
@@ -43,6 +47,10 @@ pub enum LogLevel {
     Error,
     Warning,
     Info,
+    /// Prints on stderr without the date or any log level message
+    Stderr,
+    /// Prints on stdout without the date or any log level message
+    Stdout,
 }
 
 #[macro_export]
