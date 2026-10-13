@@ -125,6 +125,7 @@ name = "daemonize"
 version = "0.1.0"
 dependencies = [
  "libc 0.1.0",
+ "thiserror",
 ]
 
 [[package]]

@@ -11,8 +11,9 @@ mod tasks_manager;
 #[cfg(test)]
 mod tests;
 
-use daemonize::Daemonized;
+use daemonize::{Daemonized, DefaultDaemonized};
 
+use libc::sys::types::Pid;
 #[cfg(test)]
 use tests::TestDir;
 
@@ -40,33 +41,38 @@ pub fn is_daemon_started() -> Result<bool, ClaimError> {
 /// # Safety
 ///
 /// Only call when it is safe to call fork()
-pub unsafe fn run() -> Result<Daemonized, Error> {
+pub unsafe fn run() -> Daemonized<Result<(), Error>, Result<Pid, Error>> {
     if !cfg!(debug_assertions) {
-        match unsafe { daemonize()? } {
-            Daemonized::IsInsideDaemon => {}
-            Daemonized::IsOutsideDaemon => return Ok(Daemonized::IsOutsideDaemon),
+        match unsafe { daemonize() } {
+            Daemonized::InsideDaemon(Ok(())) => {}
+            Daemonized::InsideDaemon(Err(err)) => return Daemonized::InsideDaemon(Err(err.into())),
+            Daemonized::OutsideDaemon(a) => {
+                return Daemonized::OutsideDaemon(a.map_err(Into::into));
+            }
         }
     }
 
-    let pid_file_claim = claim_pid::Claim::new()?;
+    let pid_file_claim = match claim_pid::Claim::new() {
+        Ok(claim) => claim,
+        Err(err) => return Daemonized::InsideDaemon(Err(err.into())),
+    };
 
     let result = start_server();
 
     pid_file_claim.release_claim();
 
-    result.map(|()| Daemonized::IsInsideDaemon)
+    Daemonized::InsideDaemon(result)
 }
 
 /// # Safety
 ///
 /// Only call when it is safe to call fork()
-unsafe fn daemonize() -> Result<Daemonized, Error> {
+unsafe fn daemonize() -> DefaultDaemonized {
     unsafe {
         daemonize::Daemonize::new()
             .stdout("/var/log/taskmaster.log")
             .stderr("/var/log/taskmaster.log")
             .start()
-            .map_err(Into::into)
     }
 }
 
