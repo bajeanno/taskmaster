@@ -16,8 +16,7 @@ pub async fn handle_command(
     _client: &ClientHandle,
     mut args: impl Iterator<Item = String>,
 ) -> Result<(), ParseError> {
-    let command_name = args.next().ok_or(ParseError::EmptyCommand)?;
-    match command_name.as_str() {
+    match args.next().ok_or(ParseError::EmptyCommand)?.trim() {
         "status" => {
             check_no_additional_args(args)?;
             todo!();
@@ -46,7 +45,7 @@ pub async fn handle_command(
             todo!();
         }
         "" => Err(ParseError::EmptyCommand),
-        _ => Err(ParseError::UnknownCommand(command_name)),
+        other => Err(ParseError::UnknownCommand(other.to_owned())),
     }
 }
 

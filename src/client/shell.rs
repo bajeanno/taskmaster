@@ -1,4 +1,7 @@
-use crate::{client::handle_command::handle_command, rpc::ClientHandle};
+use crate::{
+    client::{ParseError, handle_command::handle_command},
+    rpc::ClientHandle,
+};
 use logging::LogLevel;
 use rustyline::error::ReadlineError;
 
@@ -28,6 +31,7 @@ pub async fn run(
 
         match handle_command(&client, command.into_iter()).await {
             Ok(()) => {}
+            Err(ParseError::EmptyCommand) => continue,
             Err(err) => {
                 logging::log_with_msg("Command Failed", &err, LogLevel::Warning);
                 continue;
