@@ -157,13 +157,11 @@ impl ConfigState {
             ReloadArgs::UseDefault => InitFile::fetch()?.default_config_file_path,
             ReloadArgs::UseCurrent => match self {
                 Active {
-                    config: _,
-                    config_file_path,
+                    config_file_path, ..
                 } => config_file_path.clone(),
                 ConfigState::Uninitialized => InitFile::fetch()?.default_config_file_path,
                 ConfigState::LoadError {
-                    error: _,
-                    config_file_path,
+                    config_file_path, ..
                 } => config_file_path.clone(),
             },
             ReloadArgs::NewDefault(path) => {
@@ -191,11 +189,9 @@ impl ConfigState {
                     })?;
                 config.to_writer(file)?;
             }
-            ConfigState::Uninitialized
-            | ConfigState::LoadError {
-                error: _,
-                config_file_path: _,
-            } => return Err(RestoreError::BadConfig),
+            ConfigState::Uninitialized | ConfigState::LoadError { .. } => {
+                return Err(RestoreError::BadConfig);
+            }
         }
         Ok(())
     }
