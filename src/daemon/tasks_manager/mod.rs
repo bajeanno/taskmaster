@@ -7,7 +7,7 @@ mod routine;
 mod tests;
 
 use crate::daemon::{
-    config_state::{InitFileError, ReloadArgs},
+    config_state::{InitFileError, ReloadArgs, RestoreConfigFileError},
     tasks_manager::process_list::ProcessList,
 };
 pub use handle::Handle;
@@ -28,6 +28,9 @@ pub enum ServerCommandError {
 
     #[error("Failed to load configuration from init file")]
     InitFileError(#[from] InitFileError),
+
+    #[error("Error restoring config file")]
+    RestoringConfigFile(#[from] RestoreConfigFileError),
 }
 
 // TODO remove allow dead code
@@ -53,5 +56,6 @@ pub enum TaskManagerCommand {
         client: Client,
     },
     StopAllProcesses,
+    RestoreConfigFile,
     Exit,
 }

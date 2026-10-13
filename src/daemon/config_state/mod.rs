@@ -38,6 +38,20 @@ pub enum ReloadArgs {
     TempConfig(String),
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum RestoreConfigFileError {
+    #[error("Cannot serialize active config")]
+    Serialize(#[from] serde_yaml::Error),
+    #[error("Cannot open config file ({file_path})")]
+    Open {
+        #[source]
+        err: io::Error,
+        file_path: String,
+    },
+    #[error("Restore command called while no active config has been loaded")]
+    BadConfig,
+}
+
 // InitFile is the struct that is serialized to ron (Rust Object Notation)
 // and written to <INIT_FILE>
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -106,13 +120,13 @@ pub enum InitFileError {
 
 impl ConfigState {
     #[cfg(test)]
-    pub fn from_content(content: String) -> Self {
+    pub fn from_content(content: String, file_path: String) -> Self {
         use std::io::Cursor;
 
         let config = Config::from_reader(Cursor::new(content)).expect("Parse error");
         Self::Active {
             config: Arc::new(config),
-            config_file_path: DEFAULT_TASKS_FILE.into(),
+            config_file_path: file_path,
         }
     }
 
@@ -143,13 +157,11 @@ impl ConfigState {
             ReloadArgs::UseDefault => InitFile::fetch()?.default_config_file_path,
             ReloadArgs::UseCurrent => match self {
                 Active {
-                    config: _,
-                    config_file_path,
+                    config_file_path, ..
                 } => config_file_path.clone(),
                 ConfigState::Uninitialized => InitFile::fetch()?.default_config_file_path,
                 ConfigState::LoadError {
-                    error: _,
-                    config_file_path,
+                    config_file_path, ..
                 } => config_file_path.clone(),
             },
             ReloadArgs::NewDefault(path) => {
@@ -158,6 +170,30 @@ impl ConfigState {
             }
             ReloadArgs::TempConfig(path) => path,
         })
+    }
+
+    pub fn restore_config_file(&self) -> Result<(), RestoreConfigFileError> {
+        match self {
+            Active {
+                config,
+                config_file_path,
+            } => {
+                let file = OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .truncate(true)
+                    .open(config_file_path.as_str())
+                    .map_err(|err| RestoreConfigFileError::Open {
+                        err,
+                        file_path: config_file_path.clone(),
+                    })?;
+                config.to_writer(file)?;
+            }
+            ConfigState::Uninitialized | ConfigState::LoadError { .. } => {
+                return Err(RestoreConfigFileError::BadConfig);
+            }
+        }
+        Ok(())
     }
 
     pub fn take(&mut self) -> Self {

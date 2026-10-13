@@ -171,7 +171,7 @@ mod tests {
         auto-start: true"#;
 
     fn config(content: &str) -> Arc<crate::daemon::config::Config> {
-        match ConfigState::from_content(content.to_string()) {
+        match ConfigState::from_content(content.to_string(), "".to_string()) {
             ConfigState::Active {
                 config,
                 config_file_path: _,

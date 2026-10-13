@@ -38,14 +38,14 @@ fn test_init_file_ron_round_trip() {
 
 #[test]
 fn test_from_content_activates_config() {
-    let state = ConfigState::from_content(VALID_YAML.to_string());
+    let state = ConfigState::from_content(VALID_YAML.to_string(), "".to_string());
     let config = expect_active(&state);
     assert!(config.programs.contains_key("testprog"));
 }
 
 #[test]
 fn test_take_returns_previous_state_and_resets_to_uninitialized() {
-    let mut state = ConfigState::from_content(VALID_YAML.to_string());
+    let mut state = ConfigState::from_content(VALID_YAML.to_string(), "".to_string());
     let taken = state.take();
     assert_matches!(
         taken,
@@ -59,7 +59,7 @@ fn test_take_returns_previous_state_and_resets_to_uninitialized() {
 
 #[test]
 fn test_take_preserves_underlying_config() {
-    let mut state = ConfigState::from_content(VALID_YAML.to_string());
+    let mut state = ConfigState::from_content(VALID_YAML.to_string(), "".to_string());
     let original = expect_active(&state);
     let taken = state.take();
     match taken {
