@@ -32,12 +32,29 @@ pub struct Daemonize {
 }
 
 #[must_use = "InsideDaemon and OutsideDaemon variants may contain an error"]
+#[derive(Debug)]
 pub enum Daemonized<InsideDaemon, OutsideDaemon> {
     InsideDaemon(InsideDaemon),
     OutsideDaemon(OutsideDaemon),
 }
 
 impl<InsideDaemon, OutsideDaemon> Daemonized<InsideDaemon, OutsideDaemon> {
+    /// Maps the inside-daemon value while leaving the outside-daemon value unchanged.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::assert_matches;
+    /// use daemonize::Daemonized;
+    ///
+    /// let inside: Daemonized<i32, &str> = Daemonized::InsideDaemon(1)
+    ///     .map_inside_daemon(|value| value + 1);
+    /// assert_matches!(inside, Daemonized::InsideDaemon(2));
+    ///
+    /// let outside: Daemonized<i32, &str> = Daemonized::OutsideDaemon("keep me")
+    ///     .map_inside_daemon(|value: i32| value + 1);
+    /// assert_matches!(outside, Daemonized::OutsideDaemon("keep me"));
+    /// ```
     pub fn map_inside_daemon<NewInsideDaemon>(
         self,
         f: impl FnOnce(InsideDaemon) -> NewInsideDaemon,
@@ -48,6 +65,22 @@ impl<InsideDaemon, OutsideDaemon> Daemonized<InsideDaemon, OutsideDaemon> {
         }
     }
 
+    /// Maps the outside-daemon value while leaving the inside-daemon value unchanged.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::assert_matches;
+    /// use daemonize::Daemonized;
+    ///
+    /// let outside: Daemonized<&str, i32> = Daemonized::OutsideDaemon(1)
+    ///     .map_outside_daemon(|value| value + 1);
+    /// assert_matches!(outside, Daemonized::OutsideDaemon(2));
+    ///
+    /// let inside: Daemonized<&str, i32> = Daemonized::InsideDaemon("keep me")
+    ///     .map_outside_daemon(|value: i32| value + 1);
+    /// assert_matches!(inside, Daemonized::InsideDaemon("keep me"));
+    /// ```
     pub fn map_outside_daemon<NewOutsideDaemon>(
         self,
         f: impl FnOnce(OutsideDaemon) -> NewOutsideDaemon,
