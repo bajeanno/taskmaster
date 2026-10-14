@@ -1,48 +1,48 @@
-mod commands;
+mod handle_command;
+pub use handle_command::ParseError;
+
 mod shell;
 
-use std::{process::ExitCode, time::Duration};
+use std::time::Duration;
 
-use logging::LogLevel;
 use tokio::time::sleep;
 
-use crate::rpc;
+use crate::{
+    client::handle_command::handle_command,
+    rpc::{self, ClientHandle},
+};
 
-pub fn start_client(maybe_rl: Option<rustyline::DefaultEditor>) -> ExitCode {
+pub fn start_client(maybe_rl: Option<rustyline::DefaultEditor>) -> Result<(), crate::Error> {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
-        .block_on(async {
-            let Ok(client) = tokio::time::timeout(Duration::from_secs(2), async {
-                loop {
-                    match rpc::connect_client().await {
-                        Ok(client) => return client,
-                        Err(err) => {
-                            logging::log_with_msg(
-                                "Failed to connect to taskmaster daemon",
-                                &err,
-                                LogLevel::Warning,
-                            );
-                            sleep(Duration::from_millis(400)).await;
-                        }
-                    }
-                }
-            })
-            .await
-            else {
-                logging::error!("Connections attempts timeouted");
-                return ExitCode::FAILURE;
-            };
+        .block_on(run(maybe_rl))
+}
 
-            if std::env::args().nth(1).is_some() {
-                match commands::oneshot_command::run(client).await {
-                    Ok(()) => ExitCode::SUCCESS,
-                    Err(()) => ExitCode::FAILURE,
+async fn run(maybe_rl: Option<rustyline::DefaultEditor>) -> Result<(), crate::Error> {
+    let client = connect_client().await?;
+
+    if std::env::args().nth(1).is_some() {
+        handle_command(&client, std::env::args().skip(1)).await?;
+    } else {
+        shell::run(client, maybe_rl).await?;
+    }
+
+    Ok(())
+}
+
+async fn connect_client() -> Result<ClientHandle, crate::Error> {
+    let mut i = 0;
+    loop {
+        match rpc::connect_client().await {
+            Ok(client) => return Ok(client),
+            Err(err) => {
+                if i >= 4 {
+                    return Err(err.into());
                 }
-            } else {
-                match shell::run(client, maybe_rl).await {
-                    Ok(()) => ExitCode::SUCCESS,
-                    Err(()) => ExitCode::FAILURE,
-                }
+
+                i += 1;
+                sleep(Duration::from_millis(400)).await;
             }
-        })
+        }
+    }
 }

@@ -1,7 +1,9 @@
+mod error;
+pub use error::{ClaimError, Error};
+
 mod claim_pid;
 mod config;
 mod config_state;
-mod error;
 mod output_file;
 mod process;
 mod process_handler;
@@ -17,11 +19,8 @@ use libc::sys::types::Pid;
 #[cfg(test)]
 use test_utils::TestDir;
 
-use crate::daemon::{
-    config_state::ConfigState, error::ClaimError, tasks_manager::ServerCommandError,
-};
+use crate::daemon::{config_state::ConfigState, tasks_manager::ServerCommandError};
 use config::ProgramConfig;
-use error::Error;
 use tasks_manager::TaskManagerCommand;
 use tokio::sync::{mpsc, oneshot};
 
