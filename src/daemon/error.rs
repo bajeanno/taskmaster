@@ -1,5 +1,6 @@
 use std::num::ParseIntError;
 
+use crate::daemon::claim_pid::CheckInstanceAlive;
 use crate::rpc::StartServerError;
 
 use crate::daemon::{config_state, signal_handling::SignalError};
@@ -37,6 +38,8 @@ pub enum ClaimError {
     WriteFile(#[source] std::io::Error),
     #[error("Failed to parse pid file content")]
     Parse(#[source] ParseIntError),
+    #[error("Failed to parse pid file content")]
+    Kill(#[source] CheckInstanceAlive),
     #[error(
         "The taskmaster PID file contains a pid meaning another instance of the daemon is \
         currently running.\n\
