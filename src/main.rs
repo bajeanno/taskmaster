@@ -70,7 +70,7 @@ fn run() -> Daemonized<(), Error, (), Error> {
 
         maybe_rl = Some(rl);
 
-        match unsafe { try_daemonized!(daemon::run()) } {
+        match try_daemonized!(unsafe { daemon::run() }) {
             DaemonizedOk::InsideDaemon(()) => return Daemonized::InsideDaemon(Ok(())),
             DaemonizedOk::OutsideDaemon(_pid) => {
                 // waiting a bit for the daemon to start before starting client
