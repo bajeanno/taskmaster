@@ -13,7 +13,9 @@ mod tasks_manager;
 #[cfg(test)]
 mod test_utils;
 
-use daemonize::{Daemonized, DaemonizedOk, DefaultDaemonized, try_daemonized};
+use daemonize::{
+    Daemonized, DaemonizedOk, DefaultDaemonized, try_daemonized, try_daemonized_outside,
+};
 
 use libc::sys::types::Pid;
 #[cfg(test)]
@@ -41,6 +43,8 @@ pub fn is_daemon_started() -> Result<bool, ClaimError> {
 ///
 /// Only call when it is safe to call fork()
 pub unsafe fn run() -> Daemonized<(), Error, Pid, Error> {
+    let config_state = try_daemonized_outside!(ConfigState::from_default_config_file());
+
     if !cfg!(debug_assertions) {
         match try_daemonized!(unsafe { daemonize() }) {
             DaemonizedOk::InsideDaemon(()) => {}
@@ -55,7 +59,7 @@ pub unsafe fn run() -> Daemonized<(), Error, Pid, Error> {
         Err(err) => return Daemonized::InsideDaemon(Err(err.into())),
     };
 
-    let result = start_server();
+    let result = start_server(config_state);
 
     pid_file_claim.release_claim();
 
@@ -74,9 +78,7 @@ unsafe fn daemonize() -> DefaultDaemonized {
     }
 }
 
-fn start_server() -> Result<(), Error> {
-    let config_state = ConfigState::from_default_config_file()?;
-
+fn start_server(config_state: ConfigState) -> Result<(), Error> {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
         .block_on(async {
