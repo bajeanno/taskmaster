@@ -1,14 +1,17 @@
 mod error;
 pub use error::{ClaimError, Error};
-
 mod claim_pid;
 mod config;
 mod config_state;
+pub use config_state::ReloadType;
 mod output_file;
 mod process;
 mod process_handler;
 mod signal_handling;
 mod tasks_manager;
+pub use tasks_manager::{
+    Handle as TasksManagerHandle, ServerCommandError, TaskManagerCommand, TasksManagerStatus,
+};
 
 #[cfg(test)]
 mod test_utils;
@@ -19,10 +22,10 @@ use libc::sys::types::Pid;
 #[cfg(test)]
 use test_utils::TestDir;
 
-use crate::daemon::{config_state::ConfigState, tasks_manager::ServerCommandError};
+use crate::daemon::config_state::ConfigState;
 use config::ProgramConfig;
-use tasks_manager::TaskManagerCommand;
-use tokio::sync::{mpsc, oneshot};
+use std::{panic, sync::Arc};
+use tokio::sync::{Mutex, mpsc, oneshot};
 
 pub type CommandReceiver = mpsc::UnboundedReceiver<(
     TaskManagerCommand,
@@ -80,13 +83,40 @@ fn start_server() -> Result<(), Error> {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
         .block_on(async {
-            let handle = tasks_manager::Routine::spawn(config_state);
+            let (handle_signal_error_sender, handle_signal_error_receiver) = oneshot::channel();
 
-            let server_handle = crate::rpc::start_server().await?;
+            let (handle, mut routine_stopped_receiver) =
+                tasks_manager::Routine::spawn(config_state);
+            // TODO use send should always be sent on drop
+            let handle = Arc::new(Mutex::new(handle));
 
-            signal_handling::handle_signal(&handle).await?;
+            let _server_handle = crate::rpc::start_server(Arc::clone(&handle)).await?;
 
-            server_handle.stop();
+            let handle_clone = Arc::clone(&handle);
+            let handle_signals_join_handle = tokio::spawn(async move {
+                signal_handling::handle_signals(&handle_clone, handle_signal_error_sender).await
+            });
+
+            tokio::select! {
+                _ = routine_stopped_receiver.recv() => { }
+
+                msg_result = handle_signal_error_receiver => {
+                    let err = msg_result.expect("handle_signals should never drop the sender");
+                    let _ = handle.lock().await.send(TaskManagerCommand::Shutdown).await;
+                    let _ = routine_stopped_receiver.recv().await;
+                    return Err(Error::Signal(err));
+                }
+            };
+
+            handle_signals_join_handle.abort();
+            match handle_signals_join_handle.await {
+                Ok(_) => todo!(),
+                Err(err) => {
+                    if let Ok(reason) = err.try_into_panic() {
+                        panic::resume_unwind(reason);
+                    }
+                }
+            }
 
             Ok(())
         })

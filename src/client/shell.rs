@@ -1,5 +1,5 @@
 use crate::{
-    client::{ParseError, handle_command::handle_command},
+    client::handle_command::{self, ParseError, handle_command},
     rpc::ClientHandle,
 };
 use logging::LogLevel;
@@ -31,7 +31,7 @@ pub async fn run(
 
         match handle_command(&client, command.into_iter()).await {
             Ok(()) => {}
-            Err(ParseError::EmptyCommand) => continue,
+            Err(handle_command::Error::Parsing(ParseError::EmptyCommand)) => continue,
             Err(err) => {
                 logging::log_with_msg("Command Failed", &err, LogLevel::Stderr);
                 continue;

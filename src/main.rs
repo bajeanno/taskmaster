@@ -9,7 +9,7 @@ use logging::LogLevel;
 use rustyline::error::ReadlineError;
 
 use crate::{
-    client::{ParseError, start_client},
+    client::start_client,
     daemon::{ClaimError, is_daemon_started},
 };
 
@@ -28,8 +28,8 @@ enum Error {
     InitCliEditor(#[source] ReadlineError),
     #[error("Failed to read line from cli")]
     ReadingLine(#[source] ReadlineError),
-    #[error("Failed to parse command")]
-    Parsing(#[from] ParseError),
+    #[error("Error while handling command")]
+    Command(#[from] client::Error),
 }
 
 fn main() -> ExitCode {

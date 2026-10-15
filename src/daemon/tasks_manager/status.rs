@@ -32,12 +32,18 @@ impl Display for TasksManagerStatus {
         write!(
             f,
             "{}",
-            self.list.iter().fold(String::new(), |acc, list| {
-                format!(
-                    "{acc}{} ({}):\n\t{}\n\n",
-                    list.task_name, list.command, list,
-                )
-            })
+            self.list
+                .iter()
+                .enumerate()
+                .fold(String::new(), |acc, (i, list)| {
+                    format!(
+                        "{acc}{} ({}):\n\t{}{}",
+                        list.task_name,
+                        list.command,
+                        list,
+                        if i == self.list.len() - 1 { "" } else { "\n\n" }
+                    )
+                })
         )
     }
 }
@@ -235,7 +241,11 @@ mod tests {
         println!("{}", process_list.to_string());
         assert_eq!(
             process_list.to_string(),
-            "nginx (/usr/bin/nginx [\"-conf\", \"/etc/nginx.conf\"]):\n\tRoutineStarting -> 1, Starting -> 2, Running -> 1\n\npostgres (/usr/bin/postgres):\n\tStarting -> 1, Running -> 3\n\n"
+            "nginx (/usr/bin/nginx [\"-conf\", \"/etc/nginx.conf\"]):\n\t\
+                RoutineStarting -> 1, Starting -> 2, Running -> 1\n\
+            \n\
+            postgres (/usr/bin/postgres):\n\t\
+                Starting -> 1, Running -> 3"
         )
     }
 }

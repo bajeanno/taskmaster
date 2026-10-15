@@ -1,5 +1,5 @@
 mod handle_command;
-pub use handle_command::ParseError;
+pub use handle_command::Error;
 
 mod shell;
 
