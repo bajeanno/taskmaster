@@ -69,10 +69,14 @@ impl Handle {
 
         self.command_sender
             .send((command, sender))
+            // If the receiver is dropped, that means the routine is shutting down / already shut
+            // down
             .map_err(|_| ServerCommandError::ShutdownInProgress)?;
 
         receiver
             .await
+            // If the sender is dropped, that means the routine had a shutdown command in the
+            // command queue before our command
             .map_err(|_| ServerCommandError::ShutdownInProgress)?
     }
 }
