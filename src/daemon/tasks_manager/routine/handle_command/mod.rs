@@ -10,11 +10,16 @@ use crate::daemon::{
 };
 use std::sync::Arc;
 
+pub enum ShouldStopEventLoop {
+    True,
+    False,
+}
+
 impl Routine {
     pub async fn handle_command(
         &mut self,
         command: TaskManagerCommand,
-    ) -> Result<(), ServerCommandError> {
+    ) -> Result<ShouldStopEventLoop, ServerCommandError> {
         match command {
             TaskManagerCommand::ListProcesses(list_sender) => {
                 list_sender
@@ -64,10 +69,11 @@ impl Routine {
             }
 
             TaskManagerCommand::Shutdown => {
-                panic!("Exit command should be handled by Routine::event_listener")
+                self.processes.stop_and_join_all_processes().await;
+                return Ok(ShouldStopEventLoop::True);
             }
         }
-        Ok(())
+        Ok(ShouldStopEventLoop::False)
     }
 
     async fn handle_start_program_command(
