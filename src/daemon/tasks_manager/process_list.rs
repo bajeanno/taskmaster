@@ -6,7 +6,7 @@ use crate::daemon::{
 };
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct ProcessList {
     pub(super) list: Vec<StatusList>,
 }
@@ -43,7 +43,7 @@ impl Display for ProcessList {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub(super) struct StatusList {
     pub(super) list: Vec<NominativeStatus>,
     task_name: String,

@@ -1,3 +1,5 @@
+use serializable_error::SerializableError;
+
 use crate::daemon::TestDir;
 use std::error::Error;
 use std::sync::Arc;
@@ -73,7 +75,9 @@ fn test_take_preserves_underlying_config() {
 
 #[test]
 fn test_error_display_messages() {
-    let open_err = InitFileError::Open(io::Error::other("boom"));
+    let open_err = InitFileError::Open {
+        io_error: SerializableError::new(io::Error::other("boom")),
+    };
     assert_eq!(
         open_err.to_string(),
         format!(
@@ -82,7 +86,9 @@ fn test_error_display_messages() {
         )
     );
     assert_eq!(open_err.source().unwrap().to_string(), "boom");
-    let parse_err = InitFileError::from(ron::from_str::<InitFile>("[").unwrap_err());
+    let parse_err = InitFileError::Parse {
+        ron_spanned_error: SerializableError::new(ron::from_str::<InitFile>("[").unwrap_err()),
+    };
     assert_eq!(
         parse_err.to_string(),
         format!(
