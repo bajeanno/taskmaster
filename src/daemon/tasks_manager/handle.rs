@@ -30,7 +30,7 @@ impl Handle {
     }
 
     pub async fn stop(self) {
-        self.send(TaskManagerCommand::Exit)
+        self.send(TaskManagerCommand::Shutdown)
             .await
             .expect("Exit command failed");
         self.join_handle.await.expect("error awaiting task manager");

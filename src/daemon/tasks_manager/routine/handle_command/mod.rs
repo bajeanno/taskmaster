@@ -63,7 +63,7 @@ impl Routine {
                 self.config_state.restore_config_file()?;
             }
 
-            TaskManagerCommand::Exit => {
+            TaskManagerCommand::Shutdown => {
                 panic!("Exit command should be handled by Routine::event_listener")
             }
         }

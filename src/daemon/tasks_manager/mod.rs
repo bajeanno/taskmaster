@@ -1,15 +1,13 @@
 mod handle;
-mod process_list;
+mod status;
+pub use status::TasksManagerStatus;
 mod process_registry;
 mod routine;
 
 #[cfg(test)]
 mod tests;
 
-use crate::daemon::{
-    config_state::{InitFileError, ReloadArgs, RestoreConfigFileError},
-    tasks_manager::process_list::ProcessList,
-};
+use crate::daemon::config_state::{InitFileError, ReloadType, RestoreConfigFileError};
 pub use handle::Handle;
 use routine::Client;
 pub use routine::Routine;
@@ -36,8 +34,8 @@ pub enum ServerCommandError {
 // TODO remove allow dead code
 #[allow(dead_code)]
 pub enum TaskManagerCommand {
-    ListProcesses(oneshot::Sender<ProcessList>),
-    Reload(ReloadArgs),
+    ListProcesses(oneshot::Sender<TasksManagerStatus>),
+    Reload(ReloadType),
     StartProgram {
         program_name: String,
     },
@@ -57,5 +55,5 @@ pub enum TaskManagerCommand {
     },
     StopAllProcesses,
     RestoreConfigFile,
-    Exit,
+    Shutdown,
 }
