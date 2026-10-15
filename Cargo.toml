@@ -4,10 +4,10 @@ members = [
     "crates/daemonize",
     "crates/libc",
     "crates/logging",
+    "crates/time",
+    "crates/serializable-error",
     "vendor/rpc-genie/rpc-genie",
     "vendor/rpc-genie/rpc-genie-macros",
-    "crates/logging",
-    "crates/time",
 ]
 
 [patch.crates-io]
@@ -21,19 +21,21 @@ edition = "2024"
 
 [workspace.dependencies]
 thiserror = "2"
+serde = "1"
 
 [dependencies]
 # Internal crates
 daemonize = { path = "crates/daemonize" }
 libc = { path = "crates/libc" }
 logging = { path = "crates/logging" }
+serializable-error = { path = "crates/serializable-error" }
 
 # External crates
 rpc-genie = "0.1"
 rustyline = "18"
 tokio = { version = "1", features = ["full"] }
 thiserror.workspace = true
-serde = { version = "1.0.217", features = ["derive", "rc"] }
+serde = { workspace = true, features = ["derive", "rc"] }
 serde_yaml = "0.9.34"
 mockall = "0.13.1"
 derive-getters = "0.5.0"

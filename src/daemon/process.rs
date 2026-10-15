@@ -15,7 +15,7 @@ use crate::daemon::{
 
 #[allow(dead_code)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ProcessId {
     pub task_name: String,
     pub id: usize,

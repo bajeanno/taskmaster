@@ -1,10 +1,8 @@
 use ron::ser::PrettyConfig;
-use serde::Deserialize;
-use serde::Serialize;
 
 use crate::daemon::{config::Config, config_state::ConfigState::Active};
+use serializable_error::SerializableError;
 use std::fs::File;
-use std::io;
 use std::{fs::OpenOptions, sync::Arc};
 
 const INIT_FILE: &str = "/etc/taskmaster.d/taskmaster.ron";
@@ -30,7 +28,7 @@ pub enum ConfigState {
 
 // TODO remove allow dead code
 #[allow(dead_code)]
-#[derive(Serialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum ReloadArgs {
     UseDefault,
     UseCurrent,
@@ -38,14 +36,17 @@ pub enum ReloadArgs {
     TempConfig(String),
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, serde::Serialize, serde::Deserialize)]
 pub enum RestoreConfigFileError {
     #[error("Cannot serialize active config")]
-    Serialize(#[from] serde_yaml::Error),
+    Serialize {
+        #[source]
+        serde_yaml_error: SerializableError,
+    },
     #[error("Cannot open config file ({file_path})")]
     Open {
         #[source]
-        err: io::Error,
+        io_error: SerializableError,
         file_path: String,
     },
     #[error("Restore command called while no active config has been loaded")]
@@ -54,7 +55,7 @@ pub enum RestoreConfigFileError {
 
 // InitFile is the struct that is serialized to ron (Rust Object Notation)
 // and written to <INIT_FILE>
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
 struct InitFile {
     default_config_file_path: String,
 }
@@ -78,7 +79,9 @@ impl InitFile {
             .truncate(true)
             .write(true)
             .open(INIT_FILE)
-            .map_err(InitFileError::Open)?;
+            .map_err(|err| InitFileError::Open {
+                io_error: SerializableError::new(err),
+            })?;
 
         ron::Options::default()
             .to_io_writer_pretty(file, &self, PrettyConfig::new().struct_names(true))
@@ -90,15 +93,18 @@ impl InitFile {
         let file = match OpenOptions::new()
             .read(true)
             .open(INIT_FILE)
-            .map_err(InitFileError::Open)
-        {
+            .map_err(|err| InitFileError::Open {
+                io_error: SerializableError::new(err),
+            }) {
             Ok(file) => file,
             Err(_) => {
                 Self::flush(Self::new())?;
                 return Ok(Self::new());
             }
         };
-        ron::de::from_reader::<File, InitFile>(file).map_err(InitFileError::Parse)
+        ron::de::from_reader::<File, InitFile>(file).map_err(|err| InitFileError::Parse {
+            ron_spanned_error: SerializableError::new(err),
+        })
     }
 }
 
@@ -110,12 +116,18 @@ impl From<String> for InitFile {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, serde::Serialize, serde::Deserialize)]
 pub enum InitFileError {
     #[error("Failed to parse taskmaster init file at {INIT_FILE}")]
-    Parse(#[from] ron::de::SpannedError),
+    Parse {
+        #[source]
+        ron_spanned_error: SerializableError,
+    },
     #[error("Failed to open taskmaster init file at {INIT_FILE}")]
-    Open(#[source] io::Error),
+    Open {
+        #[source]
+        io_error: SerializableError,
+    },
 }
 
 impl ConfigState {
@@ -184,10 +196,14 @@ impl ConfigState {
                     .truncate(true)
                     .open(config_file_path.as_str())
                     .map_err(|err| RestoreConfigFileError::Open {
-                        err,
+                        io_error: SerializableError::new(err),
                         file_path: config_file_path.clone(),
                     })?;
-                config.to_writer(file)?;
+                config
+                    .to_writer(file)
+                    .map_err(|err| RestoreConfigFileError::Serialize {
+                        serde_yaml_error: SerializableError::new(err),
+                    })?;
             }
             ConfigState::Uninitialized | ConfigState::LoadError { .. } => {
                 return Err(RestoreConfigFileError::BadConfig);

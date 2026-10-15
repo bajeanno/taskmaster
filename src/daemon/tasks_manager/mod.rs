@@ -15,7 +15,7 @@ use routine::Client;
 pub use routine::Routine;
 use tokio::sync::oneshot;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, serde::Serialize, serde::Deserialize)]
 pub enum ServerCommandError {
     #[error("Task not found in current config: {0}")]
     NoSuchProgram(String),
