@@ -986,6 +986,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "serializable-error"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "shell-words"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1083,6 +1090,7 @@ dependencies = [
  "serde",
  "serde_with",
  "serde_yaml",
+ "serializable-error",
  "shell-words",
  "signal",
  "thiserror",

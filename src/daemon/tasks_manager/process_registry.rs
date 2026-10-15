@@ -6,7 +6,7 @@ use crate::daemon::{
     config::ProgramConfig,
     process::Process,
     process_handler::{LogSender, NominativeStatus, Status},
-    tasks_manager::{ServerCommandError, process_list::ProcessList},
+    tasks_manager::{ServerCommandError, status::TasksManagerStatus},
 };
 
 // TODO: remove that
@@ -100,8 +100,8 @@ impl ProcessRegistry {
         }
     }
 
-    pub async fn list_processes(&self) -> ProcessList {
-        self.0.lock().await.values().fold(ProcessList::new(), |mut list, processes| {
+    pub async fn list_processes(&self) -> TasksManagerStatus {
+        self.0.lock().await.values().fold(TasksManagerStatus::new(), |mut list, processes| {
             let Some(first_process) = processes.iter().next() else {
                 unreachable!(
                     "Should always have at least one process. Having 0 should lead to a parsing \

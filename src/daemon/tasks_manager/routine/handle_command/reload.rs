@@ -3,14 +3,14 @@ use std::sync::Arc;
 use crate::daemon::{
     config::{Config, program::ProgramDiff},
     config_state::ConfigState::{self, Active, LoadError, Uninitialized},
-    config_state::ReloadArgs,
+    config_state::ReloadType,
     tasks_manager::{ServerCommandError, routine::Routine},
 };
 
 impl Routine {
     pub async fn reload_config(
         &mut self,
-        reload_command: ReloadArgs,
+        reload_command: ReloadType,
     ) -> Result<(), ServerCommandError> {
         match self.config_state.load_config(reload_command)? {
             Active {

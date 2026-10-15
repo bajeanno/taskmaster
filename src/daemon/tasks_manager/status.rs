@@ -6,13 +6,13 @@ use crate::daemon::{
 };
 
 #[allow(dead_code)]
-#[derive(Debug)]
-pub struct ProcessList {
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct TasksManagerStatus {
     pub(super) list: Vec<StatusList>,
 }
 
 #[allow(dead_code)]
-impl ProcessList {
+impl TasksManagerStatus {
     pub fn new() -> Self {
         Self { list: Vec::new() }
     }
@@ -27,7 +27,7 @@ impl ProcessList {
     }
 }
 
-impl Display for ProcessList {
+impl Display for TasksManagerStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -35,7 +35,7 @@ impl Display for ProcessList {
             self.list.iter().fold(String::new(), |acc, list| {
                 format!(
                     "{acc}{} ({}):\n\t{}\n\n",
-                    list.task_name, list.command, list
+                    list.task_name, list.command, list,
                 )
             })
         )
@@ -43,7 +43,7 @@ impl Display for ProcessList {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub(super) struct StatusList {
     pub(super) list: Vec<NominativeStatus>,
     task_name: String,
@@ -110,7 +110,7 @@ mod tests {
     use crate::daemon::{
         process::ProcessId,
         process_handler::{NominativeStatus, Status},
-        tasks_manager::process_list::{ProcessList, StatusList},
+        tasks_manager::status::{StatusList, TasksManagerStatus},
     };
 
     fn create_tasks_yaml_content() -> String {
@@ -229,7 +229,7 @@ mod tests {
         let content = create_tasks_yaml_content();
         let config =
             crate::daemon::config::Config::from_reader(std::io::Cursor::new(content)).unwrap();
-        let mut process_list = ProcessList::new();
+        let mut process_list = TasksManagerStatus::new();
         process_list.push(&config.programs.get("nginx").unwrap(), list);
         process_list.push(&config.programs.get("postgres").unwrap(), list2);
         println!("{}", process_list.to_string());

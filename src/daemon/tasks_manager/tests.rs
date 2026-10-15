@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use super::routine::Routine;
 use crate::daemon::{
-    config_state::{ConfigState, ReloadArgs},
+    config_state::{ConfigState, ReloadType},
     tasks_manager::TaskManagerCommand,
     test_utils::TestDir,
 };
@@ -247,7 +247,7 @@ async fn task_manager_reload_minus_1_proc() {
         r.await.unwrap();
     }
     handle
-        .send(TaskManagerCommand::Reload(ReloadArgs::TempConfig(new_file)))
+        .send(TaskManagerCommand::Reload(ReloadType::TempConfig(new_file)))
         .await
         .unwrap();
     {
@@ -287,7 +287,7 @@ async fn task_manager_reload_plus_1_proc() {
         r.await.unwrap();
     }
     handle
-        .send(TaskManagerCommand::Reload(ReloadArgs::TempConfig(new_file)))
+        .send(TaskManagerCommand::Reload(ReloadType::TempConfig(new_file)))
         .await
         .unwrap();
     {
@@ -336,7 +336,7 @@ async fn task_manager_reload_keeps_unchanged_program() {
         .expect("failed to write new taskmaster config file");
 
     handle
-        .send(TaskManagerCommand::Reload(ReloadArgs::TempConfig(new_file)))
+        .send(TaskManagerCommand::Reload(ReloadType::TempConfig(new_file)))
         .await
         .unwrap();
 

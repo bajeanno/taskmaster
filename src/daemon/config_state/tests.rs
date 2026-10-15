@@ -1,9 +1,11 @@
+use serializable_error::SerializableError;
+
 use crate::daemon::TestDir;
 use std::error::Error;
 use std::sync::Arc;
 use std::{assert_matches, io};
 
-use super::{ConfigState, DEFAULT_TASKS_FILE, InitFile, InitFileError, ReloadArgs};
+use super::{ConfigState, DEFAULT_TASKS_FILE, InitFile, InitFileError, ReloadType};
 
 const VALID_YAML: &str = r#"programs:
   testprog:
@@ -73,7 +75,9 @@ fn test_take_preserves_underlying_config() {
 
 #[test]
 fn test_error_display_messages() {
-    let open_err = InitFileError::Open(io::Error::other("boom"));
+    let open_err = InitFileError::Open {
+        io_error: SerializableError::new(io::Error::other("boom")),
+    };
     assert_eq!(
         open_err.to_string(),
         format!(
@@ -82,7 +86,9 @@ fn test_error_display_messages() {
         )
     );
     assert_eq!(open_err.source().unwrap().to_string(), "boom");
-    let parse_err = InitFileError::from(ron::from_str::<InitFile>("[").unwrap_err());
+    let parse_err = InitFileError::Parse {
+        ron_spanned_error: SerializableError::new(ron::from_str::<InitFile>("[").unwrap_err()),
+    };
     assert_eq!(
         parse_err.to_string(),
         format!(
@@ -98,7 +104,7 @@ fn test_load_config_temp_config_returns_active_with_file_path() {
     let tmp = TestDir::new("temp_config");
     let tasks_path = tmp.write("tasks.yaml", VALID_YAML);
     let state = ConfigState::default()
-        .load_config(ReloadArgs::TempConfig(tasks_path.clone()))
+        .load_config(ReloadType::TempConfig(tasks_path.clone()))
         .unwrap();
     match state {
         ConfigState::Active {
@@ -117,9 +123,9 @@ fn test_load_config_use_current_reloads_current_file() {
     let tmp = TestDir::new("use_current");
     let tasks_path = tmp.write("tasks.yaml", VALID_YAML);
     let active = ConfigState::default()
-        .load_config(ReloadArgs::TempConfig(tasks_path.clone()))
+        .load_config(ReloadType::TempConfig(tasks_path.clone()))
         .unwrap();
-    let reloaded = active.load_config(ReloadArgs::UseCurrent).unwrap();
+    let reloaded = active.load_config(ReloadType::UseCurrent).unwrap();
     match reloaded {
         ConfigState::Active {
             config,
@@ -137,7 +143,7 @@ fn test_load_config_missing_file_creates_template() {
     let tmp = TestDir::new("missing_file_creates_template");
     let missing_path = tmp.join("not_created.yaml");
     let state = ConfigState::default()
-        .load_config(ReloadArgs::TempConfig(missing_path.clone()))
+        .load_config(ReloadType::TempConfig(missing_path.clone()))
         .unwrap();
     match state {
         ConfigState::Active {
@@ -156,7 +162,7 @@ fn test_load_config_invalid_yaml_returns_load_error() {
     let tmp = TestDir::new("invalid_yaml");
     let tasks_path = tmp.write("tasks.yaml", "not: [valid");
     let state = ConfigState::default()
-        .load_config(ReloadArgs::TempConfig(tasks_path))
+        .load_config(ReloadType::TempConfig(tasks_path))
         .unwrap();
     assert_matches!(state, ConfigState::LoadError { .. });
 }

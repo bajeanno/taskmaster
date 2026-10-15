@@ -120,7 +120,7 @@ impl Routine {
 
     async fn event_listener(&mut self) {
         while let Some((command, sender)) = self.command_receiver.recv().await {
-            if matches!(command, TaskManagerCommand::Exit) {
+            if matches!(command, TaskManagerCommand::Shutdown) {
                 self.processes.stop_and_join_all_processes().await;
                 sender
                     .send(Ok(()))
