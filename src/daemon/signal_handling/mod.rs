@@ -6,7 +6,11 @@ use crate::daemon::{
 };
 use signal::Signal;
 use signal_channel::SignalChannel;
-use std::ffi::{CStr, CString, c_char, c_int};
+use std::{
+    ffi::{CStr, CString, c_char, c_int},
+    sync::Arc,
+};
+use tokio::sync::Mutex;
 
 unsafe extern "C" {
     /// This function is implemented inside interface.c file (this is C code linking with the Rust binary)
@@ -50,7 +54,7 @@ fn install_sighandlers() -> Result<SignalChannel, SignalError> {
     Ok(channel)
 }
 
-pub async fn handle_signal(handle: &Handle) -> Result<(), SignalError> {
+pub async fn handle_signal(handle: Arc<Mutex<Handle>>) -> Result<(), SignalError> {
     let channel = install_sighandlers()?;
 
     loop {
@@ -59,7 +63,7 @@ pub async fn handle_signal(handle: &Handle) -> Result<(), SignalError> {
             .expect("task panicked")
         {
             Ok(signum) => {
-                if react_to_signal(signum, handle).await {
+                if react_to_signal(signum, &handle).await {
                     break; // signum was 1: SIGINT meaning "exit"
                 }
             }
@@ -71,17 +75,19 @@ pub async fn handle_signal(handle: &Handle) -> Result<(), SignalError> {
 }
 
 /// Returns false if we should continue listening for signals
-async fn react_to_signal(signum: c_int, handle: &Handle) -> bool {
+async fn react_to_signal(signum: c_int, handle: &Mutex<Handle>) -> bool {
     if let Ok(signal) = Signal::from_c_int(signum) {
         match signal {
             Signal::SIGHUP => {
                 let _ = handle
+                    .lock()
+                    .await
                     .send(TaskManagerCommand::Reload(ReloadType::UseCurrent))
                     .await;
             }
 
             Signal::SIGINT => {
-                let _ = handle.send(TaskManagerCommand::Shutdown).await;
+                let _ = handle.lock().await.send(TaskManagerCommand::Shutdown).await;
                 return true;
             }
 
