@@ -33,7 +33,7 @@ enum Error {
 }
 
 fn main() -> ExitCode {
-    match run() {
+    match unsafe { run() } {
         Daemonized::InsideDaemon(Ok(())) | Daemonized::OutsideDaemon(Ok(())) => ExitCode::SUCCESS,
         Daemonized::InsideDaemon(Err(err)) => {
             match &err {
@@ -55,7 +55,10 @@ fn main() -> ExitCode {
     }
 }
 
-fn run() -> Daemonized<(), Error, (), Error> {
+/// # Safety
+///
+/// Only call when it is safe to call fork()
+unsafe fn run() -> Daemonized<(), Error, (), Error> {
     let mut maybe_rl = None;
 
     let is_daemon_started = try_daemonized_outside!(is_daemon_started());
