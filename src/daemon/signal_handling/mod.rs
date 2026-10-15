@@ -1,9 +1,6 @@
 mod signal_channel;
 
-use crate::daemon::{
-    config_state::ReloadType,
-    tasks_manager::{Handle, TaskManagerCommand},
-};
+use crate::daemon::{config_state::ReloadType, tasks_manager::Handle};
 use signal::Signal;
 use signal_channel::SignalChannel;
 use std::{
@@ -79,15 +76,11 @@ async fn react_to_signal(signum: c_int, handle: &Mutex<Handle>) -> bool {
     if let Ok(signal) = Signal::from_c_int(signum) {
         match signal {
             Signal::SIGHUP => {
-                let _ = handle
-                    .lock()
-                    .await
-                    .send(TaskManagerCommand::Reload(ReloadType::UseCurrent))
-                    .await;
+                let _ = handle.lock().await.reload(ReloadType::UseCurrent).await;
             }
 
             Signal::SIGINT => {
-                let _ = handle.lock().await.send(TaskManagerCommand::Shutdown).await;
+                let _ = handle.lock().await.shutdown().await;
                 return true;
             }
 

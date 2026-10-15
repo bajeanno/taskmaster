@@ -43,11 +43,9 @@ pub async fn start_server(
 
 #[rpc_genie::service]
 mod service {
-    use crate::daemon::{
-        ReloadType, ServerCommandError, TaskManagerCommand, TasksManagerHandle, TasksManagerStatus,
-    };
+    use crate::daemon::{ReloadType, ServerCommandError, TasksManagerHandle, TasksManagerStatus};
     use std::sync::Arc;
-    use tokio::sync::{Mutex, oneshot};
+    use tokio::sync::Mutex;
 
     pub struct Server<Stream> {
         pub(super) tasks_manager_handle: Arc<Mutex<TasksManagerHandle>>,
@@ -58,56 +56,66 @@ mod service {
     impl<Stream> Server<Stream> {
         #[remote_method]
         pub async fn status(&self) -> Result<TasksManagerStatus> {
-            let (sender, receiver) = oneshot::channel();
-
-            self.send_command(TaskManagerCommand::ListProcesses(sender))
-                .await?;
-
-            Ok(receiver
-                .await
-                .expect("Response should always be sent if the send above was successful"))
+            self.tasks_manager_handle.lock().await.status().await
         }
 
         #[remote_method]
         pub async fn reload(&self, reload_type: ReloadType) -> Result<()> {
-            self.send_command(TaskManagerCommand::Reload(reload_type))
+            self.tasks_manager_handle
+                .lock()
+                .await
+                .reload(reload_type)
                 .await
         }
 
         #[remote_method]
         pub async fn start(&self, program_name: String) -> Result<()> {
-            self.send_command(TaskManagerCommand::StartProgram { program_name })
+            self.tasks_manager_handle
+                .lock()
+                .await
+                .start(program_name)
                 .await
         }
 
         #[remote_method]
         pub async fn restart(&self, program_name: String) -> Result<()> {
-            self.send_command(TaskManagerCommand::RestartProgram { program_name })
+            self.tasks_manager_handle
+                .lock()
+                .await
+                .restart(program_name)
                 .await
         }
 
         #[remote_method]
         pub async fn stop(&self, program_name: String) -> Result<()> {
-            self.send_command(TaskManagerCommand::StopProgram { program_name })
+            self.tasks_manager_handle
+                .lock()
+                .await
+                .stop(program_name)
                 .await
         }
 
         #[remote_method]
         pub async fn stop_all_processes(&self) -> Result<()> {
-            self.send_command(TaskManagerCommand::StopAllProcesses)
+            self.tasks_manager_handle
+                .lock()
+                .await
+                .stop_all_processes()
+                .await
+        }
+
+        #[remote_method]
+        pub async fn restore_config_file(&self) -> Result<()> {
+            self.tasks_manager_handle
+                .lock()
+                .await
+                .restore_config_file()
                 .await
         }
 
         #[remote_method]
         pub async fn shutdown(&self) -> Result<()> {
-            self.send_command(TaskManagerCommand::Shutdown).await
-        }
-
-        async fn send_command(
-            &self,
-            command: TaskManagerCommand,
-        ) -> Result<(), ServerCommandError> {
-            self.tasks_manager_handle.lock().await.send(command).await
+            self.tasks_manager_handle.lock().await.shutdown().await
         }
     }
 

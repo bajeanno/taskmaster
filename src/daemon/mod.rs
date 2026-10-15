@@ -5,9 +5,7 @@ pub use error::{ClaimError, Error};
 mod config_state;
 pub use config_state::ReloadType;
 mod tasks_manager;
-pub use tasks_manager::{
-    Handle as TasksManagerHandle, ServerCommandError, TaskManagerCommand, TasksManagerStatus,
-};
+pub use tasks_manager::{Handle as TasksManagerHandle, ServerCommandError, TasksManagerStatus};
 
 mod claim_pid;
 mod config;
@@ -26,7 +24,7 @@ use libc::sys::types::Pid;
 #[cfg(test)]
 use test_utils::TestDir;
 
-use crate::daemon::config_state::ConfigState;
+use crate::daemon::{config_state::ConfigState, tasks_manager::TaskManagerCommand};
 use config::ProgramConfig;
 use tokio::sync::{Mutex, mpsc, oneshot};
 
