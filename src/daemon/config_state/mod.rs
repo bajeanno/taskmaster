@@ -29,7 +29,7 @@ pub enum ConfigState {
 // TODO remove allow dead code
 #[allow(dead_code)]
 #[derive(serde::Serialize, serde::Deserialize)]
-pub enum ReloadArgs {
+pub enum ReloadType {
     UseDefault,
     UseCurrent,
     NewDefault(String),
@@ -143,14 +143,14 @@ impl ConfigState {
     }
 
     pub fn from_default_config_file() -> Result<Self, InitFileError> {
-        Self::from_config_file(ReloadArgs::UseDefault)
+        Self::from_config_file(ReloadType::UseDefault)
     }
 
-    pub fn from_config_file(reload_command: ReloadArgs) -> Result<Self, InitFileError> {
+    pub fn from_config_file(reload_command: ReloadType) -> Result<Self, InitFileError> {
         Self::default().load_config(reload_command)
     }
 
-    pub fn load_config(&self, reload_command: ReloadArgs) -> Result<Self, InitFileError> {
+    pub fn load_config(&self, reload_command: ReloadType) -> Result<Self, InitFileError> {
         let config_file_path = self.get_file_path_to_use(reload_command)?;
         match Config::parse(&config_file_path) {
             Ok(config) => Ok(Self::Active {
@@ -164,10 +164,10 @@ impl ConfigState {
         }
     }
 
-    fn get_file_path_to_use(&self, reload_command: ReloadArgs) -> Result<String, InitFileError> {
+    fn get_file_path_to_use(&self, reload_command: ReloadType) -> Result<String, InitFileError> {
         Ok(match reload_command {
-            ReloadArgs::UseDefault => InitFile::fetch()?.default_config_file_path,
-            ReloadArgs::UseCurrent => match self {
+            ReloadType::UseDefault => InitFile::fetch()?.default_config_file_path,
+            ReloadType::UseCurrent => match self {
                 Active {
                     config_file_path, ..
                 } => config_file_path.clone(),
@@ -176,11 +176,11 @@ impl ConfigState {
                     config_file_path, ..
                 } => config_file_path.clone(),
             },
-            ReloadArgs::NewDefault(path) => {
+            ReloadType::NewDefault(path) => {
                 InitFile::from(path.clone()).flush()?;
                 path
             }
-            ReloadArgs::TempConfig(path) => path,
+            ReloadType::TempConfig(path) => path,
         })
     }
 
