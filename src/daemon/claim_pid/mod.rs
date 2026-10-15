@@ -22,7 +22,7 @@ pub struct Claim {
 
 impl Claim {
     pub fn is_claimed() -> Result<bool, ClaimError> {
-        let mut pid_file = PidFile::open(PID_FILE.to_string())?;
+        let mut pid_file = PidFile::open(PID_FILE)?;
         match pid_file.read_pid()? {
             Some(_claim) => Ok(true),
             None => Ok(false),
@@ -34,7 +34,7 @@ impl Claim {
     }
 
     fn new_at(pid_file_path: String) -> Result<Self, ClaimError> {
-        let mut pid_file = PidFile::open(pid_file_path.clone())?;
+        let mut pid_file = PidFile::open(&pid_file_path)?;
         match pid_file.read_pid()? {
             Some(_) => Err(OtherInstanceRunning)?,
             None => {
@@ -52,7 +52,7 @@ impl Claim {
 
 impl Drop for Claim {
     fn drop(&mut self) {
-        match PidFile::open(self.pid_file_path.clone()) {
+        match PidFile::open(&self.pid_file_path) {
             Ok(mut file) => file.truncate(),
             Err(err) => eprintln!(
                 "error: failed to open taskmaster's pid file at {}: {err}",
@@ -68,7 +68,7 @@ struct PidFile {
 }
 
 impl PidFile {
-    fn open(pid_file_path: String) -> Result<Self, ClaimError> {
+    fn open(pid_file_path: &str) -> Result<Self, ClaimError> {
         let file = OpenOptions::new()
             .create(true)
             .write(true)
