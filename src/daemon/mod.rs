@@ -1,5 +1,4 @@
 mod error;
-use std::sync::Arc;
 
 pub use error::{ClaimError, Error};
 mod config_state;
@@ -26,7 +25,11 @@ use test_utils::TestDir;
 
 use crate::daemon::{config_state::ConfigState, tasks_manager::TaskManagerCommand};
 use config::ProgramConfig;
-use tokio::sync::{Mutex, mpsc, oneshot};
+use std::{sync::Arc, time::Duration};
+use tokio::{
+    sync::{Mutex, mpsc, oneshot},
+    time::timeout,
+};
 
 pub type CommandReceiver = mpsc::UnboundedReceiver<(
     TaskManagerCommand,
@@ -61,7 +64,9 @@ pub unsafe fn run() -> Daemonized<(), Error, Pid, Error> {
         Err(err) => return Daemonized::InsideDaemon(Err(err.into())),
     };
 
-    let result = start_server(config_state);
+    let result = tokio::runtime::Runtime::new()
+        .expect("Failed to init tokio runtime")
+        .block_on(run_daemon(config_state));
 
     pid_file_claim.release_claim();
 
@@ -80,18 +85,55 @@ unsafe fn daemonize() -> DefaultDaemonized {
     }
 }
 
-fn start_server(config_state: ConfigState) -> Result<(), Error> {
-    tokio::runtime::Runtime::new()
-        .expect("Failed to init tokio runtime")
-        .block_on(async {
-            let handle = Arc::new(Mutex::new(tasks_manager::Routine::spawn(config_state)));
+async fn run_daemon(config_state: ConfigState) -> Result<(), Error> {
+    // MAKE SURE WE DON'T RETURN FROM THIS FUNCTION TILL WE SENT THE SHUTDOWN COMMAND AND AWAITED
+    // THE ROUTINE STOPPED RECEIVER
+    let (task_manager_handle, mut routine_stopped_receiver) =
+        tasks_manager::Routine::spawn(config_state);
+    let task_manager_handle = Arc::new(Mutex::new(task_manager_handle));
 
-            let server_handle = crate::rpc::start_server(Arc::clone(&handle)).await?;
+    tokio::select! {
+        _ = routine_stopped_receiver.recv() => Ok(()),
 
-            signal_handling::handle_signal(handle).await?;
+        err = run_daemon_services(Arc::clone(&task_manager_handle)) => {
+            let _ = task_manager_handle
+                .lock()
+                .await
+                .shutdown()
+                .await;
 
-            server_handle.stop();
+            if timeout(Duration::from_secs(5), routine_stopped_receiver.recv()).await.is_err() {
+                logging::error!("Routine shutdown timed-out");
+            }
 
-            Ok(())
-        })
+            Err(err)
+        }
+    }
+}
+
+async fn run_daemon_services(task_manager_handle: Arc<Mutex<tasks_manager::Handle>>) -> Error {
+    let _server_handle = match crate::rpc::start_server(Arc::clone(&task_manager_handle)).await {
+        Ok(server_handle) => server_handle,
+        Err(err) => return err.into(),
+    };
+
+    let (handle_signal_error_sender, handle_signals_error_receiver) = oneshot::channel();
+
+    let handle_signals_join_handle = tokio::spawn(async move {
+        signal_handling::handle_signals(task_manager_handle, handle_signal_error_sender).await
+    });
+
+    match handle_signals_error_receiver.await {
+        Ok(err) => Error::Signal(err),
+        Err(_) => {
+            timeout(Duration::from_secs(5), handle_signals_join_handle)
+                .await
+                .expect("joining handle_signals timed-out")
+                // The expect below should always panic
+                .expect("handle_signals task failed");
+            unreachable!(
+                "handle signals task should never stop, nor should it ever drop it's error sender"
+            )
+        }
+    }
 }
