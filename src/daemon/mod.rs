@@ -1,5 +1,4 @@
 mod error;
-use std::sync::Arc;
 
 pub use error::{ClaimError, Error};
 mod config_state;
@@ -27,7 +26,6 @@ use test_utils::TestDir;
 use crate::daemon::{config_state::ConfigState, tasks_manager::TaskManagerCommand};
 use config::ProgramConfig;
 use std::{sync::Arc, time::Duration};
-use tasks_manager::TaskManagerCommand;
 use tokio::{
     sync::{Mutex, mpsc, oneshot},
     time::timeout,
