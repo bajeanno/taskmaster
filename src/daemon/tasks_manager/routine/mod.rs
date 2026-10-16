@@ -1,13 +1,15 @@
 mod handle_command;
 
-use super::TaskManagerCommand;
 use super::handle::Handle;
 use crate::daemon::{
     CommandReceiver,
     config::ProgramConfig,
     config_state::ConfigState,
     process_handler::{LogReceiver, LogSender, NominativeStatus, StatusReceiver},
-    tasks_manager::{ServerCommandError, process_registry::ProcessRegistry},
+    tasks_manager::{
+        ServerCommandError, process_registry::ProcessRegistry,
+        routine::handle_command::ShouldStopEventLoop,
+    },
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -134,17 +136,20 @@ impl Routine {
 
     async fn event_listener(&mut self) {
         while let Some((command, sender)) = self.command_receiver.recv().await {
-            if matches!(command, TaskManagerCommand::Shutdown) {
-                self.processes.stop_and_join_all_processes().await;
-                sender
-                    .send(Ok(()))
-                    .expect("Receiver should never be dropped");
-                break;
-            }
+            let (should_stop_event_loop, result_to_send) = match self.handle_command(command).await
+            {
+                Ok(ShouldStopEventLoop::True) => (true, Ok(())),
+                Ok(ShouldStopEventLoop::False) => (false, Ok(())),
+                Err(err) => (false, Err(err)),
+            };
 
             sender
-                .send(self.handle_command(command).await)
+                .send(result_to_send)
                 .expect("Receiver should never be dropped");
+
+            if should_stop_event_loop {
+                break;
+            }
         }
     }
 }

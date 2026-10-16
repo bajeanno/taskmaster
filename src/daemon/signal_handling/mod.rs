@@ -1,9 +1,6 @@
 mod signal_channel;
 
-use crate::daemon::{
-    config_state::ReloadType,
-    tasks_manager::{Handle, TaskManagerCommand},
-};
+use crate::daemon::{config_state::ReloadType, tasks_manager::Handle};
 use signal::Signal;
 use signal_channel::SignalChannel;
 use std::{
@@ -80,7 +77,6 @@ pub async fn handle_signals(
     }
 }
 
-/// Returns false if we should continue listening for signals
 async fn react_to_signal(signum: c_int, tasks_manager_handle: &Mutex<Handle>) {
     if let Ok(signal) = Signal::from_c_int(signum) {
         match signal {
@@ -88,16 +84,12 @@ async fn react_to_signal(signum: c_int, tasks_manager_handle: &Mutex<Handle>) {
                 let _ = tasks_manager_handle
                     .lock()
                     .await
-                    .send(TaskManagerCommand::Reload(ReloadType::UseCurrent))
+                    .reload(ReloadType::UseCurrent)
                     .await;
             }
 
             Signal::SIGINT => {
-                let _ = tasks_manager_handle
-                    .lock()
-                    .await
-                    .send(TaskManagerCommand::Shutdown)
-                    .await;
+                let _ = tasks_manager_handle.lock().await.shutdown().await;
             }
 
             _ => {

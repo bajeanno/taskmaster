@@ -1,15 +1,18 @@
 mod error;
+use std::sync::Arc;
+
 pub use error::{ClaimError, Error};
+mod config_state;
+pub use config_state::ReloadType;
+mod tasks_manager;
+pub use tasks_manager::{Handle as TasksManagerHandle, ServerCommandError, TasksManagerStatus};
 
 mod claim_pid;
 mod config;
-mod config_state;
 mod output_file;
 mod process;
 mod process_handler;
 mod signal_handling;
-mod tasks_manager;
-
 #[cfg(test)]
 mod test_utils;
 
@@ -21,7 +24,7 @@ use libc::sys::types::Pid;
 #[cfg(test)]
 use test_utils::TestDir;
 
-use crate::daemon::{config_state::ConfigState, tasks_manager::ServerCommandError};
+use crate::daemon::{config_state::ConfigState, tasks_manager::TaskManagerCommand};
 use config::ProgramConfig;
 use std::{sync::Arc, time::Duration};
 use tasks_manager::TaskManagerCommand;
@@ -98,7 +101,7 @@ async fn run_daemon(config_state: ConfigState) -> Result<(), Error> {
             let _ = task_manager_handle
                 .lock()
                 .await
-                .send(TaskManagerCommand::Shutdown)
+                .shutdown()
                 .await;
 
             if timeout(Duration::from_secs(5), routine_stopped_receiver.recv()).await.is_err() {
@@ -111,7 +114,7 @@ async fn run_daemon(config_state: ConfigState) -> Result<(), Error> {
 }
 
 async fn run_daemon_services(task_manager_handle: Arc<Mutex<tasks_manager::Handle>>) -> Error {
-    let _server_handle = match crate::rpc::start_server().await {
+    let _server_handle = match crate::rpc::start_server(Arc::clone(&task_manager_handle)).await {
         Ok(server_handle) => server_handle,
         Err(err) => return err.into(),
     };
