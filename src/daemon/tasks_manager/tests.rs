@@ -5,10 +5,8 @@ use std::time::Duration;
 use super::routine::Routine;
 use crate::daemon::{
     config_state::{ConfigState, ReloadType},
-    tasks_manager::TaskManagerCommand,
     test_utils::TestDir,
 };
-use tokio::sync::oneshot;
 use tokio::time::sleep;
 
 fn create_tasks_yaml_content() -> String {
@@ -130,13 +128,9 @@ async fn task_manager_list_tasks() {
         create_tasks_yaml_content(),
         "".to_string(),
     ));
-    let (sender, receiver) = oneshot::channel();
-    handle
-        .send(TaskManagerCommand::ListProcesses(sender))
-        .await
-        .unwrap();
-    receiver.await.expect("Receiver failed");
-    handle.stop().await;
+    handle.status().await.unwrap();
+    handle.shutdown().await.unwrap();
+    handle.await.unwrap();
 }
 
 #[tokio::test]
@@ -146,12 +140,12 @@ async fn task_manager_stop() {
         "".to_string(),
     ));
     handle
-        .send(TaskManagerCommand::StopProgram {
-            program_name: String::from("taskmaster_test_task"),
-        })
+        .stop(String::from("taskmaster_test_task"))
         .await
         .unwrap();
-    handle.stop().await;
+
+    handle.shutdown().await.unwrap();
+    handle.await.unwrap();
 }
 
 #[tokio::test]
@@ -162,26 +156,15 @@ async fn task_manager_start_already_started() {
     ));
     sleep(Duration::from_millis(5)).await;
 
-    let (sender, receiver) = oneshot::channel();
+    let before = handle.status().await.unwrap();
     handle
-        .send(TaskManagerCommand::ListProcesses(sender))
+        .start(String::from("taskmaster_test_task"))
         .await
         .unwrap();
-    let before = receiver.await.expect("Receiver failed");
-    handle
-        .send(TaskManagerCommand::StartProgram {
-            program_name: String::from("taskmaster_test_task"),
-        })
-        .await
-        .unwrap();
-    let (sender, receiver) = oneshot::channel();
-    handle
-        .send(TaskManagerCommand::ListProcesses(sender))
-        .await
-        .unwrap();
-    let after = receiver.await.expect("Receiver failed");
+    let after = handle.status().await.unwrap();
     assert_eq!(before.to_string(), after.to_string());
-    handle.stop().await;
+    handle.shutdown().await.unwrap();
+    handle.await.unwrap();
 }
 
 #[tokio::test]
@@ -191,18 +174,15 @@ async fn task_manager_stop_then_start() {
         "".to_string(),
     ));
     handle
-        .send(TaskManagerCommand::StopProgram {
-            program_name: String::from("taskmaster_test_task"),
-        })
+        .stop(String::from("taskmaster_test_task"))
         .await
         .unwrap();
     handle
-        .send(TaskManagerCommand::StartProgram {
-            program_name: String::from("taskmaster_test_task"),
-        })
+        .start(String::from("taskmaster_test_task"))
         .await
         .unwrap();
-    handle.stop().await;
+    handle.shutdown().await.unwrap();
+    handle.await.unwrap();
 }
 
 #[tokio::test]
@@ -213,12 +193,11 @@ async fn task_manager_restart() {
     ));
 
     handle
-        .send(TaskManagerCommand::RestartProgram {
-            program_name: String::from("taskmaster_test_task"),
-        })
+        .restart(String::from("taskmaster_test_task"))
         .await
         .unwrap();
-    handle.stop().await;
+    handle.shutdown().await.unwrap();
+    handle.await.unwrap();
 }
 
 #[tokio::test]
@@ -238,27 +217,14 @@ async fn task_manager_reload_minus_1_proc() {
         .expect("failed to create new taskmaster config file");
     file.write_all(new_content.as_bytes())
         .expect("failed to write new taskmaster config file");
-    {
-        let (s, r) = oneshot::channel();
-        handle
-            .send(TaskManagerCommand::ListProcesses(s))
-            .await
-            .unwrap();
-        r.await.unwrap();
-    }
+    handle.status().await.unwrap();
     handle
-        .send(TaskManagerCommand::Reload(ReloadType::TempConfig(new_file)))
+        .reload(ReloadType::TempConfig(new_file))
         .await
         .unwrap();
-    {
-        let (s, r) = oneshot::channel();
-        handle
-            .send(TaskManagerCommand::ListProcesses(s))
-            .await
-            .unwrap();
-        r.await.unwrap();
-    }
-    handle.stop().await;
+    handle.status().await.unwrap();
+    handle.shutdown().await.unwrap();
+    handle.await.unwrap();
 }
 
 #[tokio::test]
@@ -278,27 +244,14 @@ async fn task_manager_reload_plus_1_proc() {
         .expect("failed to create new taskmaster config file");
     file.write_all(new_content.as_bytes())
         .expect("failed to write new taskmaster config file");
-    {
-        let (s, r) = oneshot::channel();
-        handle
-            .send(TaskManagerCommand::ListProcesses(s))
-            .await
-            .unwrap();
-        r.await.unwrap();
-    }
+    handle.status().await.unwrap();
     handle
-        .send(TaskManagerCommand::Reload(ReloadType::TempConfig(new_file)))
+        .reload(ReloadType::TempConfig(new_file))
         .await
         .unwrap();
-    {
-        let (s, r) = oneshot::channel();
-        handle
-            .send(TaskManagerCommand::ListProcesses(s))
-            .await
-            .unwrap();
-        r.await.unwrap();
-    }
-    handle.stop().await;
+    handle.status().await.unwrap();
+    handle.shutdown().await.unwrap();
+    handle.await.unwrap();
 }
 
 #[tokio::test]
@@ -336,16 +289,11 @@ async fn task_manager_reload_keeps_unchanged_program() {
         .expect("failed to write new taskmaster config file");
 
     handle
-        .send(TaskManagerCommand::Reload(ReloadType::TempConfig(new_file)))
+        .reload(ReloadType::TempConfig(new_file))
         .await
         .unwrap();
 
-    let (sender, receiver) = oneshot::channel();
-    handle
-        .send(TaskManagerCommand::ListProcesses(sender))
-        .await
-        .unwrap();
-    let processes = receiver.await.expect("Receiver failed");
+    let processes = handle.status().await.unwrap();
 
     let process_names: Vec<String> = processes
         .list
@@ -370,7 +318,8 @@ async fn task_manager_reload_keeps_unchanged_program() {
         "removed program must be stopped on reload"
     );
 
-    handle.stop().await;
+    handle.shutdown().await.unwrap();
+    handle.await.unwrap();
 }
 
 #[tokio::test]
@@ -383,10 +332,7 @@ async fn task_manager_restore() {
         path.to_string(),
     ));
 
-    handle
-        .send(TaskManagerCommand::RestoreConfigFile)
-        .await
-        .unwrap();
+    handle.restore_config_file().await.unwrap();
 
     let mut restored_content =
         std::fs::read_to_string(&path).expect("Failed to read restored config file");
@@ -396,5 +342,6 @@ async fn task_manager_restore() {
 
     assert_eq!(restored_content, yaml_content);
 
-    handle.stop().await;
+    handle.shutdown().await.unwrap();
+    handle.await.unwrap();
 }

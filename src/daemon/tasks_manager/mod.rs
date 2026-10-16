@@ -29,6 +29,9 @@ pub enum ServerCommandError {
 
     #[error("Error restoring config file")]
     RestoringConfigFile(#[from] RestoreConfigFileError),
+
+    #[error("Shutdown in progress")]
+    ShutdownInProgress,
 }
 
 // TODO remove allow dead code
