@@ -16,7 +16,9 @@ mod signal_handling;
 mod test_utils;
 
 pub use claim_pid::start_mode::StartMode;
-use daemonize::{Daemonized, DaemonizedOk, DefaultDaemonized, try_daemonized, try_daemonized_outside};
+use daemonize::{
+    Daemonized, DaemonizedOk, DefaultDaemonized, try_daemonized, try_daemonized_outside,
+};
 
 use libc::sys::types::Pid;
 #[cfg(test)]
