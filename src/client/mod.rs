@@ -3,7 +3,7 @@ pub use handle_command::ParseError;
 
 mod shell;
 
-use std::time::Duration;
+use std::{sync::PoisonError, time::Duration};
 
 use tokio::time::sleep;
 
@@ -22,9 +22,9 @@ pub fn start_client(maybe_rl: Option<rustyline::DefaultEditor>) -> Result<(), cr
 async fn run(maybe_rl: Option<rustyline::DefaultEditor>) -> Result<(), crate::Error> {
     let client = connect_client().await?;
 
-    let args = ARGS.lock().unwrap_or_else(|err| err.into_inner()).clone();
+    let args = ARGS.lock().unwrap_or_else(PoisonError::into_inner).clone();
 
-    if args.iter().nth(1).is_some() {
+    if args.get(1).is_some() {
         handle_command(&client, args.into_iter().skip(1)).await?;
     } else {
         shell::run(client, maybe_rl).await?;

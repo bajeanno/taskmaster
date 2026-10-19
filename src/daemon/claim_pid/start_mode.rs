@@ -1,3 +1,5 @@
+use std::sync::PoisonError;
+
 use crate::ARGS;
 
 pub enum StartMode {
@@ -8,8 +10,9 @@ pub enum StartMode {
 
 impl StartMode {
     pub fn from_args() -> Self {
-        let mut vec = ARGS.lock().unwrap();
-        let result = if vec.contains(&"--force".to_string()) || vec.contains(&"-f".to_string()) {
+        let mut vec = ARGS.lock().unwrap_or_else(PoisonError::into_inner);
+
+        if vec.contains(&"--force".to_string()) || vec.contains(&"-f".to_string()) {
             Self::remove_force(&mut vec);
             Self::Force
         } else if vec.contains(&"-y".to_string()) {
@@ -17,8 +20,7 @@ impl StartMode {
             Self::Acknowledge
         } else {
             Self::Classic
-        };
-        result
+        }
     }
 
     fn remove_force(vec: &mut Vec<String>) {
