@@ -8,6 +8,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 use crate::{
+    ARGS,
     client::handle_command::handle_command,
     rpc::{self, ClientHandle},
 };
@@ -21,8 +22,10 @@ pub fn run(maybe_rl: Option<rustyline::DefaultEditor>) -> Result<(), crate::Erro
 async fn start_client(maybe_rl: Option<rustyline::DefaultEditor>) -> Result<(), crate::Error> {
     let client = connect_client().await?;
 
-    if std::env::args().nth(1).is_some() {
-        handle_command(&client, std::env::args().skip(1)).await?;
+    let args = ARGS.lock().unwrap_or_else(|err| err.into_inner()).clone();
+
+    if args.iter().nth(1).is_some() {
+        handle_command(&client, args.into_iter().skip(1)).await?;
     } else {
         shell::run(client, maybe_rl).await?;
     }
