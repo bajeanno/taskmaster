@@ -36,6 +36,8 @@ jobs:
         run: |
             sudo mkdir -p /var/run/taskmaster.d
             sudo chown runner /var/run/taskmaster.d
+            sudo mkdir -p /etc/taskmaster.d
+            sudo chown runner /etc/taskmaster.d
             RUST_BACKTRACE=1 cargo test --all -- --no-capture
 
   format:
