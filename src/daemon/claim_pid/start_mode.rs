@@ -1,16 +1,31 @@
+use crate::ARGS;
+
 pub enum StartMode {
     Force,
+    Acknowledge,
     Classic,
 }
 
 impl StartMode {
     pub fn from_args() -> Self {
-        match std::env::args()
-            .skip(1)
-            .any(|arg| matches!(arg.as_str(), "--force" | "-f"))
-        {
-            true => Self::Force,
-            false => Self::Classic,
-        }
+        let mut vec = ARGS.lock().unwrap();
+        let result = if vec.contains(&"--force".to_string()) || vec.contains(&"-f".to_string()) {
+            Self::remove_force(&mut vec);
+            Self::Force
+        } else if vec.contains(&"-y".to_string()) {
+            Self::remove_acknowledge(&mut vec);
+            Self::Acknowledge
+        } else {
+            Self::Classic
+        };
+        result
+    }
+
+    fn remove_force(vec: &mut Vec<String>) {
+        vec.retain(|elem| !matches!(elem.as_str(), "--force" | "-f"));
+    }
+
+    fn remove_acknowledge(vec: &mut Vec<String>) {
+        vec.retain(|elem| !matches!(elem.as_str(), "-y"));
     }
 }

@@ -2,7 +2,7 @@
 mod tests;
 
 mod pid_file;
-mod start_mode;
+pub mod start_mode;
 
 use signal::Signal;
 use start_mode::StartMode;
@@ -45,8 +45,7 @@ impl Claim {
         Ok(Self::get_running_pid()?.is_some())
     }
 
-    pub fn new() -> Result<Self, ClaimError> {
-        let start_mode = StartMode::from_args();
+    pub fn new(start_mode: StartMode) -> Result<Self, ClaimError> {
         let pid_file_path = PID_FILE.to_string();
         match start_mode {
             StartMode::Force => {
@@ -55,7 +54,7 @@ impl Claim {
                     Self::clear_pid_file_at(&pid_file_path);
                 }
             }
-            StartMode::Classic => {}
+            StartMode::Acknowledge | StartMode::Classic => {}
         }
         Self::new_at(pid_file_path)
     }
