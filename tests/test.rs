@@ -24,6 +24,7 @@ fn cannot_start_after_crash() -> ExitCode {
 
     sleep(Duration::from_millis(500));
     unsafe {
+        //SIGKILL as it is intentionnal crash
         kill(pid as c_int, signal::Signal::SIGKILL as c_int);
     }
 
@@ -48,8 +49,9 @@ fn force_start() -> ExitCode {
     }
     sleep(Duration::from_millis(400));
     unsafe {
-        kill(pid as c_int, signal::Signal::SIGKILL as c_int);
+        kill(pid as c_int, signal::Signal::SIGINT as c_int);
     }
+    sleep(Duration::from_millis(400)); // let time to unwind
 
     let status: c_int = 0;
     let option: c_int = 0;
@@ -80,7 +82,7 @@ fn check_force_start_kills_running_daemon() -> ExitCode {
         panic!("process exited before being killed");
     }
     unsafe {
-        kill(pid_force as c_int, signal::Signal::SIGKILL as c_int);
+        kill(pid_force as c_int, signal::Signal::SIGINT as c_int);
     }
 
     let status: c_int = 0;
