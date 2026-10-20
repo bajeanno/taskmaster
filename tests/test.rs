@@ -47,7 +47,7 @@ fn force_start() -> ExitCode {
     if pid == 0 {
         unsafe { taskmaster::entrypoint(vec!["--force".to_string()]) };
     }
-    sleep(Duration::from_millis(400));
+    sleep(Duration::from_millis(400)); // let time to start
     unsafe {
         kill(pid as c_int, signal::Signal::SIGINT as c_int);
     }
