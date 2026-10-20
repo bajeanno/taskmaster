@@ -31,7 +31,7 @@ use crate::daemon::{
 use config::ProgramConfig;
 use std::{panic, pin::Pin, sync::Arc, time::Duration};
 use tokio::{
-    sync::{Mutex, mpsc, oneshot},
+    sync::{mpsc, oneshot},
     time::timeout,
 };
 
@@ -130,17 +130,15 @@ async fn run_daemon(config_state: ConfigState) -> Result<(), Error> {
 async fn start_tasks_manager(
     futures: &mut Vec<FutureToJoin>,
     config_state: ConfigState,
-) -> (Arc<Mutex<tasks_manager::Handle>>, RoutineStoppedReceiver) {
+) -> (Arc<tasks_manager::Handle>, RoutineStoppedReceiver) {
     let (tasks_manager, tasks_manager_routine_join_handle, routine_stopped_receiver) =
         tasks_manager::Routine::spawn(config_state);
-    let tasks_manager = Arc::new(Mutex::new(tasks_manager));
+    let tasks_manager = Arc::new(tasks_manager);
 
     let tasks_manager_handle_clone = Arc::clone(&tasks_manager);
     futures.push(FutureToJoin {
         future: Box::pin(async move {
             tasks_manager_handle_clone
-                .lock()
-                .await
                 .shutdown()
                 .await
                 .expect("Failed to send shutdown msg to tasks manager");
@@ -156,7 +154,7 @@ async fn start_tasks_manager(
 
 async fn start_server(
     mut futures: Vec<FutureToJoin>,
-    tasks_manager: Arc<Mutex<tasks_manager::Handle>>,
+    tasks_manager: Arc<tasks_manager::Handle>,
 ) -> Result<Vec<FutureToJoin>, Error> {
     let server_handle = match crate::rpc::start_server(tasks_manager).await {
         Ok(server_handle) => server_handle,
@@ -178,7 +176,7 @@ async fn start_server(
 
 async fn start_handle_signals_loop(
     futures: &mut Vec<FutureToJoin>,
-    tasks_manager: Arc<Mutex<tasks_manager::Handle>>,
+    tasks_manager: Arc<tasks_manager::Handle>,
 ) -> oneshot::Receiver<SignalError> {
     let (handle_signal_error_sender, handle_signals_error_receiver) = oneshot::channel();
 

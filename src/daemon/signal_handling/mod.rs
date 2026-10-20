@@ -7,7 +7,7 @@ use std::{
     ffi::{CStr, CString, c_char, c_int},
     sync::Arc,
 };
-use tokio::sync::{Mutex, oneshot};
+use tokio::sync::oneshot;
 
 unsafe extern "C" {
     /// This function is implemented inside interface.c file (this is C code linking with the Rust binary)
@@ -52,7 +52,7 @@ fn install_sighandlers() -> Result<SignalChannel, SignalError> {
 }
 
 pub async fn handle_signals(
-    tasks_manager_handle: Arc<Mutex<Handle>>,
+    tasks_manager_handle: Arc<Handle>,
     error_sender: oneshot::Sender<SignalError>,
 ) {
     let _channel = match install_sighandlers() {
@@ -82,19 +82,15 @@ pub async fn handle_signals(
 }
 
 /// Returns true if a shutdown command was sent, false otherwise
-async fn react_to_signal(signum: c_int, tasks_manager_handle: &Mutex<Handle>) -> bool {
+async fn react_to_signal(signum: c_int, tasks_manager_handle: &Handle) -> bool {
     if let Ok(signal) = Signal::from_c_int(signum) {
         match signal {
             Signal::SIGHUP => {
-                let _ = tasks_manager_handle
-                    .lock()
-                    .await
-                    .reload(ReloadType::UseCurrent)
-                    .await;
+                let _ = tasks_manager_handle.reload(ReloadType::UseCurrent).await;
             }
 
             Signal::SIGINT => {
-                let _ = tasks_manager_handle.lock().await.shutdown().await;
+                let _ = tasks_manager_handle.shutdown().await;
                 return true;
             }
 
