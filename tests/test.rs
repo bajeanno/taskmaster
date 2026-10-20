@@ -19,7 +19,7 @@ fn cannot_start_after_crash() -> ExitCode {
     let pid = unsafe { fork() };
     if pid == 0 {
         println!("starting");
-        return unsafe { taskmaster::main(vec!["-y".to_string()]) };
+        return unsafe { taskmaster::entrypoint(vec!["-y".to_string()]) };
     }
 
     sleep(Duration::from_millis(500));
@@ -35,7 +35,7 @@ fn cannot_start_after_crash() -> ExitCode {
     }
     println!("starting");
     assert_eq!(
-        unsafe { taskmaster::main(Vec::with_capacity(0)) },
+        unsafe { taskmaster::entrypoint(Vec::with_capacity(0)) },
         ExitCode::FAILURE
     );
     ExitCode::SUCCESS
@@ -44,7 +44,7 @@ fn cannot_start_after_crash() -> ExitCode {
 fn force_start() -> ExitCode {
     let pid = unsafe { fork() };
     if pid == 0 {
-        unsafe { taskmaster::main(vec!["--force".to_string()]) };
+        unsafe { taskmaster::entrypoint(vec!["--force".to_string()]) };
     }
     sleep(Duration::from_millis(400));
     unsafe {
@@ -64,12 +64,12 @@ fn force_start() -> ExitCode {
 fn check_force_start_kills_running_daemon() -> ExitCode {
     let pid = unsafe { fork() };
     if pid == 0 {
-        unsafe { taskmaster::main(Vec::with_capacity(0)) };
+        unsafe { taskmaster::entrypoint(Vec::with_capacity(0)) };
     }
     sleep(Duration::from_millis(400));
     let pid_force = unsafe { fork() };
     if pid_force == 0 {
-        unsafe { taskmaster::main(vec!["--force".to_string()]) };
+        unsafe { taskmaster::entrypoint(vec!["--force".to_string()]) };
     }
 
     let status: c_int = 0;
@@ -96,7 +96,7 @@ fn check_force_start_kills_running_daemon() -> ExitCode {
 fn check_sigint_kills_running_daemon() -> ExitCode {
     let pid = unsafe { fork() };
     if pid == 0 {
-        unsafe { taskmaster::main(Vec::with_capacity(0)) };
+        unsafe { taskmaster::entrypoint(Vec::with_capacity(0)) };
     }
     sleep(Duration::from_millis(400));
 
