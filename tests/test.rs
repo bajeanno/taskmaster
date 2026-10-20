@@ -103,7 +103,7 @@ fn check_sigint_kills_running_daemon() -> ExitCode {
     unsafe {
         kill(pid as c_int, signal::Signal::SIGINT as c_int);
     }
-    
+
     let status: c_int = 0;
     let option: c_int = 0;
 
