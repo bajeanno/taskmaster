@@ -1,6 +1,4 @@
-use std::pin::Pin;
-
-use tokio::{sync::oneshot, task::JoinHandle};
+use tokio::sync::oneshot;
 
 use crate::daemon::{
     CommandSender, ReloadType, TaskManagerCommand, TasksManagerStatus,
@@ -12,15 +10,11 @@ type Result<T, Err = ServerCommandError> = core::result::Result<T, Err>;
 #[allow(dead_code)] //TODO: Remove that
 pub struct Handle {
     command_sender: CommandSender,
-    join_handle: JoinHandle<()>,
 }
 
 impl Handle {
-    pub fn new(command_sender: CommandSender, join_handle: JoinHandle<()>) -> Handle {
-        Handle {
-            command_sender,
-            join_handle,
-        }
+    pub fn new(command_sender: CommandSender) -> Handle {
+        Handle { command_sender }
     }
 
     pub async fn status(&self) -> Result<TasksManagerStatus> {
@@ -61,7 +55,11 @@ impl Handle {
     }
 
     pub async fn shutdown(&self) -> Result<()> {
-        self.send(TaskManagerCommand::Shutdown).await
+        match self.send(TaskManagerCommand::Shutdown).await {
+            Ok(()) => Ok(()),
+            Err(ServerCommandError::ShutdownInProgress) => Ok(()),
+            Err(err) => Err(err),
+        }
     }
 
     async fn send(&self, command: TaskManagerCommand) -> Result<()> {
@@ -78,16 +76,5 @@ impl Handle {
             // If the sender is dropped, that means the routine had a shutdown command in the
             // command queue before our command
             .map_err(|_| ServerCommandError::ShutdownInProgress)?
-    }
-}
-
-impl Future for Handle {
-    type Output = <JoinHandle<()> as Future>::Output;
-
-    fn poll(
-        mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
-        Pin::new(&mut self.join_handle).poll(cx)
     }
 }

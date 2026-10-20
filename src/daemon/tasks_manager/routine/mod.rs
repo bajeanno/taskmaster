@@ -13,9 +13,13 @@ use crate::daemon::{
 };
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{
-    Mutex,
-    mpsc::{self, UnboundedSender},
+use tokio::{
+    sync::{
+        Mutex,
+        mpsc::{self, UnboundedSender},
+        oneshot,
+    },
+    task::JoinHandle,
 };
 
 // Mocking Client struct brought by the rpc-genie crate
@@ -35,8 +39,8 @@ impl SubscribedClients {
     fn for_each(&self, _callback: impl FnMut(&Client)) {}
 }
 
-type RoutineStoppedSender = mpsc::Sender<()>;
-pub type RoutineStoppedReceiver = mpsc::Receiver<()>;
+type RoutineStoppedSender = oneshot::Sender<()>;
+pub type RoutineStoppedReceiver = oneshot::Receiver<()>;
 
 #[allow(dead_code)] //TODO: Remove that
 pub struct Routine {
@@ -51,13 +55,13 @@ pub struct Routine {
 
 #[allow(dead_code)] //TODO: remove that
 impl Routine {
-    pub fn spawn(config_state: ConfigState) -> (Handle, RoutineStoppedReceiver) {
-        let (routine_stopped_sender, routine_stopped_receiver) = mpsc::channel(1);
+    pub fn spawn(config_state: ConfigState) -> (Handle, JoinHandle<()>, RoutineStoppedReceiver) {
+        let (routine_stopped_sender, routine_stopped_receiver) = oneshot::channel();
         let (log_sender, log_receiver) = mpsc::unbounded_channel();
         let (status_sender, status_receiver) = mpsc::unbounded_channel();
         let (command_sender, command_receiver) = mpsc::unbounded_channel();
 
-        let handle = tokio::spawn(async move {
+        let join_handle = tokio::spawn(async move {
             Self {
                 config_state,
                 processes: ProcessRegistry::new(),
@@ -72,7 +76,8 @@ impl Routine {
         });
 
         (
-            Handle::new(command_sender, handle),
+            Handle::new(command_sender),
+            join_handle,
             routine_stopped_receiver,
         )
     }
@@ -102,7 +107,6 @@ impl Routine {
 
         self.routine_stopped_sender
             .send(())
-            .await
             .expect("Routine end signal receiver was dropped");
     }
 

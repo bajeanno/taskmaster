@@ -68,7 +68,11 @@ pub async fn handle_signals(
             .await
             .expect("task panicked")
         {
-            Ok(signum) => react_to_signal(signum, &tasks_manager_handle).await,
+            Ok(signum) => {
+                if react_to_signal(signum, &tasks_manager_handle).await {
+                    return;
+                }
+            }
             Err(err) => {
                 let _ = error_sender.send(err.into());
                 return;
@@ -77,7 +81,8 @@ pub async fn handle_signals(
     }
 }
 
-async fn react_to_signal(signum: c_int, tasks_manager_handle: &Mutex<Handle>) {
+/// Returns true if a shutdown command was sent, false otherwise
+async fn react_to_signal(signum: c_int, tasks_manager_handle: &Mutex<Handle>) -> bool {
     if let Ok(signal) = Signal::from_c_int(signum) {
         match signal {
             Signal::SIGHUP => {
@@ -90,6 +95,7 @@ async fn react_to_signal(signum: c_int, tasks_manager_handle: &Mutex<Handle>) {
 
             Signal::SIGINT => {
                 let _ = tasks_manager_handle.lock().await.shutdown().await;
+                return true;
             }
 
             _ => {
@@ -107,6 +113,8 @@ async fn react_to_signal(signum: c_int, tasks_manager_handle: &Mutex<Handle>) {
             request with the solution to this issue"
         );
     }
+
+    false
 }
 
 #[cfg(test)]
