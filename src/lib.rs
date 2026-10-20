@@ -41,7 +41,7 @@ enum Error {
 /// Only call when it is safe to call fork()
 pub unsafe fn entrypoint(args: Vec<String>) -> ExitCode {
     *ARGS.lock().unwrap() = args;
-    
+
     match run() {
         Daemonized::InsideDaemon(Ok(())) | Daemonized::OutsideDaemon(Ok(())) => ExitCode::SUCCESS,
         Daemonized::InsideDaemon(Err(err)) => {
