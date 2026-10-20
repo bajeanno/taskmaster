@@ -39,7 +39,7 @@ enum Error {
 /// # Safety
 ///
 /// Only call when it is safe to call fork()
-pub unsafe fn main(args: Vec<String>) -> ExitCode {
+pub unsafe fn entrypoint(args: Vec<String>) -> ExitCode {
     *ARGS.lock().unwrap() = args;
     
     match run() {
