@@ -115,11 +115,9 @@ async fn run_daemon(config_state: ConfigState) -> Result<(), Error> {
             match msg {
                 Ok(err) => Err(Error::Signal(err)),
                 Err(_) => {
-                    join_all(futures).await;
-                    unreachable!(
-                        "We only get here if the sender was dropped, i.e. the handle signals loop \
-                         panicked, i.e. join_all(futures) will panic"
-                    )
+                    // error sender was dropped, meaning the loop ended, meaning sigint was
+                    // received and shutdown is in progress
+                    Ok(())
                 }
             }
         }

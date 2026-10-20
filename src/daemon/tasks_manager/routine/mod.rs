@@ -105,9 +105,7 @@ impl Routine {
             .await
             .expect("listen_for_status task panicked");
 
-        self.routine_stopped_sender
-            .send(())
-            .expect("Routine end signal receiver was dropped");
+        let _ = self.routine_stopped_sender.send(());
     }
 
     async fn start_programs(&mut self, programs: &HashMap<String, Arc<ProgramConfig>>) {
