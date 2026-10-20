@@ -38,9 +38,9 @@ enum Error {
 /// # Safety
 ///
 /// Only call when it is safe to call fork()
-pub unsafe fn main(args: Option<Vec<String>>) -> ExitCode {
-    collect_args(args);
-
+pub unsafe fn main(args: Vec<String>) -> ExitCode {
+    *ARGS.lock().unwrap() = args;
+    
     match run() {
         Daemonized::InsideDaemon(Ok(())) | Daemonized::OutsideDaemon(Ok(())) => ExitCode::SUCCESS,
         Daemonized::InsideDaemon(Err(err)) => {
@@ -61,13 +61,6 @@ pub unsafe fn main(args: Option<Vec<String>>) -> ExitCode {
             ExitCode::FAILURE
         }
     }
-}
-
-fn collect_args(args: Option<Vec<String>>) {
-    *ARGS.lock().unwrap() = match args {
-        Some(vec) => vec,
-        None => std::env::args().skip(1).collect(),
-    };
 }
 
 fn run() -> Daemonized<(), Error, (), Error> {

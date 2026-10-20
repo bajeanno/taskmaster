@@ -50,7 +50,7 @@ impl Claim {
         match start_mode {
             StartMode::Force => {
                 if let Some(pid) = Self::get_running_pid()? {
-                    Self::kill_running_instance(pid as i32).map_err(ClaimError::Kill)?;
+                    Self::kill_running_instance(pid as c_int).map_err(ClaimError::Kill)?;
                     Self::clear_pid_file_at(&pid_file_path);
                 }
             }
@@ -90,7 +90,7 @@ impl Claim {
         }
     }
 
-    fn kill_running_instance(pid: i32) -> Result<(), CheckInstanceAlive> {
+    fn kill_running_instance(pid: c_int) -> Result<(), CheckInstanceAlive> {
         let output = Command::new("pgrep")
             .arg("taskmaster")
             .stdout(Stdio::piped())
@@ -103,7 +103,7 @@ impl Claim {
             let pgrep_pid = line.parse::<i32>().map_err(ParsePgrep)?;
 
             if pid == pgrep_pid {
-                unsafe { kill(pid as c_int, Signal::SIGKILL as c_int) };
+                unsafe { kill(pid, Signal::SIGKILL as c_int) };
                 return Ok(());
             }
         }
