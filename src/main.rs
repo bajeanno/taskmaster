@@ -67,7 +67,7 @@ unsafe fn run() -> Daemonized<(), Error, (), Error> {
         let mut rl =
             try_daemonized_outside!(rustyline::DefaultEditor::new().map_err(Error::InitCliEditor));
 
-        if !should_start_daemon(&mut rl) {
+        if !try_daemonized_outside!(should_start_daemon(&mut rl)) {
             return Daemonized::OutsideDaemon(Ok(()));
         }
 
@@ -85,17 +85,17 @@ unsafe fn run() -> Daemonized<(), Error, (), Error> {
     Daemonized::OutsideDaemon(start_client(maybe_rl))
 }
 
-fn should_start_daemon(rl: &mut rustyline::DefaultEditor) -> bool {
+fn should_start_daemon(rl: &mut rustyline::DefaultEditor) -> Result<bool, Error> {
     loop {
         let line = rl
             .readline(
                 "Daemon is not started, type yes to start it, no to cancel the command (Y/n): ",
             )
-            .unwrap();
+            .map_err(Error::ReadingLine)?;
 
         match line.trim().to_lowercase().as_str() {
-            "y" | "yes" | "" => return true,
-            "n" | "no" => return false,
+            "y" | "yes" | "" => return Ok(true),
+            "n" | "no" => return Ok(false),
             _ => {
                 eprintln!("Please write yes / no");
             }
