@@ -7,7 +7,7 @@ use std::{
     ffi::{CStr, CString, c_char, c_int},
     sync::Arc,
 };
-use tokio::sync::Mutex;
+use tokio::sync::oneshot;
 
 unsafe extern "C" {
     /// This function is implemented inside interface.c file (this is C code linking with the Rust binary)
@@ -51,8 +51,17 @@ fn install_sighandlers() -> Result<SignalChannel, SignalError> {
     Ok(channel)
 }
 
-pub async fn handle_signal(handle: Arc<Mutex<Handle>>) -> Result<(), SignalError> {
-    let channel = install_sighandlers()?;
+pub async fn handle_signals(
+    tasks_manager_handle: Arc<Handle>,
+    error_sender: oneshot::Sender<SignalError>,
+) {
+    let _channel = match install_sighandlers() {
+        Ok(channel) => channel,
+        Err(err) => {
+            let _ = error_sender.send(err);
+            return;
+        }
+    };
 
     loop {
         match tokio::task::spawn_blocking(|| unsafe { SignalChannel::recv() })
@@ -60,27 +69,28 @@ pub async fn handle_signal(handle: Arc<Mutex<Handle>>) -> Result<(), SignalError
             .expect("task panicked")
         {
             Ok(signum) => {
-                if react_to_signal(signum, &handle).await {
-                    break; // signum was 1: SIGINT meaning "exit"
+                if react_to_signal(signum, &tasks_manager_handle).await {
+                    return;
                 }
             }
-            Err(err) => return Err(err.into()),
+            Err(err) => {
+                let _ = error_sender.send(err.into());
+                return;
+            }
         }
     }
-    drop(channel);
-    Ok(())
 }
 
-/// Returns false if we should continue listening for signals
-async fn react_to_signal(signum: c_int, handle: &Mutex<Handle>) -> bool {
+/// Returns true if a shutdown command was sent, false otherwise
+async fn react_to_signal(signum: c_int, tasks_manager_handle: &Handle) -> bool {
     if let Ok(signal) = Signal::from_c_int(signum) {
         match signal {
             Signal::SIGHUP => {
-                let _ = handle.lock().await.reload(ReloadType::UseCurrent).await;
+                let _ = tasks_manager_handle.reload(ReloadType::UseCurrent).await;
             }
 
             Signal::SIGINT => {
-                let _ = handle.lock().await.shutdown().await;
+                let _ = tasks_manager_handle.shutdown().await;
                 return true;
             }
 
@@ -99,6 +109,7 @@ async fn react_to_signal(signum: c_int, handle: &Mutex<Handle>) -> bool {
             request with the solution to this issue"
         );
     }
+
     false
 }
 

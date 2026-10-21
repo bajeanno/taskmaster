@@ -13,9 +13,13 @@ use crate::daemon::{
 };
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{
-    Mutex,
-    mpsc::{self, UnboundedSender},
+use tokio::{
+    sync::{
+        Mutex,
+        mpsc::{self, UnboundedSender},
+        oneshot,
+    },
+    task::JoinHandle,
 };
 
 // Mocking Client struct brought by the rpc-genie crate
@@ -35,6 +39,9 @@ impl SubscribedClients {
     fn for_each(&self, _callback: impl FnMut(&Client)) {}
 }
 
+type RoutineStoppedSender = oneshot::Sender<()>;
+pub type RoutineStoppedReceiver = oneshot::Receiver<()>;
+
 #[allow(dead_code)] //TODO: Remove that
 pub struct Routine {
     config_state: ConfigState,
@@ -43,16 +50,18 @@ pub struct Routine {
     command_receiver: CommandReceiver,
     log_sender: LogSender,
     status_sender: UnboundedSender<NominativeStatus>,
+    routine_stopped_sender: RoutineStoppedSender,
 }
 
 #[allow(dead_code)] //TODO: remove that
 impl Routine {
-    pub fn spawn(config_state: ConfigState) -> Handle {
+    pub fn spawn(config_state: ConfigState) -> (Handle, JoinHandle<()>, RoutineStoppedReceiver) {
+        let (routine_stopped_sender, routine_stopped_receiver) = oneshot::channel();
         let (log_sender, log_receiver) = mpsc::unbounded_channel();
         let (status_sender, status_receiver) = mpsc::unbounded_channel();
         let (command_sender, command_receiver) = mpsc::unbounded_channel();
 
-        let handle = tokio::spawn(async move {
+        let join_handle = tokio::spawn(async move {
             Self {
                 config_state,
                 processes: ProcessRegistry::new(),
@@ -60,12 +69,17 @@ impl Routine {
                 command_receiver,
                 log_sender,
                 status_sender,
+                routine_stopped_sender,
             }
             .routine(status_receiver, log_receiver)
             .await;
         });
 
-        Handle::new(command_sender, handle)
+        (
+            Handle::new(command_sender),
+            join_handle,
+            routine_stopped_receiver,
+        )
     }
 
     async fn routine(mut self, status_receiver: StatusReceiver, log_receiver: LogReceiver) {
@@ -90,6 +104,8 @@ impl Routine {
         status_handle
             .await
             .expect("listen_for_status task panicked");
+
+        let _ = self.routine_stopped_sender.send(());
     }
 
     async fn start_programs(&mut self, programs: &HashMap<String, Arc<ProgramConfig>>) {
