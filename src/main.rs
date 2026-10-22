@@ -8,10 +8,7 @@ use daemonize::{Daemonized, DaemonizedOk, try_daemonized, try_daemonized_outside
 use logging::LogLevel;
 use rustyline::error::ReadlineError;
 
-use crate::{
-    client::{ParseError, start_client},
-    daemon::{ClaimError, is_daemon_started},
-};
+use crate::daemon::{ClaimError, is_daemon_started};
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
@@ -28,8 +25,8 @@ enum Error {
     InitCliEditor(#[source] ReadlineError),
     #[error("Failed to read line from cli")]
     ReadingLine(#[source] ReadlineError),
-    #[error("Failed to parse command")]
-    Parsing(#[from] ParseError),
+    #[error("Error while handling command")]
+    Command(#[from] client::Error),
 }
 
 fn main() -> ExitCode {
@@ -82,7 +79,7 @@ unsafe fn run() -> Daemonized<(), Error, (), Error> {
         }
     }
 
-    Daemonized::OutsideDaemon(start_client(maybe_rl))
+    Daemonized::OutsideDaemon(client::run(maybe_rl))
 }
 
 fn should_start_daemon(rl: &mut rustyline::DefaultEditor) -> bool {
