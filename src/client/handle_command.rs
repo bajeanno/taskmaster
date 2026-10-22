@@ -53,11 +53,6 @@ macro_rules! handle_command {
 }
 
 macro_rules! handle_command_cases {
-    // -- No cases left
-    ($default:expr, $args_iter:ident, $command_name:ident, ) => {
-        return ($default)()
-    };
-
     // -- literal => sub_commands! { .. }
     (
         $default:expr,
@@ -101,6 +96,26 @@ macro_rules! handle_command_cases {
         }
     };
 
+    // -- literal => expr
+    (
+        $default:expr,
+        $args_iter:ident,
+        $command_name:ident,
+
+        #[doc = $doc:literal]
+        $command_lit:literal => $handler:expr,
+
+        $($cases:tt)*
+    ) => {
+        match $command_name.as_ref() {
+            $command_lit => {
+                check_no_additional_args($args_iter)?;
+                $handler
+            }
+            _ => { handle_command_cases!($default, $args_iter, $command_name, $($cases)*) }
+        }
+    };
+
     // -- [ident] => expr
     (
         $default:expr,
@@ -124,24 +139,9 @@ macro_rules! handle_command_cases {
         $handler
     }};
 
-    // -- literal => expr
-    (
-        $default:expr,
-        $args_iter:ident,
-        $command_name:ident,
-
-        #[doc = $doc:literal]
-        $command_lit:literal => $handler:expr,
-
-        $($cases:tt)*
-    ) => {
-        match $command_name.as_ref() {
-            $command_lit => {
-                check_no_additional_args($args_iter)?;
-                $handler
-            }
-            _ => { handle_command_cases!($default, $args_iter, $command_name, $($cases)*) }
-        }
+    // -- No cases left
+    ($default:expr, $args_iter:ident, $command_name:ident, ) => {
+        return ($default)()
     };
 }
 
