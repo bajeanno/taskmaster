@@ -2,15 +2,12 @@ mod client;
 mod daemon;
 mod rpc;
 
-use std::{process::ExitCode, sync::LazyLock, thread::sleep, time::Duration};
+use std::{process::ExitCode, thread::sleep, time::Duration};
 
 use daemon::StartMode;
 use daemonize::{Daemonized, DaemonizedOk, try_daemonized, try_daemonized_outside};
 use logging::LogLevel;
 use rustyline::error::ReadlineError;
-use std::sync::Mutex;
-
-static ARGS: LazyLock<Mutex<Vec<String>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
 use crate::{
     client::{ParseError, start_client},
@@ -40,9 +37,7 @@ enum Error {
 ///
 /// Only call when it is safe to call fork()
 pub unsafe fn entrypoint(args: Vec<String>) -> ExitCode {
-    *ARGS.lock().unwrap() = args;
-
-    match run() {
+    match run(args) {
         Daemonized::InsideDaemon(Ok(())) | Daemonized::OutsideDaemon(Ok(())) => ExitCode::SUCCESS,
         Daemonized::InsideDaemon(Err(err)) => {
             match &err {
@@ -64,7 +59,7 @@ pub unsafe fn entrypoint(args: Vec<String>) -> ExitCode {
     }
 }
 
-fn run() -> Daemonized<(), Error, (), Error> {
+fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
     let mut maybe_rl = None;
 
     let is_daemon_started = try_daemonized_outside!(is_daemon_started());
@@ -73,7 +68,7 @@ fn run() -> Daemonized<(), Error, (), Error> {
         let mut rl =
             try_daemonized_outside!(rustyline::DefaultEditor::new().map_err(Error::InitCliEditor));
 
-        let start_mode = StartMode::from_args();
+        let start_mode = StartMode::from_args(&mut args);
         if !matches!(start_mode, StartMode::Force | StartMode::Acknowledge)
             && !should_start_daemon(&mut rl)
         {
@@ -91,7 +86,7 @@ fn run() -> Daemonized<(), Error, (), Error> {
         }
     }
 
-    Daemonized::OutsideDaemon(start_client(maybe_rl))
+    Daemonized::OutsideDaemon(start_client(maybe_rl, args))
 }
 
 fn should_start_daemon(rl: &mut rustyline::DefaultEditor) -> bool {

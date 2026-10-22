@@ -3,26 +3,29 @@ pub use handle_command::ParseError;
 
 mod shell;
 
-use std::{sync::PoisonError, time::Duration};
+use std::time::Duration;
 
 use tokio::time::sleep;
 
 use crate::{
-    ARGS,
     client::handle_command::handle_command,
     rpc::{self, ClientHandle},
 };
 
-pub fn start_client(maybe_rl: Option<rustyline::DefaultEditor>) -> Result<(), crate::Error> {
+pub fn start_client(
+    maybe_rl: Option<rustyline::DefaultEditor>,
+    args: Vec<String>,
+) -> Result<(), crate::Error> {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
-        .block_on(run(maybe_rl))
+        .block_on(run(maybe_rl, args))
 }
 
-async fn run(maybe_rl: Option<rustyline::DefaultEditor>) -> Result<(), crate::Error> {
+async fn run(
+    maybe_rl: Option<rustyline::DefaultEditor>,
+    args: Vec<String>,
+) -> Result<(), crate::Error> {
     let client = connect_client().await?;
-
-    let args = ARGS.lock().unwrap_or_else(PoisonError::into_inner).clone();
 
     if args.get(1).is_some() {
         handle_command(&client, args.into_iter().skip(1)).await?;
