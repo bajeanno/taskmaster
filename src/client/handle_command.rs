@@ -116,9 +116,9 @@ macro_rules! handle_command_cases {
         )?;
         $(
             let $additional_command_param = get_next_arg_without_dash(
-                $args_iter,
+                &mut $args_iter,
                 stringify!($additional_command_param)
-            );
+            )?;
         )*
         check_no_additional_args($args_iter)?;
         $handler
