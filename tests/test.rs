@@ -15,7 +15,6 @@ fn integration_tests() {
 }
 
 fn cannot_start_after_crash() -> ExitCode {
-    // TODO: create a pipe to bypass daemon start prompt
     let pid = unsafe { fork() };
     if pid == 0 {
         println!("starting");
