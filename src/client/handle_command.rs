@@ -26,8 +26,8 @@ pub enum ParseError {
         arg_name: &'static str,
         found: String,
     },
-    #[error("Missing argument {0}")]
-    MissingArgument(&'static str),
+    #[error("Missing argument {}", if let Some(arg_name) = .0 { arg_name } else { "" })]
+    MissingArgument(Option<&'static str>),
 }
 
 pub enum CommandWasShutdown {
@@ -147,7 +147,7 @@ macro_rules! handle_command_cases {
 
 macro_rules! handle_sub_command {
     ($args_iter:ident, $($cases:tt)*) => {{
-        let arg = get_next_arg(&mut $args_iter, stringify!($command_param))?;
+        let arg = get_next_arg(&mut $args_iter, None)?;
 
         handle_command_cases!(
             || Err(ParseError::UnexpectedArg(arg).into()),
@@ -279,7 +279,7 @@ async fn handle_shutdown_command(client: &ClientHandle) -> Result<(), Error> {
 
 fn get_next_arg(
     args: &mut impl Iterator<Item = String>,
-    arg_name: &'static str,
+    arg_name: Option<&'static str>,
 ) -> Result<String, ParseError> {
     args.next().ok_or(ParseError::MissingArgument(arg_name))
 }
@@ -295,7 +295,7 @@ fn get_next_arg_without_dash(
     args: &mut impl Iterator<Item = String>,
     arg_name: &'static str,
 ) -> Result<String, ParseError> {
-    let arg = get_next_arg(args, arg_name)?;
+    let arg = get_next_arg(args, Some(arg_name))?;
     check_doesnt_start_with_dash(arg, arg_name)
 }
 
