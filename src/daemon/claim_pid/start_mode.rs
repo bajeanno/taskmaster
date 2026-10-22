@@ -17,6 +17,10 @@ impl StartMode {
         }
     }
 
+    pub fn is_force(&self) -> bool {
+        matches!(self, Self::Force)
+    }
+
     fn remove_force(vec: &mut Vec<String>) {
         vec.retain(|elem| !matches!(elem.as_str(), "--force" | "-f"));
     }

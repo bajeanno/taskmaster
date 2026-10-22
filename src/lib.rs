@@ -61,13 +61,17 @@ pub unsafe fn entrypoint(args: Vec<String>) -> ExitCode {
 fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
     let mut maybe_rl = None;
 
-    let is_daemon_started = try_daemonized_outside!(is_daemon_started());
+    let start_mode = StartMode::from_args(&mut args);
+    let is_daemon_started = if start_mode.is_force() {
+        false
+    } else {
+        try_daemonized_outside!(is_daemon_started())
+    };
 
     if !is_daemon_started {
         let mut rl =
             try_daemonized_outside!(rustyline::DefaultEditor::new().map_err(Error::InitCliEditor));
 
-        let start_mode = StartMode::from_args(&mut args);
         if !matches!(start_mode, StartMode::Force | StartMode::Acknowledge)
             && !should_start_daemon(&mut rl)
         {
