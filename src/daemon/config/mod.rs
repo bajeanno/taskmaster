@@ -32,8 +32,12 @@ impl TmpConfig {
             .map(|(name, mut program)| {
                 if name.contains(|c: char| c.is_ascii_digit()) {
                     return Err(serde_yaml::Error::custom(format!(
-                        "program name '{}' contains illegal characters (numerical value)",
-                        name
+                        "program name '{name}' contains illegal characters (numerical value)",
+                    )));
+                }
+                if name.starts_with("-") {
+                    return Err(serde_yaml::Error::custom(format!(
+                        "program name '{name}' may not start with '-'"
                     )));
                 }
 
