@@ -25,11 +25,46 @@ impl StartMode {
     }
 }
 
-    fn remove_force(vec: &mut Vec<String>) {
-        vec.retain(|elem| !matches!(elem.as_str(), "--force" | "-f"));
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::assert_matches;
+
+    #[test]
+    fn force_from_args() {
+        let mut vec = vec!["--force".to_string()];
+        assert_matches!(StartMode::from_args(&mut vec), StartMode::Force);
+        let mut vec = vec!["-f".to_string()];
+        assert_matches!(StartMode::from_args(&mut vec), StartMode::Force);
+        let mut vec = vec!["--force".to_string(), "-y".to_string()];
+        assert_matches!(StartMode::from_args(&mut vec), StartMode::Force);
+        let mut vec = vec!["-f".to_string(), "-y".to_string()];
+        assert_matches!(StartMode::from_args(&mut vec), StartMode::Force);
     }
 
-    fn remove_acknowledge(vec: &mut Vec<String>) {
-        vec.retain(|elem| !matches!(elem.as_str(), "-y"));
+    #[test]
+    fn acknowledge_from_args() {
+        let mut vec = vec!["-y".to_string(), "-f".to_string()];
+        assert_matches!(StartMode::from_args(&mut vec), StartMode::Acknowledge);
+    }
+
+    #[test]
+    fn classic_from_args() {
+        assert_matches!(
+            StartMode::from_args(&mut vec!["".to_string()]),
+            StartMode::Classic
+        );
+        assert_matches!(
+            StartMode::from_args(&mut vec!["--y".to_string()]),
+            StartMode::Classic
+        );
+        assert_matches!(
+            StartMode::from_args(&mut vec!["force".to_string()]),
+            StartMode::Classic
+        );
+        assert_matches!(
+            StartMode::from_args(&mut vec!["acknowledge".to_string()]),
+            StartMode::Classic
+        );
     }
 }
