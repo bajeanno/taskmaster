@@ -4,7 +4,7 @@ use libc::{
     signal::kill,
     sys::{
         types::Pid,
-        wait::{waitpid, wifexited},
+        wait::{waitpid, wexitstatus, wifexited},
     },
     unistd::fork,
 };
@@ -14,29 +14,29 @@ fn integration_tests() {
     eprintln!("running test 1");
     assert_eq!(cannot_start_after_crash(), ExitCode::SUCCESS);
     eprintln!("finished test 1");
+
     eprintln!("running test 2");
     assert_eq!(force_start(), ExitCode::SUCCESS);
     eprintln!("finished test 2");
-    // eprintln!("running test 3");
-    // assert_eq!(check_force_start_kills_running_daemon(), ExitCode::SUCCESS);
-    // eprintln!("finished test 3");
-    // eprintln!("running test 4");
-    // assert_eq!(check_sigint_kills_running_daemon(), ExitCode::SUCCESS);
-    // eprintln!("finished test 4");
+
+    eprintln!("running test 3");
+    assert_eq!(check_force_start_kills_running_daemon(), ExitCode::SUCCESS);
+    eprintln!("finished test 3");
+
+    eprintln!("running test 4");
+    assert_eq!(check_sigint_kills_running_daemon(), ExitCode::SUCCESS);
+    eprintln!("finished test 4");
 }
 
 fn cannot_start_after_crash() -> ExitCode {
-    let pid = unsafe { start_taskmaster(vec!["-f".to_string()]) };
+    let pid = unsafe { start_taskmaster_in_fork(vec!["-f".to_string(), "-d".to_string()]) };
 
     sleep(Duration::from_millis(400));
-    unsafe {
-        // SIGKILL as it is intentionnal crash
-        kill(pid as c_int, signal::Signal::SIGKILL as c_int)
-    };
+    kill_taskmaster_daemon(pid);
 
-    let status: c_int = 0;
+    let mut status: c_int = 0;
     let option: c_int = 0;
-    unsafe { waitpid(pid, &status, option) };
+    unsafe { waitpid(pid, &mut status, option) };
     assert!(
         !unsafe { wifexited(status) },
         "process exited before being killed"
@@ -50,65 +50,68 @@ fn cannot_start_after_crash() -> ExitCode {
 }
 
 fn force_start() -> ExitCode {
-    let pid = unsafe { start_taskmaster(vec!["--force".to_string()]) };
+    let pid = unsafe {
+        start_taskmaster_in_fork(vec!["--force".to_string(), "--daemon-only".to_string()])
+    };
 
-    sleep(Duration::from_millis(400)); // let time to start
-    unsafe {
-        kill(pid as c_int, signal::Signal::SIGINT as c_int);
-    }
-    sleep(Duration::from_millis(400)); // let time to unwind
+    sleep(Duration::from_millis(400));
+    unsafe { shutdown_taskmaster_daemon_cleanly(pid) };
 
-    let status: c_int = 0;
+    let mut status: c_int = 0;
     let option: c_int = 0;
 
-    unsafe { waitpid(pid, &status, option) };
-    if unsafe { wifexited(status) } {
-        panic!("process exited before being killed");
-    }
+    unsafe { waitpid(pid, &mut status, option) };
+    assert!(
+        unsafe { wifexited(status) },
+        "process exited before being killed"
+    );
+    assert_eq!(unsafe { wexitstatus(status) }, 0);
+
     ExitCode::SUCCESS
 }
 
 fn check_force_start_kills_running_daemon() -> ExitCode {
-    let pid = unsafe { start_taskmaster(vec!["-y".to_string()]) };
+    let pid = unsafe { start_taskmaster_in_fork(vec!["-y".to_string(), "-d".to_string()]) };
 
     sleep(Duration::from_millis(400));
-    let pid_force = unsafe { start_taskmaster(vec!["--force".to_string()]) };
+    let pid_force = unsafe {
+        start_taskmaster_in_fork(vec!["--force".to_string(), "--daemon-only".to_string()])
+    };
 
-    let status: c_int = 0;
+    let mut status: c_int = 0;
     let option: c_int = 0;
 
-    unsafe { waitpid(pid, &status, option) };
+    unsafe { waitpid(pid, &mut status, option) };
+
     if unsafe { wifexited(status) } {
         return ExitCode::FAILURE;
         // panic!("process exited before being killed");
     }
 
-    unsafe {
-        kill(pid_force as c_int, signal::Signal::SIGINT as c_int);
-    }
+    unsafe { shutdown_taskmaster_daemon_cleanly(pid_force) };
 
-    let status: c_int = 0;
+    let mut status: c_int = 0;
     let option: c_int = 0;
-    unsafe { waitpid(pid_force, &status, option) };
+    unsafe { waitpid(pid_force, &mut status, option) };
     ExitCode::SUCCESS
 }
 
 fn check_sigint_kills_running_daemon() -> ExitCode {
-    let pid = unsafe { start_taskmaster(vec!["-y".to_string()]) };
+    let pid = unsafe { start_taskmaster_in_fork(vec!["-y".to_string(), "-d".to_string()]) };
     sleep(Duration::from_millis(400));
 
     unsafe {
-        kill(pid as c_int, signal::Signal::SIGINT as c_int);
+        kill(pid, signal::Signal::SIGINT as c_int);
     }
 
-    let status: c_int = 0;
+    let mut status: c_int = 0;
     let option: c_int = 0;
 
-    unsafe { waitpid(pid, &status, option) };
+    unsafe { waitpid(pid, &mut status, option) };
     ExitCode::SUCCESS
 }
 
-unsafe fn start_taskmaster(args: Vec<String>) -> Pid {
+unsafe fn start_taskmaster_in_fork(args: Vec<String>) -> Pid {
     let pid = unsafe { fork() };
     assert!(pid >= 0);
 
@@ -121,4 +124,12 @@ unsafe fn start_taskmaster(args: Vec<String>) -> Pid {
     }
 
     pid
+}
+
+unsafe fn shutdown_taskmaster_daemon_cleanly(taskmaster_pid: Pid) {
+    unsafe { kill(taskmaster_pid, signal::Signal::SIGINT as c_int) };
+}
+
+fn kill_taskmaster_daemon(taskmaster_pid: Pid) {
+    unsafe { kill(taskmaster_pid, signal::Signal::SIGKILL as c_int) };
 }
