@@ -1,14 +1,11 @@
-use std::{
-    os::raw::c_int,
-    process::{ExitCode, exit},
-    thread::sleep,
-    time::Duration,
-    vec,
-};
+use std::{os::raw::c_int, process::ExitCode, thread::sleep, time::Duration, vec};
 
 use libc::{
     signal::kill,
-    sys::wait::{waitpid, wifexited},
+    sys::{
+        types::Pid,
+        wait::{waitpid, wifexited},
+    },
     unistd::fork,
 };
 
@@ -29,17 +26,13 @@ fn integration_tests() {
 }
 
 fn cannot_start_after_crash() -> ExitCode {
-    let pid = unsafe { fork() };
-    if pid == 0 {
-        unsafe { taskmaster::entrypoint(vec!["-y".to_string()]) };
-        exit(0);
-    }
+    let pid = unsafe { start_taskmaster(vec!["-f".to_string()]) };
 
     sleep(Duration::from_millis(400));
     unsafe {
-        //SIGKILL as it is intentionnal crash
-        kill(pid as c_int, signal::Signal::SIGKILL as c_int);
-    }
+        // SIGKILL as it is intentionnal crash
+        kill(pid as c_int, signal::Signal::SIGKILL as c_int)
+    };
 
     let status: c_int = 0;
     let option: c_int = 0;
@@ -57,11 +50,8 @@ fn cannot_start_after_crash() -> ExitCode {
 }
 
 fn force_start() -> ExitCode {
-    let pid = unsafe { fork() };
-    if pid == 0 {
-        unsafe { taskmaster::entrypoint(vec!["--force".to_string()]) };
-        exit(0);
-    }
+    let pid = unsafe { start_taskmaster(vec!["--force".to_string()]) };
+
     sleep(Duration::from_millis(400)); // let time to start
     unsafe {
         kill(pid as c_int, signal::Signal::SIGINT as c_int);
@@ -79,17 +69,10 @@ fn force_start() -> ExitCode {
 }
 
 fn check_force_start_kills_running_daemon() -> ExitCode {
-    let pid = unsafe { fork() };
-    if pid == 0 {
-        unsafe { taskmaster::entrypoint(vec!["-y".to_string()]) };
-        exit(0);
-    }
+    let pid = unsafe { start_taskmaster(vec!["-y".to_string()]) };
+
     sleep(Duration::from_millis(400));
-    let pid_force = unsafe { fork() };
-    if pid_force == 0 {
-        unsafe { taskmaster::entrypoint(vec!["--force".to_string()]) };
-        exit(0);
-    }
+    let pid_force = unsafe { start_taskmaster(vec!["--force".to_string()]) };
 
     let status: c_int = 0;
     let option: c_int = 0;
@@ -111,11 +94,7 @@ fn check_force_start_kills_running_daemon() -> ExitCode {
 }
 
 fn check_sigint_kills_running_daemon() -> ExitCode {
-    let pid = unsafe { fork() };
-    if pid == 0 {
-        unsafe { taskmaster::entrypoint(vec!["-y".to_string()]) };
-        exit(0);
-    }
+    let pid = unsafe { start_taskmaster(vec!["-y".to_string()]) };
     sleep(Duration::from_millis(400));
 
     unsafe {
@@ -127,4 +106,19 @@ fn check_sigint_kills_running_daemon() -> ExitCode {
 
     unsafe { waitpid(pid, &status, option) };
     ExitCode::SUCCESS
+}
+
+unsafe fn start_taskmaster(args: Vec<String>) -> Pid {
+    let pid = unsafe { fork() };
+    assert!(pid >= 0);
+
+    if pid == 0 {
+        match unsafe { taskmaster::entrypoint(args) } {
+            ExitCode::SUCCESS => std::process::exit(0),
+            ExitCode::FAILURE => std::process::exit(1),
+            _ => std::process::exit(2),
+        }
+    }
+
+    pid
 }
