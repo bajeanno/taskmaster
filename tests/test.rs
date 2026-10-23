@@ -12,11 +12,11 @@ use libc::{
 #[test]
 fn integration_tests() {
     eprintln!("running test 1");
-    assert_eq!(cannot_start_after_crash(), ExitCode::SUCCESS);
+    cannot_start_after_crash();
     eprintln!("finished test 1");
 
     eprintln!("running test 2");
-    assert_eq!(force_start(), ExitCode::SUCCESS);
+    force_start();
     eprintln!("finished test 2");
 
     eprintln!("running test 3");
@@ -24,11 +24,11 @@ fn integration_tests() {
     eprintln!("finished test 3");
 
     eprintln!("running test 4");
-    assert_eq!(check_sigint_kills_running_daemon(), ExitCode::SUCCESS);
+    check_sigint_kills_running_daemon();
     eprintln!("finished test 4");
 }
 
-fn cannot_start_after_crash() -> ExitCode {
+fn cannot_start_after_crash() {
     let pid = unsafe { start_taskmaster_in_fork(vec!["-f".to_string(), "-d".to_string()]) };
 
     sleep(Duration::from_millis(400));
@@ -46,10 +46,9 @@ fn cannot_start_after_crash() -> ExitCode {
         unsafe { taskmaster::entrypoint(vec!["-y".to_string()]) },
         ExitCode::FAILURE
     );
-    ExitCode::SUCCESS
 }
 
-fn force_start() -> ExitCode {
+fn force_start() {
     let pid = unsafe {
         start_taskmaster_in_fork(vec!["--force".to_string(), "--daemon-only".to_string()])
     };
@@ -66,8 +65,6 @@ fn force_start() -> ExitCode {
         "process exited before being killed"
     );
     assert_eq!(unsafe { wexitstatus(status) }, 0);
-
-    ExitCode::SUCCESS
 }
 
 fn check_force_start_kills_running_daemon() -> ExitCode {
@@ -96,7 +93,7 @@ fn check_force_start_kills_running_daemon() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn check_sigint_kills_running_daemon() -> ExitCode {
+fn check_sigint_kills_running_daemon() {
     let pid = unsafe { start_taskmaster_in_fork(vec!["-y".to_string(), "-d".to_string()]) };
     sleep(Duration::from_millis(400));
 
@@ -108,7 +105,6 @@ fn check_sigint_kills_running_daemon() -> ExitCode {
     let option: c_int = 0;
 
     unsafe { waitpid(pid, &mut status, option) };
-    ExitCode::SUCCESS
 }
 
 unsafe fn start_taskmaster_in_fork(args: Vec<String>) -> Pid {
