@@ -94,6 +94,12 @@ impl Claim {
     }
 
     fn kill_running_instance(pid: c_int) -> Result<(), CheckInstanceAlive> {
+        if cfg!(debug_assertions) {
+            // Not checking process name in debug mode as integration tests will be named "test-.."
+            unsafe { kill(pid, Signal::SIGKILL as c_int) };
+            return Ok(());
+        }
+
         let output = Command::new("pgrep")
             .arg("taskmaster")
             .stdout(Stdio::piped())
