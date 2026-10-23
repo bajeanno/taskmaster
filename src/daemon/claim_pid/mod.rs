@@ -10,6 +10,7 @@ use crate::{
         claim_pid::{CheckInstanceAlive::ParsePgrep, pid_file::PidFile},
         error::ClaimError::{self, OtherInstanceRunning},
     },
+    rpc::RPC_UNIX_SOCKET_PATH,
     start_mode::StartMode,
 };
 
@@ -53,6 +54,7 @@ impl Claim {
                 if let Some(pid) = Self::get_running_pid()? {
                     Self::kill_running_instance(pid as c_int).map_err(ClaimError::Kill)?;
                     Self::clear_pid_file_at(&pid_file_path);
+                    let _ = std::fs::remove_file(RPC_UNIX_SOCKET_PATH);
                 }
             }
             StartMode::Acknowledge { .. } | StartMode::Classic => {}
