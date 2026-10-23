@@ -64,9 +64,9 @@ pub unsafe fn entrypoint(args: Vec<String>) -> ExitCode {
 fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
     let mut maybe_rl = None;
 
-    let start_options = try_daemonized_outside!(StartMode::from_args(&mut args));
+    let start_mode = try_daemonized_outside!(StartMode::from_args(&mut args));
 
-    let is_daemon_started = if start_options.is_force() {
+    let is_daemon_started = if start_mode.is_force() {
         false
     } else {
         try_daemonized_outside!(is_daemon_started())
@@ -76,13 +76,13 @@ fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
         let mut rl =
             try_daemonized_outside!(rustyline::DefaultEditor::new().map_err(Error::InitCliEditor));
 
-        if !should_start_daemon(&mut rl, &start_options) {
+        if !should_start_daemon(&mut rl, &start_mode) {
             return Daemonized::OutsideDaemon(Ok(()));
         }
 
         maybe_rl = Some(rl);
 
-        match try_daemonized!(unsafe { daemon::run(start_options) }) {
+        match try_daemonized!(unsafe { daemon::run(start_mode) }) {
             DaemonizedOk::InsideDaemon(()) => return Daemonized::InsideDaemon(Ok(())),
             DaemonizedOk::OutsideDaemon(_pid) => {
                 // waiting a bit for the daemon to start before starting client
@@ -91,16 +91,16 @@ fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
         }
     }
 
-    if !start_options.should_start_client() {
+    if !start_mode.should_start_client() {
         return Daemonized::OutsideDaemon(Ok(()));
     }
 
     Daemonized::OutsideDaemon(client::run(maybe_rl, args))
 }
 
-fn should_start_daemon(rl: &mut rustyline::DefaultEditor, start_options: &StartMode) -> bool {
+fn should_start_daemon(rl: &mut rustyline::DefaultEditor, start_mode: &StartMode) -> bool {
     if matches!(
-        start_options,
+        start_mode,
         StartMode::Force { .. } | StartMode::Acknowledge { .. }
     ) {
         return true;
