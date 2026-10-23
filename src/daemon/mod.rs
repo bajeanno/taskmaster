@@ -15,7 +15,6 @@ mod signal_handling;
 #[cfg(test)]
 mod test_utils;
 
-pub use claim_pid::start_mode::StartMode;
 use daemonize::{
     Daemonized, DaemonizedOk, DefaultDaemonized, try_daemonized, try_daemonized_outside,
 };
@@ -24,10 +23,13 @@ use libc::sys::types::Pid;
 #[cfg(test)]
 use test_utils::TestDir;
 
-use crate::daemon::{
-    config_state::ConfigState,
-    signal_handling::SignalError,
-    tasks_manager::{RoutineStoppedReceiver, TaskManagerCommand},
+use crate::{
+    daemon::{
+        config_state::ConfigState,
+        signal_handling::SignalError,
+        tasks_manager::{RoutineStoppedReceiver, TaskManagerCommand},
+    },
+    start_mode::StartMode,
 };
 use config::ProgramConfig;
 use std::{panic, pin::Pin, sync::Arc, time::Duration};
