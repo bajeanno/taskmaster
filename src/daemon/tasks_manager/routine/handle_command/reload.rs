@@ -126,7 +126,7 @@ mod tests {
         process_handler::{LogReceiver, Status, StatusReceiver},
         tasks_manager::{process_registry::ProcessRegistry, routine::Routine},
     };
-    use tokio::sync::{Mutex, mpsc};
+    use tokio::sync::{Mutex, mpsc, oneshot};
 
     const CURRENT_CONFIG: &str = r#"programs:
     unchanged:
@@ -187,6 +187,7 @@ mod tests {
     async fn test_routine(
         current_config: &Arc<crate::daemon::config::Config>,
     ) -> (Routine, StatusReceiver, LogReceiver) {
+        let (routine_stopped_sender, _routine_stopped_receiver) = oneshot::channel();
         let (status_sender, status_receiver) = mpsc::unbounded_channel();
         let (log_sender, log_receiver) = mpsc::unbounded_channel();
         let (_command_sender, command_receiver) = mpsc::unbounded_channel();
@@ -201,6 +202,7 @@ mod tests {
             command_receiver,
             log_sender,
             status_sender,
+            routine_stopped_sender,
         };
         routine.start_programs(&current_config.programs).await;
 

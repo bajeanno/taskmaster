@@ -1,5 +1,4 @@
 mod error;
-use std::sync::Arc;
 
 pub use error::{ClaimError, Error};
 mod config_state;
@@ -25,9 +24,17 @@ use libc::sys::types::Pid;
 #[cfg(test)]
 use test_utils::TestDir;
 
-use crate::daemon::{config_state::ConfigState, tasks_manager::TaskManagerCommand};
+use crate::daemon::{
+    config_state::ConfigState,
+    signal_handling::SignalError,
+    tasks_manager::{RoutineStoppedReceiver, TaskManagerCommand},
+};
 use config::ProgramConfig;
-use tokio::sync::{Mutex, mpsc, oneshot};
+use std::{panic, pin::Pin, sync::Arc, time::Duration};
+use tokio::{
+    sync::{mpsc, oneshot},
+    time::timeout,
+};
 
 pub type CommandReceiver = mpsc::UnboundedReceiver<(
     TaskManagerCommand,
@@ -61,7 +68,9 @@ pub unsafe fn run(start_mode: StartMode) -> Daemonized<(), Error, Pid, Error> {
         Err(err) => return Daemonized::InsideDaemon(Err(err.into())),
     };
 
-    let result = start_server(config_state);
+    let result = tokio::runtime::Runtime::new()
+        .expect("Failed to init tokio runtime")
+        .block_on(run_daemon(config_state));
 
     pid_file_claim.release_claim();
 
@@ -80,18 +89,122 @@ unsafe fn daemonize() -> DefaultDaemonized {
     }
 }
 
-fn start_server(config_state: ConfigState) -> Result<(), Error> {
-    tokio::runtime::Runtime::new()
-        .expect("Failed to init tokio runtime")
-        .block_on(async {
-            let handle = Arc::new(Mutex::new(tasks_manager::Routine::spawn(config_state)));
+struct FutureToJoin {
+    future: Pin<Box<dyn Future<Output = ()>>>,
+    name: &'static str,
+}
 
-            let server_handle = crate::rpc::start_server(Arc::clone(&handle)).await?;
+async fn run_daemon(config_state: ConfigState) -> Result<(), Error> {
+    let mut futures: Vec<FutureToJoin> = Vec::new();
+    futures.reserve_exact(3);
 
-            signal_handling::handle_signal(handle).await?;
+    let (tasks_manager, routine_stopped_receiver) =
+        start_tasks_manager(&mut futures, config_state).await;
 
-            server_handle.stop();
+    futures = start_server(futures, Arc::clone(&tasks_manager)).await?;
 
+    let handle_signals_error_receiver =
+        start_handle_signals_loop(&mut futures, tasks_manager).await;
+
+    let result = tokio::select! {
+        _ = routine_stopped_receiver => {
             Ok(())
-        })
+        }
+
+        msg = handle_signals_error_receiver => {
+            match msg {
+                Ok(err) => Err(Error::Signal(err)),
+                Err(_) => {
+                    // error sender was dropped, meaning the loop ended, meaning sigint was
+                    // received and shutdown is in progress
+                    Ok(())
+                }
+            }
+        }
+    };
+
+    join_all(futures).await;
+    result
+}
+
+async fn start_tasks_manager(
+    futures: &mut Vec<FutureToJoin>,
+    config_state: ConfigState,
+) -> (Arc<tasks_manager::Handle>, RoutineStoppedReceiver) {
+    let (tasks_manager, tasks_manager_routine_join_handle, routine_stopped_receiver) =
+        tasks_manager::Routine::spawn(config_state);
+    let tasks_manager = Arc::new(tasks_manager);
+
+    let tasks_manager_handle_clone = Arc::clone(&tasks_manager);
+    futures.push(FutureToJoin {
+        future: Box::pin(async move {
+            tasks_manager_handle_clone
+                .shutdown()
+                .await
+                .expect("Failed to send shutdown msg to tasks manager");
+            tasks_manager_routine_join_handle
+                .await
+                .expect("Failed to join tasks manager");
+        }),
+        name: "tasks manager",
+    });
+
+    (tasks_manager, routine_stopped_receiver)
+}
+
+async fn start_server(
+    mut futures: Vec<FutureToJoin>,
+    tasks_manager: Arc<tasks_manager::Handle>,
+) -> Result<Vec<FutureToJoin>, Error> {
+    let server_handle = match crate::rpc::start_server(tasks_manager).await {
+        Ok(server_handle) => server_handle,
+        Err(err) => {
+            join_all(futures).await;
+            return Err(err.into());
+        }
+    };
+
+    futures.push(FutureToJoin {
+        future: Box::pin(async move {
+            server_handle.stop();
+        }),
+        name: "server handle",
+    });
+
+    Ok(futures)
+}
+
+async fn start_handle_signals_loop(
+    futures: &mut Vec<FutureToJoin>,
+    tasks_manager: Arc<tasks_manager::Handle>,
+) -> oneshot::Receiver<SignalError> {
+    let (handle_signal_error_sender, handle_signals_error_receiver) = oneshot::channel();
+
+    let handle_signals_join_handle = tokio::spawn(signal_handling::handle_signals(
+        tasks_manager,
+        handle_signal_error_sender,
+    ));
+
+    futures.push(FutureToJoin {
+        future: Box::pin(async move {
+            handle_signals_join_handle.abort();
+
+            if let Err(err) = handle_signals_join_handle.await
+                && let Ok(err) = err.try_into_panic()
+            {
+                panic::resume_unwind(err);
+            }
+        }),
+        name: "handle signals",
+    });
+
+    handle_signals_error_receiver
+}
+
+async fn join_all(futures: Vec<FutureToJoin>) {
+    for FutureToJoin { future, name } in futures.into_iter().rev() {
+        if timeout(Duration::from_secs(5), future).await.is_err() {
+            logging::error!("Failed to join {name}'s handle")
+        }
+    }
 }

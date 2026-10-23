@@ -124,36 +124,35 @@ fn create_tasks_alternate_yaml_content_plus_1_proc() -> String {
 
 #[tokio::test]
 async fn task_manager_list_tasks() {
-    let handle = Routine::spawn(ConfigState::from_content(
-        create_tasks_yaml_content(),
-        "".to_string(),
-    ));
+    let (handle, join_handle, routine_stopped_receiver) = Routine::spawn(
+        ConfigState::from_content(create_tasks_yaml_content(), "".to_string()),
+    );
     handle.status().await.unwrap();
     handle.shutdown().await.unwrap();
-    handle.await.unwrap();
+    join_handle.await.unwrap();
+    routine_stopped_receiver.await.unwrap();
 }
 
 #[tokio::test]
 async fn task_manager_stop() {
-    let handle = Routine::spawn(ConfigState::from_content(
-        create_tasks_yaml_content(),
-        "".to_string(),
-    ));
+    let (handle, join_handle, routine_stopped_receiver) = Routine::spawn(
+        ConfigState::from_content(create_tasks_yaml_content(), "".to_string()),
+    );
     handle
         .stop(String::from("taskmaster_test_task"))
         .await
         .unwrap();
 
     handle.shutdown().await.unwrap();
-    handle.await.unwrap();
+    join_handle.await.unwrap();
+    routine_stopped_receiver.await.unwrap();
 }
 
 #[tokio::test]
 async fn task_manager_start_already_started() {
-    let handle = Routine::spawn(ConfigState::from_content(
-        create_tasks_yaml_content(),
-        "".to_string(),
-    ));
+    let (handle, join_handle, routine_stopped_receiver) = Routine::spawn(
+        ConfigState::from_content(create_tasks_yaml_content(), "".to_string()),
+    );
     sleep(Duration::from_millis(5)).await;
 
     let before = handle.status().await.unwrap();
@@ -164,15 +163,15 @@ async fn task_manager_start_already_started() {
     let after = handle.status().await.unwrap();
     assert_eq!(before.to_string(), after.to_string());
     handle.shutdown().await.unwrap();
-    handle.await.unwrap();
+    join_handle.await.unwrap();
+    routine_stopped_receiver.await.unwrap();
 }
 
 #[tokio::test]
 async fn task_manager_stop_then_start() {
-    let handle = Routine::spawn(ConfigState::from_content(
-        create_tasks_yaml_content(),
-        "".to_string(),
-    ));
+    let (handle, join_handle, routine_stopped_receiver) = Routine::spawn(
+        ConfigState::from_content(create_tasks_yaml_content(), "".to_string()),
+    );
     handle
         .stop(String::from("taskmaster_test_task"))
         .await
@@ -182,30 +181,30 @@ async fn task_manager_stop_then_start() {
         .await
         .unwrap();
     handle.shutdown().await.unwrap();
-    handle.await.unwrap();
+    join_handle.await.unwrap();
+    routine_stopped_receiver.await.unwrap();
 }
 
 #[tokio::test]
 async fn task_manager_restart() {
-    let handle = Routine::spawn(ConfigState::from_content(
-        create_tasks_yaml_content(),
-        "".to_string(),
-    ));
+    let (handle, join_handle, routine_stopped_receiver) = Routine::spawn(
+        ConfigState::from_content(create_tasks_yaml_content(), "".to_string()),
+    );
 
     handle
         .restart(String::from("taskmaster_test_task"))
         .await
         .unwrap();
     handle.shutdown().await.unwrap();
-    handle.await.unwrap();
+    join_handle.await.unwrap();
+    routine_stopped_receiver.await.unwrap();
 }
 
 #[tokio::test]
 async fn task_manager_reload_minus_1_proc() {
-    let handle = Routine::spawn(ConfigState::from_content(
-        create_tasks_yaml_content_reload(),
-        "".to_string(),
-    ));
+    let (handle, join_handle, routine_stopped_receiver) = Routine::spawn(
+        ConfigState::from_content(create_tasks_yaml_content_reload(), "".to_string()),
+    );
     let new_content = create_tasks_alternate_yaml_content_minus_1_proc();
     let path = TestDir::new("reload-1");
     let new_file = path.join("taskmaster_task_manager_reload.yaml");
@@ -224,15 +223,15 @@ async fn task_manager_reload_minus_1_proc() {
         .unwrap();
     handle.status().await.unwrap();
     handle.shutdown().await.unwrap();
-    handle.await.unwrap();
+    join_handle.await.unwrap();
+    routine_stopped_receiver.await.unwrap();
 }
 
 #[tokio::test]
 async fn task_manager_reload_plus_1_proc() {
-    let handle = Routine::spawn(ConfigState::from_content(
-        create_tasks_yaml_content_reload(),
-        "".to_string(),
-    ));
+    let (handle, join_handle, routine_stopped_receiver) = Routine::spawn(
+        ConfigState::from_content(create_tasks_yaml_content_reload(), "".to_string()),
+    );
     let new_content = create_tasks_alternate_yaml_content_plus_1_proc();
     let path = TestDir::new("reload+1");
     let new_file = path.join("taskmaster_task_manager_reload.yaml");
@@ -251,7 +250,8 @@ async fn task_manager_reload_plus_1_proc() {
         .unwrap();
     handle.status().await.unwrap();
     handle.shutdown().await.unwrap();
-    handle.await.unwrap();
+    join_handle.await.unwrap();
+    routine_stopped_receiver.await.unwrap();
 }
 
 #[tokio::test]
@@ -272,10 +272,9 @@ async fn task_manager_reload_keeps_unchanged_program() {
         cmd: "sleep 30"
         auto-start: true"#;
 
-    let handle = Routine::spawn(ConfigState::from_content(
-        initial_content.to_string(),
-        "".to_string(),
-    ));
+    let (handle, join_handle, routine_stopped_receiver) = Routine::spawn(
+        ConfigState::from_content(initial_content.to_string(), "".to_string()),
+    );
 
     let path = TestDir::new("reload_keeps_program_unchanged");
     let new_file = path.join("taskmaster_task_manager_reload.yaml");
@@ -319,7 +318,8 @@ async fn task_manager_reload_keeps_unchanged_program() {
     );
 
     handle.shutdown().await.unwrap();
-    handle.await.unwrap();
+    join_handle.await.unwrap();
+    routine_stopped_receiver.await.unwrap();
 }
 
 #[tokio::test]
@@ -327,10 +327,9 @@ async fn task_manager_restore() {
     let dir = TestDir::new("restore");
     let path = dir.join("restore.yaml");
     let mut yaml_content = create_restore_yaml_content();
-    let handle = Routine::spawn(ConfigState::from_content(
-        yaml_content.clone(),
-        path.to_string(),
-    ));
+    let (handle, join_handle, routine_stopped_receiver) = Routine::spawn(
+        ConfigState::from_content(yaml_content.clone(), path.to_string()),
+    );
 
     handle.restore_config_file().await.unwrap();
 
@@ -343,5 +342,6 @@ async fn task_manager_restore() {
     assert_eq!(restored_content, yaml_content);
 
     handle.shutdown().await.unwrap();
-    handle.await.unwrap();
+    join_handle.await.unwrap();
+    routine_stopped_receiver.await.unwrap();
 }

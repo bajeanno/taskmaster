@@ -9,10 +9,7 @@ use daemonize::{Daemonized, DaemonizedOk, try_daemonized, try_daemonized_outside
 use logging::LogLevel;
 use rustyline::error::ReadlineError;
 
-use crate::{
-    client::{ParseError, start_client},
-    daemon::{ClaimError, is_daemon_started},
-};
+use crate::daemon::{ClaimError, is_daemon_started};
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
@@ -29,15 +26,15 @@ enum Error {
     InitCliEditor(#[source] ReadlineError),
     #[error("Failed to read line from cli")]
     ReadingLine(#[source] ReadlineError),
-    #[error("Failed to parse command")]
-    Parsing(#[from] ParseError),
+    #[error("Error while handling command")]
+    Command(#[from] client::Error),
 }
 
 /// # Safety
 ///
 /// Only call when it is safe to call fork()
 pub unsafe fn entrypoint(args: Vec<String>) -> ExitCode {
-    match run(args) {
+    match unsafe { run(args) } {
         Daemonized::InsideDaemon(Ok(())) | Daemonized::OutsideDaemon(Ok(())) => ExitCode::SUCCESS,
         Daemonized::InsideDaemon(Err(err)) => {
             match &err {
@@ -59,10 +56,14 @@ pub unsafe fn entrypoint(args: Vec<String>) -> ExitCode {
     }
 }
 
-fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
+/// # Safety
+///
+/// Only call when it is safe to call fork()
+unsafe fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
     let mut maybe_rl = None;
 
     let start_mode = StartMode::from_args(&mut args);
+
     let is_daemon_started = if start_mode.is_force() {
         false
     } else {
@@ -81,7 +82,7 @@ fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
 
         maybe_rl = Some(rl);
 
-        match unsafe { try_daemonized!(daemon::run(start_mode)) } {
+        match try_daemonized!(unsafe { daemon::run(start_mode) }) {
             DaemonizedOk::InsideDaemon(()) => return Daemonized::InsideDaemon(Ok(())),
             DaemonizedOk::OutsideDaemon(_pid) => {
                 // waiting a bit for the daemon to start before starting client
@@ -90,7 +91,7 @@ fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
         }
     }
 
-    Daemonized::OutsideDaemon(start_client(maybe_rl, args))
+    Daemonized::OutsideDaemon(client::run(maybe_rl, args))
 }
 
 fn should_start_daemon(rl: &mut rustyline::DefaultEditor) -> bool {

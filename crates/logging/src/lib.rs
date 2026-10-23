@@ -4,7 +4,7 @@ pub use time;
 fn add_error_sources(mut dst: String, mut maybe_source: Option<&dyn core::error::Error>) -> String {
     while let Some(source) = maybe_source.take() {
         let error_msg = source.to_string().replace("\n", "\n\t\t");
-        dst += &format!("\n\toccured because of: {error_msg}");
+        dst += &format!("\n\toccurred because of: {error_msg}");
         maybe_source = source.source();
     }
     dst

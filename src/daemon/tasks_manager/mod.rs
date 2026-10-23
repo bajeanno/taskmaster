@@ -1,16 +1,16 @@
 mod handle;
+pub use handle::Handle;
 mod status;
 pub use status::TasksManagerStatus;
 mod process_registry;
 mod routine;
+pub use routine::{Routine, RoutineStoppedReceiver};
 
 #[cfg(test)]
 mod tests;
 
 use crate::daemon::config_state::{InitFileError, ReloadType, RestoreConfigFileError};
-pub use handle::Handle;
 use routine::Client;
-pub use routine::Routine;
 use tokio::sync::oneshot;
 
 #[derive(Debug, thiserror::Error, serde::Serialize, serde::Deserialize)]

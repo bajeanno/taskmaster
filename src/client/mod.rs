@@ -1,5 +1,5 @@
 mod handle_command;
-pub use handle_command::ParseError;
+pub use handle_command::Error;
 
 mod shell;
 
@@ -12,16 +12,16 @@ use crate::{
     rpc::{self, ClientHandle},
 };
 
-pub fn start_client(
+pub fn run(
     maybe_rl: Option<rustyline::DefaultEditor>,
     args: Vec<String>,
 ) -> Result<(), crate::Error> {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
-        .block_on(run(maybe_rl, args))
+        .block_on(start_client(maybe_rl, args))
 }
 
-async fn run(
+async fn start_client(
     maybe_rl: Option<rustyline::DefaultEditor>,
     args: Vec<String>,
 ) -> Result<(), crate::Error> {
