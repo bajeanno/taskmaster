@@ -38,7 +38,7 @@ pub enum ClaimError {
     WriteFile(#[source] std::io::Error),
     #[error("Failed to parse pid file content")]
     Parse(#[source] ParseIntError),
-    #[error("Failed to parse pid file content")]
+    #[error("Failed to check if another instance of daemon is running")]
     Kill(#[source] CheckInstanceAlive),
     #[error(
         "The taskmaster PID file contains a pid meaning another instance of the daemon is \
