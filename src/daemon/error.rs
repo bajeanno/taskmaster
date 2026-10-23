@@ -39,7 +39,7 @@ pub enum ClaimError {
     #[error("Failed to parse pid file content")]
     Parse(#[source] ParseIntError),
     #[error("Failed to check if another instance of daemon is running")]
-    Kill(#[source] CheckInstanceAlive),
+    Kill(#[from] CheckInstanceAlive),
     #[error(
         "The taskmaster PID file contains a pid meaning another instance of the daemon is \
         currently running.\n\
