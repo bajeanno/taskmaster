@@ -21,10 +21,10 @@ pub fn run(maybe_rl: Option<rustyline::DefaultEditor>, args: Vec<String>) -> Res
 async fn start_client(maybe_rl: Option<rustyline::DefaultEditor>, args: Vec<String>) -> Result<(), crate::Error> {
     let client = connect_client().await?;
 
-    if args.get(1).is_some() {
-        handle_command(&client, args.into_iter().skip(1)).await?;
-    } else {
+    if args.is_empty() {
         shell::run(client, maybe_rl).await?;
+    } else {
+        handle_command(&client, args.into_iter()).await?;
     }
 
     Ok(())
