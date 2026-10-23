@@ -2,14 +2,15 @@
 mod tests;
 
 mod pid_file;
-pub mod start_mode;
 
 use signal::Signal;
-use start_mode::StartMode;
 
-use crate::daemon::{
-    claim_pid::{CheckInstanceAlive::ParsePgrep, pid_file::PidFile},
-    error::ClaimError::{self, OtherInstanceRunning},
+use crate::{
+    daemon::{
+        claim_pid::{CheckInstanceAlive::ParsePgrep, pid_file::PidFile},
+        error::ClaimError::{self, OtherInstanceRunning},
+    },
+    start_mode::StartMode,
 };
 
 use libc::signal::kill;
@@ -48,13 +49,13 @@ impl Claim {
     pub fn new(start_mode: StartMode) -> Result<Self, ClaimError> {
         let pid_file_path = PID_FILE.to_string();
         match start_mode {
-            StartMode::Force => {
+            StartMode::Force { .. } => {
                 if let Some(pid) = Self::get_running_pid()? {
                     Self::kill_running_instance(pid as c_int).map_err(ClaimError::Kill)?;
                     Self::clear_pid_file_at(&pid_file_path);
                 }
             }
-            StartMode::Acknowledge | StartMode::Classic => {}
+            StartMode::Acknowledge { .. } | StartMode::Classic => {}
         }
         Self::new_at(pid_file_path)
     }
