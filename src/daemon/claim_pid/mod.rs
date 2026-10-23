@@ -52,7 +52,7 @@ impl Claim {
         match start_mode {
             StartMode::Force { .. } => {
                 if let Some(pid) = Self::get_running_pid()? {
-                    Self::kill_running_instance(pid as c_int).map_err(ClaimError::Kill)?;
+                    Self::kill_running_instance(pid as c_int)?;
                     Self::clear_pid_file_at(&pid_file_path);
                     let _ = std::fs::remove_file(RPC_UNIX_SOCKET_PATH);
                 }
