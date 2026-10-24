@@ -39,7 +39,7 @@ pub enum CheckInstanceAlive {
 
 #[derive(Debug)]
 pub struct Claim {
-    pid_file_path: String,
+    file: PidFile,
 }
 
 impl Claim {
@@ -48,29 +48,29 @@ impl Claim {
     }
 
     pub fn new(start_mode: StartMode) -> Result<Self, ClaimError> {
-        let pid_file_path = PID_FILE.to_string();
-        match start_mode {
-            StartMode::Force { .. } => {
-                if let Some(pid) = Self::get_running_pid()? {
-                    Self::kill_running_instance(pid as c_int)?;
-                    Self::clear_pid_file_at(&pid_file_path);
-                    let _ = std::fs::remove_file(RPC_UNIX_SOCKET_PATH);
-                }
-            }
-            StartMode::Acknowledge { .. } | StartMode::Classic => {}
-        }
-        Self::new_at(pid_file_path)
+        Self::new_at(PID_FILE, start_mode)
     }
 
-    fn new_at(pid_file_path: String) -> Result<Self, ClaimError> {
-        let mut pid_file = PidFile::open(&pid_file_path)?;
-        match pid_file.read_pid()? {
-            Some(_) => Err(OtherInstanceRunning)?,
-            None => {
-                pid_file.write_pid()?;
-                Ok(Self { pid_file_path })
+    fn new_at(pid_file_path: &str, start_mode: StartMode) -> Result<Self, ClaimError> {
+        let mut pid_file = PidFile::open(pid_file_path)?;
+
+        match start_mode {
+            StartMode::Force { .. } => pid_file.with_lock(|file| {
+                Ok(if let Some(pid) = unsafe { file.read_pid()? } {
+                    Self::kill_running_instance(pid as c_int)?;
+                    let _ = std::fs::remove_file(RPC_UNIX_SOCKET_PATH);
+                })
+            })?,
+
+            StartMode::Acknowledge { .. } | StartMode::Classic => {
+                pid_file.with_lock(|file| match unsafe { file.read_pid()? } {
+                    Some(_) => Err(OtherInstanceRunning)?,
+                    None => unsafe { file.write_pid() },
+                })?
             }
-        }
+        };
+
+        Ok(Self { file: pid_file })
     }
 
     pub fn release_claim(self) {
@@ -80,17 +80,7 @@ impl Claim {
 
     fn get_running_pid() -> Result<Option<u32>, ClaimError> {
         let mut pid_file = PidFile::open(PID_FILE)?;
-        pid_file.read_pid()
-    }
-
-    fn clear_pid_file_at(path: &str) {
-        match PidFile::open(path) {
-            Ok(mut file) => file.truncate(),
-            Err(err) => eprintln!(
-                "error: failed to open taskmaster's pid file at {}: {err}",
-                path
-            ),
-        }
+        pid_file.with_lock(|file| unsafe { file.read_pid() })
     }
 
     fn kill_running_instance(pid: c_int) -> Result<(), CheckInstanceAlive> {
@@ -122,6 +112,13 @@ impl Claim {
 
 impl Drop for Claim {
     fn drop(&mut self) {
-        Self::clear_pid_file_at(&self.pid_file_path);
+        match self.file.with_lock(|file| Ok(unsafe { file.truncate() })) {
+            Ok(_) => {}
+            Err(err) => logging::log_with_msg(
+                "Error while clearing pid file",
+                &err,
+                logging::LogLevel::Error,
+            ),
+        }
     }
 }

@@ -72,7 +72,7 @@ fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
         try_daemonized_outside!(is_daemon_started())
     };
 
-    if !is_daemon_started {
+    if is_daemon_started == false {
         let mut rl =
             try_daemonized_outside!(rustyline::DefaultEditor::new().map_err(Error::InitCliEditor));
 
