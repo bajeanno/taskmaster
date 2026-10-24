@@ -34,6 +34,8 @@ pub enum ClaimError {
     Flock(#[source] std::io::Error),
     #[error("Failed to read pid file")]
     ReadFile(#[source] std::io::Error),
+    #[error("Failed to rewind pid file before reading/writing")]
+    RewindFile(#[source] std::io::Error),
     #[error("Failed to write to pid file")]
     WriteFile(#[source] std::io::Error),
     #[error("Failed to parse pid file content")]
