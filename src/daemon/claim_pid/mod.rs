@@ -56,10 +56,11 @@ impl Claim {
 
         match start_mode {
             StartMode::Force { .. } => pid_file.with_lock(|file| {
-                Ok(if let Some(pid) = unsafe { file.read_pid()? } {
+                if let Some(pid) = unsafe { file.read_pid()? } {
                     Self::kill_running_instance(pid as c_int)?;
                     let _ = std::fs::remove_file(RPC_UNIX_SOCKET_PATH);
-                })
+                }
+                Ok(())
             })?,
 
             StartMode::Acknowledge { .. } | StartMode::Classic => {
@@ -112,7 +113,10 @@ impl Claim {
 
 impl Drop for Claim {
     fn drop(&mut self) {
-        match self.file.with_lock(|file| Ok(unsafe { file.truncate() })) {
+        match self.file.with_lock(|file| {
+            unsafe { file.truncate() };
+            Ok(())
+        }) {
             Ok(_) => {}
             Err(err) => logging::log_with_msg(
                 "Error while clearing pid file",
