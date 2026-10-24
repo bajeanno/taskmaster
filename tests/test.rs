@@ -62,7 +62,7 @@ fn force_start() {
     unsafe { waitpid(pid, &mut status, option) };
     assert!(
         unsafe { wifexited(status) },
-        "process exited before being killed"
+        "daemon did not exit cleanly"
     );
     assert_eq!(unsafe { wexitstatus(status) }, 0);
 }
