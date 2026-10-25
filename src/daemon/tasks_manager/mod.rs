@@ -40,20 +40,20 @@ pub enum TaskManagerCommand {
     ListProcesses(oneshot::Sender<TasksManagerStatus>),
     Reload(ReloadType),
     StartProgram {
-        program_name: String,
+        task_name: String,
     },
     RestartProgram {
-        program_name: String,
+        task_name: String,
     },
     StopProgram {
-        program_name: String,
+        task_name: String,
     },
     SubscribeToProgramEvents {
-        program_name: String,
+        task_name: String,
         client: Client,
     },
     UnsubscribeToProgramEvents {
-        program_name: String,
+        task_name: String,
         client: Client,
     },
     StopAllProcesses,

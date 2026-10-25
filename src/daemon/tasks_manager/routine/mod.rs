@@ -165,13 +165,13 @@ mod tests {
 
     fn program_from_yaml(
         content: &str,
-        program_name: &str,
+        task_name: &str,
     ) -> Arc<crate::daemon::config::ProgramConfig> {
         match ConfigState::from_content(content.to_string(), "".to_string()) {
             ConfigState::Active {
                 config,
                 config_file_path: _,
-            } => config.programs.get(program_name).unwrap().clone(),
+            } => config.programs.get(task_name).unwrap().clone(),
             _ => panic!("config should parse"),
         }
     }
