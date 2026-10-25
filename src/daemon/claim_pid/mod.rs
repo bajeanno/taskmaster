@@ -56,15 +56,15 @@ impl Claim {
 
         pid_file.with_lock(|file| {
             match unsafe { file.read_pid()? } {
-                Some(pid) => {
-                    match start_mode {
-                        StartMode::Force { .. } => {
-                            Self::kill_running_instance(pid as c_int)?;
-                            let _ = std::fs::remove_file(RPC_UNIX_SOCKET_PATH);
-                        },
-                        StartMode::Acknowledge { .. } | StartMode::Classic => Err(OtherInstanceRunning)?,
+                Some(pid) => match start_mode {
+                    StartMode::Force { .. } => {
+                        Self::kill_running_instance(pid as c_int)?;
+                        let _ = std::fs::remove_file(RPC_UNIX_SOCKET_PATH);
                     }
-                }
+                    StartMode::Acknowledge { .. } | StartMode::Classic => {
+                        Err(OtherInstanceRunning)?
+                    }
+                },
                 None => {}
             }
             unsafe { file.write_pid()? };
