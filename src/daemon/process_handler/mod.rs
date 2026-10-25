@@ -18,7 +18,7 @@ use tokio::process::Command;
 use tokio::process::{ChildStderr, ChildStdout};
 use tokio::{io::BufReader, process::Child, sync::mpsc};
 
-use crate::daemon::config::ProgramConfig;
+use crate::daemon::config::TaskConfig;
 pub use log::{Log, LogType};
 
 pub type LogReceiver = mpsc::UnboundedReceiver<Log>;
@@ -29,8 +29,8 @@ pub type StatusReceiver = mpsc::UnboundedReceiver<NominativeStatus>;
 pub type KillCommandReceiver = mpsc::Receiver<()>;
 pub type KillCommandSender = mpsc::Sender<()>;
 
-pub type ReloadEventReceiver = mpsc::Receiver<Arc<ProgramConfig>>;
-pub type ReloadEventSender = mpsc::Sender<Arc<ProgramConfig>>;
+pub type ReloadEventReceiver = mpsc::Receiver<Arc<TaskConfig>>;
+pub type ReloadEventSender = mpsc::Sender<Arc<TaskConfig>>;
 
 pub struct Outputs {
     stdout: BufReader<ChildStdout>,

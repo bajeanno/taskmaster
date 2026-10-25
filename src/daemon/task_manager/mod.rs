@@ -39,23 +39,11 @@ pub enum ServerCommandError {
 pub enum TaskManagerCommand {
     ListProcesses(oneshot::Sender<TasksManagerStatus>),
     Reload(ReloadType),
-    StartProgram {
-        task_name: String,
-    },
-    RestartProgram {
-        task_name: String,
-    },
-    StopProgram {
-        task_name: String,
-    },
-    SubscribeToProgramEvents {
-        task_name: String,
-        client: Client,
-    },
-    UnsubscribeToProgramEvents {
-        task_name: String,
-        client: Client,
-    },
+    StartProgram { task_name: String },
+    RestartProgram { task_name: String },
+    StopProgram { task_name: String },
+    SubscribeToProgramEvents { task_name: String, client: Client },
+    UnsubscribeToProgramEvents { task_name: String, client: Client },
     StopAllProcesses,
     RestoreConfigFile,
     Shutdown,

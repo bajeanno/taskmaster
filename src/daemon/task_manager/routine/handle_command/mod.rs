@@ -1,13 +1,7 @@
 mod reload;
 
-use crate::daemon::{
-    config::ProgramConfig,
-    config_state::ConfigState::Active,
-    tasks_manager::{
-        ServerCommandError, TaskManagerCommand,
-        routine::{Client, Routine},
-    },
-};
+use super::{Client, Routine, ServerCommandError, TaskManagerCommand};
+use crate::daemon::{config::TaskConfig, config_state::ConfigState::Active};
 use std::sync::Arc;
 
 pub enum ShouldStopEventLoop {
@@ -44,18 +38,12 @@ impl Routine {
                 self.processes.stop_program(task_name).await?
             }
 
-            TaskManagerCommand::SubscribeToProgramEvents {
-                task_name,
-                client,
-            } => {
+            TaskManagerCommand::SubscribeToProgramEvents { task_name, client } => {
                 self.handle_subscribe_to_program_events(task_name, client)
                     .await?
             }
 
-            TaskManagerCommand::UnsubscribeToProgramEvents {
-                task_name,
-                client,
-            } => {
+            TaskManagerCommand::UnsubscribeToProgramEvents { task_name, client } => {
                 self.handle_unsubscribe_to_program_events(task_name, client)
                     .await?
             }
@@ -117,13 +105,13 @@ impl Routine {
         Ok(())
     }
 
-    fn get_program_config(&self, task_name: &str) -> Option<Arc<ProgramConfig>> {
+    fn get_program_config(&self, task_name: &str) -> Option<Arc<TaskConfig>> {
         if let Active {
             config,
             config_file_path: _,
         } = &self.config_state
         {
-            config.programs.get(task_name).map(Arc::clone)
+            config.tasks.get(task_name).map(Arc::clone)
         } else {
             None
         }

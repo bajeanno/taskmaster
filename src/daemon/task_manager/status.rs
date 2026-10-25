@@ -1,7 +1,7 @@
 use std::{fmt::Display, sync::Arc};
 
 use crate::daemon::{
-    config::ProgramConfig,
+    config::TaskConfig,
     process_handler::{NominativeStatus, Status},
 };
 
@@ -17,7 +17,7 @@ impl TasksManagerStatus {
         Self { list: Vec::new() }
     }
 
-    pub fn push(&mut self, program_config: &Arc<ProgramConfig>, list: Vec<NominativeStatus>) {
+    pub fn push(&mut self, program_config: &Arc<TaskConfig>, list: Vec<NominativeStatus>) {
         let list = StatusList {
             list,
             task_name: program_config.name().clone(),
@@ -113,10 +113,10 @@ impl Display for StatusList {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::daemon::{
         process::ProcessId,
         process_handler::{NominativeStatus, Status},
-        tasks_manager::status::{StatusList, TasksManagerStatus},
     };
 
     fn create_tasks_yaml_content() -> String {
@@ -236,8 +236,8 @@ mod tests {
         let config =
             crate::daemon::config::Config::from_reader(std::io::Cursor::new(content)).unwrap();
         let mut process_list = TasksManagerStatus::new();
-        process_list.push(&config.programs.get("nginx").unwrap(), list);
-        process_list.push(&config.programs.get("postgres").unwrap(), list2);
+        process_list.push(&config.tasks.get("nginx").unwrap(), list);
+        process_list.push(&config.tasks.get("postgres").unwrap(), list2);
         println!("{}", process_list.to_string());
         assert_eq!(
             process_list.to_string(),

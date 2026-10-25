@@ -230,11 +230,7 @@ async fn handle_reload_command(
 }
 
 async fn handle_start_command(client: &ClientHandle, task_name: String) -> Result<(), Error> {
-    client
-        .server_stub
-        .start(task_name.clone())
-        .call()
-        .await??;
+    client.server_stub.start(task_name.clone()).call().await??;
     println!("{task_name} started");
     Ok(())
 }
@@ -250,11 +246,7 @@ async fn handle_restart_command(client: &ClientHandle, task_name: String) -> Res
 }
 
 async fn handle_stop_command(client: &ClientHandle, task_name: String) -> Result<(), Error> {
-    client
-        .server_stub
-        .stop(task_name.clone())
-        .call()
-        .await??;
+    client.server_stub.stop(task_name.clone()).call().await??;
     println!("{task_name} stopped");
     Ok(())
 }

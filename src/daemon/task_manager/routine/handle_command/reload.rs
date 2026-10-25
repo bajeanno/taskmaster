@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
+use super::{Routine, ServerCommandError};
 use crate::daemon::{
-    config::{Config, program::ProgramDiff},
+    config::{Config, program::TaskConfigDiff},
     config_state::ConfigState::{self, Active, LoadError, Uninitialized},
     config_state::ReloadType,
-    tasks_manager::{ServerCommandError, routine::Routine},
 };
 
 impl Routine {
@@ -31,7 +31,7 @@ impl Routine {
                     | LoadError {
                         error: _,
                         config_file_path: _,
-                    } => self.start_programs(&new_config.programs).await,
+                    } => self.start_programs(&new_config.tasks).await,
                 }
                 Ok(())
             }
@@ -56,11 +56,11 @@ impl Routine {
     // remove it from the hashmap because we only handle one user command
     // at a time
     async fn update_processes(&mut self, current_config: &Arc<Config>, new_config: &Arc<Config>) {
-        for (name, new_program_config) in new_config.programs.iter() {
-            match current_config.programs.get(name) {
+        for (name, new_program_config) in new_config.tasks.iter() {
+            match current_config.tasks.get(name) {
                 Some(current_program_config) => {
                     match current_program_config.diff(new_program_config) {
-                        ProgramDiff::NeedRestart => {
+                        TaskConfigDiff::NeedRestart => {
                             self.processes
                                 .stop_and_remove_program(name)
                                 .await
@@ -73,7 +73,7 @@ impl Routine {
                                 )
                                 .await;
                         }
-                        ProgramDiff::NumProcsChanged { before, after } => {
+                        TaskConfigDiff::NumProcsChanged { before, after } => {
                             self.processes
                                 .handle_num_procs_diff(
                                     new_program_config,
@@ -85,7 +85,7 @@ impl Routine {
                                 )
                                 .await;
                         }
-                        ProgramDiff::Other => {
+                        TaskConfigDiff::Other => {
                             self.processes
                                 .update_processes_program_data(name, new_program_config)
                                 .await;
@@ -101,8 +101,8 @@ impl Routine {
             }
         }
 
-        for name in current_config.programs.keys() {
-            if !new_config.programs.contains_key(name) {
+        for name in current_config.tasks.keys() {
+            if !new_config.tasks.contains_key(name) {
                 self.processes
                     .stop_and_remove_program(name)
                     .await
@@ -124,7 +124,7 @@ mod tests {
         config::program::{AutoRestart, Command},
         config_state::{ConfigState, DEFAULT_TASKS_FILE},
         process_handler::{LogReceiver, Status, StatusReceiver},
-        tasks_manager::{process_registry::ProcessRegistry, routine::Routine},
+        task_manager::{process_registry::ProcessRegistry, routine::Routine},
     };
     use tokio::sync::{Mutex, mpsc, oneshot};
 
@@ -204,7 +204,7 @@ mod tests {
             status_sender,
             routine_stopped_sender,
         };
-        routine.start_programs(&current_config.programs).await;
+        routine.start_programs(&current_config.tasks).await;
 
         (routine, status_receiver, log_receiver)
     }

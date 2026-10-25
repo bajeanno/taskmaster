@@ -42,7 +42,7 @@ fn test_init_file_ron_round_trip() {
 fn test_from_content_activates_config() {
     let state = ConfigState::from_content(VALID_YAML.to_string(), "".to_string());
     let config = expect_active(&state);
-    assert!(config.programs.contains_key("testprog"));
+    assert!(config.tasks.contains_key("testprog"));
 }
 
 #[test]
@@ -111,7 +111,7 @@ fn test_load_config_temp_config_returns_active_with_file_path() {
             config,
             config_file_path,
         } => {
-            assert!(config.programs.contains_key("testprog"));
+            assert!(config.tasks.contains_key("testprog"));
             assert_eq!(config_file_path, tasks_path);
         }
         _ => panic!("expected Active config state"),
@@ -131,7 +131,7 @@ fn test_load_config_use_current_reloads_current_file() {
             config,
             config_file_path,
         } => {
-            assert!(config.programs.contains_key("testprog"));
+            assert!(config.tasks.contains_key("testprog"));
             assert_eq!(config_file_path, tasks_path);
         }
         _ => panic!("expected Active config state"),
@@ -150,7 +150,7 @@ fn test_load_config_missing_file_creates_template() {
             config,
             config_file_path,
         } => {
-            assert!(config.programs.contains_key("template_task"));
+            assert!(config.tasks.contains_key("template_task"));
             assert_eq!(config_file_path, missing_path);
         }
         _ => panic!("expected Active config state"),

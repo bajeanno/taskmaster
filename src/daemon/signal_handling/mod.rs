@@ -1,6 +1,6 @@
 mod signal_channel;
 
-use crate::daemon::{config_state::ReloadType, tasks_manager::Handle};
+use crate::daemon::{config_state::ReloadType, task_manager::Handle};
 use signal::Signal;
 use signal_channel::SignalChannel;
 use std::{

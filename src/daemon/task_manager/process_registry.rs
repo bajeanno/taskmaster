@@ -2,11 +2,11 @@ use std::{collections::HashMap, sync::Arc};
 
 use tokio::sync::{Mutex, mpsc::UnboundedSender};
 
+use super::{ServerCommandError, status::TasksManagerStatus};
 use crate::daemon::{
-    config::ProgramConfig,
+    config::TaskConfig,
     process::Process,
     process_handler::{LogSender, NominativeStatus, Status},
-    tasks_manager::{ServerCommandError, status::TasksManagerStatus},
 };
 
 // TODO: remove that
@@ -22,7 +22,7 @@ impl ProcessRegistry {
 
     pub async fn start_program(
         &self,
-        program_config: &Arc<ProgramConfig>,
+        program_config: &Arc<TaskConfig>,
         status_sender: &UnboundedSender<NominativeStatus>,
         log_sender: &LogSender,
     ) {
@@ -45,7 +45,7 @@ impl ProcessRegistry {
 
     async fn create_processes_vec(
         &self,
-        program_config: &Arc<ProgramConfig>,
+        program_config: &Arc<TaskConfig>,
         status_sender: &UnboundedSender<NominativeStatus>,
         log_sender: &LogSender,
     ) -> Vec<Process> {
@@ -72,10 +72,7 @@ impl ProcessRegistry {
         Ok(())
     }
 
-    pub async fn stop_and_remove_program(
-        &self,
-        task_name: &str,
-    ) -> Result<(), ServerCommandError> {
+    pub async fn stop_and_remove_program(&self, task_name: &str) -> Result<(), ServerCommandError> {
         let mut processes = self.0.lock().await;
 
         for process in processes
@@ -124,7 +121,7 @@ impl ProcessRegistry {
     pub async fn update_processes_program_data(
         &self,
         task_name: &str,
-        new_config: &Arc<ProgramConfig>,
+        new_config: &Arc<TaskConfig>,
     ) {
         for process in self
             .0
@@ -140,7 +137,7 @@ impl ProcessRegistry {
 
     pub async fn handle_num_procs_diff(
         &self,
-        new_program_config: &Arc<ProgramConfig>,
+        new_program_config: &Arc<TaskConfig>,
         current_num_procs: usize,
         new_num_procs: usize,
         task_name: &str,

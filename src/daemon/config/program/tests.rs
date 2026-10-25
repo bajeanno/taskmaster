@@ -1,7 +1,7 @@
 use crate::daemon::{
     config::{
         Config,
-        program::{AutoRestart, Command, CommandError, ProgramConfig},
+        program::{AutoRestart, Command, CommandError, TaskConfig},
     },
     output_file::OutputFile,
     test_utils::TestDir,
@@ -69,12 +69,12 @@ impl TestProgramBuilder {
         })
     }
 
-    fn build(self) -> Result<ProgramConfig, CommandError> {
+    fn build(self) -> Result<TaskConfig, CommandError> {
         if self.command.exec.is_empty() {
             return Err(CommandError::EmptyCommand);
         }
 
-        let program = ProgramConfig {
+        let program = TaskConfig {
             name: self.name,
             cmd: self.command,
             umask: self.umask,
@@ -98,10 +98,10 @@ impl TestProgramBuilder {
     }
 }
 
-fn assert_config_parses_to(yaml_content: &str, expected_program: ProgramConfig) {
+fn assert_config_parses_to(yaml_content: &str, expected_program: TaskConfig) {
     let mut programs = HashMap::new();
     programs.insert(expected_program.name.clone(), Arc::new(expected_program));
-    let expected_config = Config { programs };
+    let expected_config = Config { tasks: programs };
 
     let config_reader = Cursor::new(yaml_content);
     let parsed_config = Config::from_reader(config_reader);

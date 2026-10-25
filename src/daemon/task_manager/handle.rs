@@ -1,9 +1,7 @@
 use tokio::sync::oneshot;
 
-use crate::daemon::{
-    CommandSender, ReloadType, TaskManagerCommand, TasksManagerStatus,
-    tasks_manager::ServerCommandError,
-};
+use super::ServerCommandError;
+use crate::daemon::{CommandSender, ReloadType, TaskManagerCommand, TasksManagerStatus};
 
 type Result<T, Err = ServerCommandError> = core::result::Result<T, Err>;
 
