@@ -60,10 +60,7 @@ fn force_start() {
     let option: c_int = 0;
 
     unsafe { waitpid(pid, &mut status, option) };
-    assert!(
-        unsafe { wifexited(status) },
-        "daemon did not exit cleanly"
-    );
+    assert!(unsafe { wifexited(status) }, "daemon did not exit cleanly");
     assert_eq!(unsafe { wexitstatus(status) }, 0);
 }
 

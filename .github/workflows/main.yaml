@@ -34,6 +34,7 @@ jobs:
 
       - name: Run tests
         run: |
+
             sudo mkdir -p /var/run/taskmaster.d
             sudo chown runner /var/run/taskmaster.d
             sudo mkdir -p /etc/taskmaster.d

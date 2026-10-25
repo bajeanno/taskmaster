@@ -54,22 +54,22 @@ impl Claim {
     fn new_at(pid_file_path: &str, start_mode: StartMode) -> Result<Self, ClaimError> {
         let mut pid_file = PidFile::open(pid_file_path)?;
 
-        match start_mode {
-            StartMode::Force { .. } => pid_file.with_lock(|file| {
-                if let Some(pid) = unsafe { file.read_pid()? } {
-                    Self::kill_running_instance(pid as c_int)?;
-                    let _ = std::fs::remove_file(RPC_UNIX_SOCKET_PATH);
+        pid_file.with_lock(|file| {
+            match unsafe { file.read_pid()? } {
+                Some(pid) => {
+                    match start_mode {
+                        StartMode::Force { .. } => {
+                            Self::kill_running_instance(pid as c_int)?;
+                            let _ = std::fs::remove_file(RPC_UNIX_SOCKET_PATH);
+                        },
+                        StartMode::Acknowledge { .. } | StartMode::Classic => Err(OtherInstanceRunning)?,
+                    }
                 }
-                Ok(())
-            })?,
-
-            StartMode::Acknowledge { .. } | StartMode::Classic => {
-                pid_file.with_lock(|file| match unsafe { file.read_pid()? } {
-                    Some(_) => Err(OtherInstanceRunning)?,
-                    None => unsafe { file.write_pid() },
-                })?
+                None => {}
             }
-        };
+            unsafe { file.write_pid()? };
+            Ok(())
+        })?;
 
         Ok(Self { file: pid_file })
     }
