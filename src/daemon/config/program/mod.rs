@@ -18,7 +18,7 @@ use std::{collections::HashMap, fmt::Display, str::FromStr, sync::Arc};
 use derive_getters::Getters;
 
 #[derive(Debug)]
-pub enum ProgramDiff {
+pub enum TaskConfigDiff {
     NeedRestart,
     NumProcsChanged { before: usize, after: usize },
     Other,
@@ -27,7 +27,7 @@ pub enum ProgramDiff {
 #[allow(dead_code)] // TODO: remove this
 #[derive(Debug, Clone, Getters, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
-pub struct ProgramConfig {
+pub struct TaskConfig {
     /// Name of the task
     ///
     /// *infered from the yaml section name*
@@ -157,18 +157,18 @@ pub struct ProgramConfig {
     env: HashMap<String, String>,
 }
 
-impl Display for ProgramConfig {
+impl Display for TaskConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:<15}{:50}", self.name, self.cmd,)
     }
 }
 
-impl ProgramConfig {
+impl TaskConfig {
     pub(super) fn name_mut(&mut self) -> &mut String {
         &mut self.name
     }
 
-    pub fn diff(self: &Arc<Self>, other: &Arc<ProgramConfig>) -> ProgramDiff {
+    pub fn diff(self: &Arc<Self>, other: &Arc<TaskConfig>) -> TaskConfigDiff {
         if self.cmd != other.cmd
             || self.clear_env() != other.clear_env()
             || self.env() != other.env()
@@ -177,21 +177,21 @@ impl ProgramConfig {
             || self.stdout() != other.stdout()
             || self.stderr() != other.stderr()
         {
-            return ProgramDiff::NeedRestart;
+            return TaskConfigDiff::NeedRestart;
         }
 
         if self.num_procs() != other.num_procs() {
-            return ProgramDiff::NumProcsChanged {
+            return TaskConfigDiff::NumProcsChanged {
                 before: *self.num_procs() as usize,
                 after: *other.num_procs() as usize,
             };
         }
 
-        ProgramDiff::Other
+        TaskConfigDiff::Other
     }
 
-    pub(super) fn template() -> ProgramConfig {
-        ProgramConfig {
+    pub(super) fn template() -> TaskConfig {
+        TaskConfig {
             name: "template_task".to_string(),
             umask: 0o022,
             cmd: Command {

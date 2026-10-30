@@ -3,7 +3,7 @@ use super::{
     StatusSender, command,
 };
 use crate::daemon::{
-    config::{ProgramConfig, program::AutoRestart},
+    config::{TaskConfig, program::AutoRestart},
     output_file::OutputFile,
     process::ProcessId,
     process_handler::{Log, LogType, Outputs},
@@ -23,7 +23,7 @@ pub struct Routine {
     log_sender: LogSender,
     kill_command_receiver: KillCommandReceiver,
     reload_event_receiver: ReloadEventReceiver,
-    config: Arc<ProgramConfig>,
+    config: Arc<TaskConfig>,
     start_attempts: u32,
     command: Command,
     process_id: ProcessId,
@@ -33,7 +33,7 @@ pub struct Routine {
 
 impl Routine {
     pub fn spawn(
-        config: Arc<ProgramConfig>,
+        config: Arc<TaskConfig>,
         status_sender: UnboundedSender<NominativeStatus>,
         log_sender: LogSender,
         process_id: ProcessId,

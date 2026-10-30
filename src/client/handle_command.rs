@@ -187,19 +187,19 @@ pub async fn handle_command(
             },
         },
 
-        /// Starts the program named program_name
-        "start", program_name => handle_start_command(client, program_name).await?,
+        /// Starts the program named task_name
+        "start", task_name => handle_start_command(client, task_name).await?,
 
-        /// Restarts the program named program_name
-        "restart", program_name => handle_restart_command(client, program_name).await?,
+        /// Restarts the program named task_name
+        "restart", task_name => handle_restart_command(client, task_name).await?,
 
         /// Stops programs
         "stop" => sub_commands! {
             /// Stops all programs handled by taskmaster
             "--all" => handle_stop_all_command(client).await?,
 
-            /// Stops the program named program_name
-            program_name => handle_stop_command(client, program_name).await?,
+            /// Stops the program named task_name
+            task_name => handle_stop_command(client, task_name).await?,
         },
 
         /// Rewrites the active config to the last used config file
@@ -229,33 +229,25 @@ async fn handle_reload_command(
     Ok(())
 }
 
-async fn handle_start_command(client: &ClientHandle, program_name: String) -> Result<(), Error> {
-    client
-        .server_stub
-        .start(program_name.clone())
-        .call()
-        .await??;
-    println!("{program_name} started");
+async fn handle_start_command(client: &ClientHandle, task_name: String) -> Result<(), Error> {
+    client.server_stub.start(task_name.clone()).call().await??;
+    println!("{task_name} started");
     Ok(())
 }
 
-async fn handle_restart_command(client: &ClientHandle, program_name: String) -> Result<(), Error> {
+async fn handle_restart_command(client: &ClientHandle, task_name: String) -> Result<(), Error> {
     client
         .server_stub
-        .restart(program_name.clone())
+        .restart(task_name.clone())
         .call()
         .await??;
-    println!("{program_name} restarted");
+    println!("{task_name} restarted");
     Ok(())
 }
 
-async fn handle_stop_command(client: &ClientHandle, program_name: String) -> Result<(), Error> {
-    client
-        .server_stub
-        .stop(program_name.clone())
-        .call()
-        .await??;
-    println!("{program_name} stopped");
+async fn handle_stop_command(client: &ClientHandle, task_name: String) -> Result<(), Error> {
+    client.server_stub.stop(task_name.clone()).call().await??;
+    println!("{task_name} stopped");
     Ok(())
 }
 

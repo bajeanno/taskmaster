@@ -2,11 +2,11 @@ use std::{collections::HashMap, sync::Arc};
 
 use tokio::sync::{Mutex, mpsc::UnboundedSender};
 
+use super::{ServerCommandError, status::TasksManagerStatus};
 use crate::daemon::{
-    config::ProgramConfig,
+    config::TaskConfig,
     process::Process,
     process_handler::{LogSender, NominativeStatus, Status},
-    tasks_manager::{ServerCommandError, status::TasksManagerStatus},
 };
 
 // TODO: remove that
@@ -22,7 +22,7 @@ impl ProcessRegistry {
 
     pub async fn start_program(
         &self,
-        program_config: &Arc<ProgramConfig>,
+        program_config: &Arc<TaskConfig>,
         status_sender: &UnboundedSender<NominativeStatus>,
         log_sender: &LogSender,
     ) {
@@ -45,7 +45,7 @@ impl ProcessRegistry {
 
     async fn create_processes_vec(
         &self,
-        program_config: &Arc<ProgramConfig>,
+        program_config: &Arc<TaskConfig>,
         status_sender: &UnboundedSender<NominativeStatus>,
         log_sender: &LogSender,
     ) -> Vec<Process> {
@@ -58,13 +58,13 @@ impl ProcessRegistry {
 
     pub async fn stop_program(
         &self,
-        program_name: impl AsRef<str> + Into<String>,
+        task_name: impl AsRef<str> + Into<String>,
     ) -> Result<(), ServerCommandError> {
         let mut processes = self.0.lock().await;
 
         for process in processes
-            .get_mut(program_name.as_ref())
-            .ok_or_else(|| ServerCommandError::NoSuchProgram(program_name.into()))?
+            .get_mut(task_name.as_ref())
+            .ok_or_else(|| ServerCommandError::NoSuchProgram(task_name.into()))?
             .iter_mut()
         {
             process.stop_and_join_if_running().await;
@@ -72,20 +72,17 @@ impl ProcessRegistry {
         Ok(())
     }
 
-    pub async fn stop_and_remove_program(
-        &self,
-        program_name: &str,
-    ) -> Result<(), ServerCommandError> {
+    pub async fn stop_and_remove_program(&self, task_name: &str) -> Result<(), ServerCommandError> {
         let mut processes = self.0.lock().await;
 
         for process in processes
-            .get_mut(program_name)
-            .ok_or_else(|| ServerCommandError::NoSuchProgram(program_name.into()))?
+            .get_mut(task_name)
+            .ok_or_else(|| ServerCommandError::NoSuchProgram(task_name.into()))?
             .iter_mut()
         {
             process.stop_and_join_if_running().await;
         }
-        processes.remove(program_name);
+        processes.remove(task_name);
         Ok(())
     }
 
@@ -123,14 +120,14 @@ impl ProcessRegistry {
 
     pub async fn update_processes_program_data(
         &self,
-        program_name: &str,
-        new_config: &Arc<ProgramConfig>,
+        task_name: &str,
+        new_config: &Arc<TaskConfig>,
     ) {
         for process in self
             .0
             .lock()
             .await
-            .get_mut(program_name)
+            .get_mut(task_name)
             .expect("program is absent from processes")
             .iter_mut()
         {
@@ -140,10 +137,10 @@ impl ProcessRegistry {
 
     pub async fn handle_num_procs_diff(
         &self,
-        new_program_config: &Arc<ProgramConfig>,
+        new_program_config: &Arc<TaskConfig>,
         current_num_procs: usize,
         new_num_procs: usize,
-        program_name: &str,
+        task_name: &str,
         status_sender: &UnboundedSender<NominativeStatus>,
         log_sender: &LogSender,
     ) {
@@ -152,7 +149,7 @@ impl ProcessRegistry {
         if procs_delta > 0 {
             // new_num_procs cannot be 0 as it's checked in the parsing
             let mut processes_hashmap = self.0.lock().await;
-            let process_vec = processes_hashmap.get_mut(program_name).unwrap();
+            let process_vec = processes_hashmap.get_mut(task_name).unwrap();
             for process in process_vec.iter_mut().rev().take(procs_delta as usize) {
                 process.stop_and_join_if_running().await;
             }
@@ -166,7 +163,7 @@ impl ProcessRegistry {
             }
         } else if procs_delta < 0 {
             let mut lock = self.0.lock().await;
-            let Some(process_vec) = lock.get_mut(program_name) else {
+            let Some(process_vec) = lock.get_mut(task_name) else {
                 panic!("program is uninitialized");
             };
 

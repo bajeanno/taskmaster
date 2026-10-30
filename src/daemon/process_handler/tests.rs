@@ -100,7 +100,7 @@ async fn create_task() {
     );
     let program = Config::from_reader(Cursor::new(yaml_content))
         .expect("Parse error")
-        .programs
+        .tasks
         .into_iter()
         .next()
         .expect("Config vector is empty")
@@ -187,7 +187,7 @@ async fn create_task_then_interrupt() {
     );
     let config = Config::from_reader(Cursor::new(yaml_content))
         .unwrap()
-        .programs
+        .tasks
         .into_iter()
         .next()
         .expect("Config hashmap is empty")
@@ -236,10 +236,10 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
     use crate::daemon::config::Config;
     use std::io::Cursor;
 
-    fn program_from_yaml(content: &str) -> Arc<crate::daemon::config::ProgramConfig> {
+    fn program_from_yaml(content: &str) -> Arc<crate::daemon::config::TaskConfig> {
         Config::from_reader(Cursor::new(content.to_string()))
             .expect("failed to parse config")
-            .programs
+            .tasks
             .into_values()
             .next()
             .expect("config has no program")
@@ -341,7 +341,7 @@ async fn create_task_with_working_dir() {
 
     let program = Config::from_reader(Cursor::new(yaml_content))
         .expect("Parse error")
-        .programs
+        .tasks
         .into_iter()
         .next()
         .expect("Config vector is empty")

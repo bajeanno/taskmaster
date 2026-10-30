@@ -1,5 +1,5 @@
 pub mod program;
-pub use program::ProgramConfig;
+pub use program::TaskConfig;
 
 mod error;
 pub use error::{CreatingDefaultConfigFileError, ParseError};
@@ -14,7 +14,7 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Config {
-    pub programs: HashMap<String, Arc<ProgramConfig>>,
+    pub tasks: HashMap<String, Arc<TaskConfig>>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -22,11 +22,11 @@ pub struct Config {
 #[serde(deny_unknown_fields)]
 struct TmpConfig {
     #[serde(with = "::serde_with::rust::maps_duplicate_key_is_error")]
-    programs: HashMap<String, ProgramConfig>,
+    programs: HashMap<String, TaskConfig>,
 }
 
 impl TmpConfig {
-    fn programs(self) -> Result<HashMap<String, ProgramConfig>, serde_yaml::Error> {
+    fn programs(self) -> Result<HashMap<String, TaskConfig>, serde_yaml::Error> {
         self.programs
             .into_iter()
             .map(|(name, mut program)| {
@@ -53,7 +53,7 @@ impl TmpConfig {
         };
         config
             .programs
-            .insert("template_task".to_string(), ProgramConfig::template());
+            .insert("template_task".to_string(), TaskConfig::template());
         config
     }
 }
@@ -63,7 +63,7 @@ impl From<Config> for TmpConfig {
         let mut config = Self {
             programs: HashMap::new(),
         };
-        for (name, program) in config_from.programs {
+        for (name, program) in config_from.tasks {
             config.programs.insert(name, program.deref().clone());
         }
         config
@@ -79,7 +79,7 @@ impl Config {
     pub fn from_reader(file: impl std::io::Read) -> Result<Config, serde_yaml::Error> {
         let tmp_config: TmpConfig = serde_yaml::from_reader(file)?;
         let config = Self {
-            programs: tmp_config
+            tasks: tmp_config
                 .programs()?
                 .into_iter()
                 .map(|(name, program)| (name, Arc::new(program)))
@@ -144,9 +144,9 @@ mod tests {
     fn from_config_serialization_test() {
         let mut programs = HashMap::new();
         let name = "task".to_string();
-        programs.insert(name.clone(), Arc::new(ProgramConfig::template()));
+        programs.insert(name.clone(), Arc::new(TaskConfig::template()));
 
-        let original_config = Config { programs };
+        let original_config = Config { tasks: programs };
 
         // Test From<Config> for TmpConfig
         let tmp_config = TmpConfig::from(original_config);
@@ -159,7 +159,7 @@ mod tests {
 
         // Convert back to Config via from_reader logic and assert equality
         let final_config = Config {
-            programs: deserialized_tmp
+            tasks: deserialized_tmp
                 .programs()
                 .unwrap()
                 .into_iter()
@@ -169,11 +169,11 @@ mod tests {
 
         // Re-wrap original for comparison (re-creating to avoid move issues)
         let mut expected_programs = HashMap::new();
-        let mut expected_program = ProgramConfig::template();
+        let mut expected_program = TaskConfig::template();
         *expected_program.name_mut() = name.clone();
         expected_programs.insert(name, Arc::new(expected_program));
         let expected_config = Config {
-            programs: expected_programs,
+            tasks: expected_programs,
         };
 
         assert_eq!(final_config, expected_config);

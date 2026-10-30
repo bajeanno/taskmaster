@@ -1,7 +1,7 @@
-use crate::daemon::ProgramConfig;
+use crate::daemon::TaskConfig;
 use tokio::process::Command;
 
-pub(super) fn create_command(config: &ProgramConfig) -> Command {
+pub(super) fn create_command(config: &TaskConfig) -> Command {
     let mut command = Command::new(config.cmd.exec.clone());
     for arg in config.cmd.args.iter() {
         command.arg(arg);

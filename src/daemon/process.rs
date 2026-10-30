@@ -9,7 +9,7 @@ use std::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::daemon::{
-    config::ProgramConfig,
+    config::TaskConfig,
     process_handler::{self, LogSender, NominativeStatus, Status},
 };
 
@@ -28,7 +28,7 @@ impl Display for ProcessId {
 }
 
 pub struct Process {
-    program_config: Arc<ProgramConfig>,
+    program_config: Arc<TaskConfig>,
     handle: Option<process_handler::Handle>,
     pub nominative_status: NominativeStatus,
     instance_id: usize,
@@ -47,7 +47,7 @@ impl Debug for Process {
 static NEXT_PROCESS_INSTANCE_ID: AtomicUsize = AtomicUsize::new(1);
 
 impl Process {
-    pub fn new(program: Arc<ProgramConfig>, id: usize) -> Self {
+    pub fn new(program: Arc<TaskConfig>, id: usize) -> Self {
         Self {
             program_config: Arc::clone(&program),
             handle: None,
@@ -108,7 +108,7 @@ impl Process {
         self.nominative_status.status = Status::RoutineStarting;
     }
 
-    pub async fn update_program_config(&mut self, new_config: Arc<ProgramConfig>) {
+    pub async fn update_program_config(&mut self, new_config: Arc<TaskConfig>) {
         self.program_config = new_config;
 
         if let Some(handle) = &self.handle {
@@ -140,7 +140,7 @@ impl Process {
         self.handle.is_some()
     }
 
-    pub fn program_config(&self) -> Arc<ProgramConfig> {
+    pub fn program_config(&self) -> Arc<TaskConfig> {
         Arc::clone(&self.program_config)
     }
 }

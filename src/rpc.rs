@@ -61,18 +61,18 @@ mod service {
         }
 
         #[remote_method]
-        pub async fn start(&self, program_name: String) -> Result<()> {
-            self.tasks_manager_handle.start(program_name).await
+        pub async fn start(&self, task_name: String) -> Result<()> {
+            self.tasks_manager_handle.start(task_name).await
         }
 
         #[remote_method]
-        pub async fn restart(&self, program_name: String) -> Result<()> {
-            self.tasks_manager_handle.restart(program_name).await
+        pub async fn restart(&self, task_name: String) -> Result<()> {
+            self.tasks_manager_handle.restart(task_name).await
         }
 
         #[remote_method]
-        pub async fn stop(&self, program_name: String) -> Result<()> {
-            self.tasks_manager_handle.stop(program_name).await
+        pub async fn stop(&self, task_name: String) -> Result<()> {
+            self.tasks_manager_handle.stop(task_name).await
         }
 
         #[remote_method]
