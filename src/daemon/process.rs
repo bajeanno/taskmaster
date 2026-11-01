@@ -47,20 +47,20 @@ impl Debug for Process {
 static NEXT_PROCESS_INSTANCE_ID: AtomicUsize = AtomicUsize::new(1);
 
 impl Process {
-    pub fn new(program: Arc<TaskConfig>, id: usize) -> Self {
+    pub fn new(task: Arc<TaskConfig>, id: usize) -> Self {
         Self {
-            program_config: Arc::clone(&program),
+            program_config: Arc::clone(&task),
             handle: None,
             nominative_status: NominativeStatus {
                 process_id: ProcessId {
-                    task_name: program.name().clone(),
+                    task_name: task.name().clone(),
                     id,
                 },
                 status: Status::default(),
             },
             instance_id: 0,
             process_id: ProcessId {
-                task_name: program.name().clone(),
+                task_name: task.name().clone(),
                 id,
             },
         }

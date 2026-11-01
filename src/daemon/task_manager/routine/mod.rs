@@ -107,8 +107,8 @@ impl Routine {
         let _ = self.routine_stopped_sender.send(());
     }
 
-    async fn start_programs(&mut self, programs: &HashMap<String, Arc<TaskConfig>>) {
-        for program_config in programs.values() {
+    async fn start_programs(&mut self, tasks: &HashMap<String, Arc<TaskConfig>>) {
+        for program_config in tasks.values() {
             self.processes
                 .start_program(program_config, &self.status_sender, &self.log_sender)
                 .await;
@@ -160,7 +160,7 @@ mod tests {
     use std::assert_matches;
     use std::sync::Arc;
 
-    use crate::daemon::{config::program::TaskConfigDiff, config_state::ConfigState};
+    use crate::daemon::{config::task::TaskConfigDiff, config_state::ConfigState};
 
     fn program_from_yaml(content: &str, task_name: &str) -> Arc<crate::daemon::config::TaskConfig> {
         match ConfigState::from_content(content.to_string(), "".to_string()) {
@@ -174,11 +174,11 @@ mod tests {
 
     #[test]
     fn test_program_diff_cmd_changed() {
-        let current_yaml = r#"programs:
+        let current_yaml = r#"tasks:
   testprog:
     cmd: "sleep 30"
     num-procs: 2"#;
-        let new_yaml = r#"programs:
+        let new_yaml = r#"tasks:
   testprog:
     cmd: "sleep 31"
     num-procs: 2"#;
@@ -191,11 +191,11 @@ mod tests {
 
     #[test]
     fn test_program_diff_num_procs_changed() {
-        let current_yaml = r#"programs:
+        let current_yaml = r#"tasks:
   testprog:
     cmd: "sleep 30"
     num-procs: 2"#;
-        let new_yaml = r#"programs:
+        let new_yaml = r#"tasks:
   testprog:
     cmd: "sleep 30"
     num-procs: 3"#;
@@ -214,12 +214,12 @@ mod tests {
 
     #[test]
     fn test_program_diff_other() {
-        let current_yaml = r#"programs:
+        let current_yaml = r#"tasks:
   testprog:
     cmd: "sleep 30"
     num-procs: 2
     auto-start: false"#;
-        let new_yaml = r#"programs:
+        let new_yaml = r#"tasks:
   testprog:
     cmd: "sleep 30"
     num-procs: 2

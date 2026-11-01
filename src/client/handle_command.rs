@@ -165,7 +165,7 @@ pub async fn handle_command(
     handle_command! {
         args;
 
-        /// Prints the status of the programs handled by taskmaster
+        /// Prints the status of the tasks handled by taskmaster
         "status" => handle_status_command(client).await?,
 
         /// Reload config file
@@ -187,25 +187,25 @@ pub async fn handle_command(
             },
         },
 
-        /// Starts the program named task_name
+        /// Starts the task named task_name
         "start", task_name => handle_start_command(client, task_name).await?,
 
-        /// Restarts the program named task_name
+        /// Restarts the task named task_name
         "restart", task_name => handle_restart_command(client, task_name).await?,
 
-        /// Stops programs
+        /// Stops tasks
         "stop" => sub_commands! {
-            /// Stops all programs handled by taskmaster
+            /// Stops all tasks handled by taskmaster
             "--all" => handle_stop_all_command(client).await?,
 
-            /// Stops the program named task_name
+            /// Stops the task named task_name
             task_name => handle_stop_command(client, task_name).await?,
         },
 
         /// Rewrites the active config to the last used config file
         "restore-config-file" => handle_restore_config_file_command(client).await?,
 
-        /// Stops all programs and shutdowns the daemon
+        /// Stops all tasks and shutdowns the daemon
         "shutdown" => {
             handle_shutdown_command(client).await?;
             return Ok(CommandWasShutdown::True);
@@ -253,7 +253,7 @@ async fn handle_stop_command(client: &ClientHandle, task_name: String) -> Result
 
 async fn handle_stop_all_command(client: &ClientHandle) -> Result<(), Error> {
     client.server_stub.stop_all_processes().call().await??;
-    println!("stopped all programs");
+    println!("stopped all tasks");
     Ok(())
 }
 

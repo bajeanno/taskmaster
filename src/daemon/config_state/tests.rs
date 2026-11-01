@@ -7,7 +7,7 @@ use std::{assert_matches, io};
 
 use super::{ConfigState, DEFAULT_TASKS_FILE, InitFile, InitFileError, ReloadType};
 
-const VALID_YAML: &str = r#"programs:
+const VALID_YAML: &str = r#"tasks:
   testprog:
     cmd: "sleep 30"
     num-procs: 2"#;

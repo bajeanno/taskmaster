@@ -1,5 +1,5 @@
-pub mod program;
-pub use program::TaskConfig;
+pub mod task;
+pub use task::TaskConfig;
 
 mod error;
 pub use error::{CreatingDefaultConfigFileError, ParseError};
@@ -22,37 +22,37 @@ pub struct Config {
 #[serde(deny_unknown_fields)]
 struct TmpConfig {
     #[serde(with = "::serde_with::rust::maps_duplicate_key_is_error")]
-    programs: HashMap<String, TaskConfig>,
+    tasks: HashMap<String, TaskConfig>,
 }
 
 impl TmpConfig {
-    fn programs(self) -> Result<HashMap<String, TaskConfig>, serde_yaml::Error> {
-        self.programs
+    fn tasks(self) -> Result<HashMap<String, TaskConfig>, serde_yaml::Error> {
+        self.tasks
             .into_iter()
-            .map(|(name, mut program)| {
+            .map(|(name, mut task)| {
                 if name.contains(|c: char| c.is_ascii_digit()) {
                     return Err(serde_yaml::Error::custom(format!(
-                        "program name '{name}' contains illegal characters (numerical value)",
+                        "task name '{name}' contains illegal characters (numerical value)",
                     )));
                 }
                 if name.starts_with("-") {
                     return Err(serde_yaml::Error::custom(format!(
-                        "program name '{name}' may not start with '-'"
+                        "task name '{name}' may not start with '-'"
                     )));
                 }
 
-                *program.name_mut() = name.clone();
-                Ok((name, program))
+                *task.name_mut() = name.clone();
+                Ok((name, task))
             })
             .collect()
     }
 
     fn template() -> Self {
         let mut config = Self {
-            programs: HashMap::new(),
+            tasks: HashMap::new(),
         };
         config
-            .programs
+            .tasks
             .insert("template_task".to_string(), TaskConfig::template());
         config
     }
@@ -61,10 +61,10 @@ impl TmpConfig {
 impl From<Config> for TmpConfig {
     fn from(config_from: Config) -> Self {
         let mut config = Self {
-            programs: HashMap::new(),
+            tasks: HashMap::new(),
         };
-        for (name, program) in config_from.tasks {
-            config.programs.insert(name, program.deref().clone());
+        for (name, task) in config_from.tasks {
+            config.tasks.insert(name, task.deref().clone());
         }
         config
     }
@@ -80,9 +80,9 @@ impl Config {
         let tmp_config: TmpConfig = serde_yaml::from_reader(file)?;
         let config = Self {
             tasks: tmp_config
-                .programs()?
+                .tasks()?
                 .into_iter()
-                .map(|(name, program)| (name, Arc::new(program)))
+                .map(|(name, task)| (name, Arc::new(task)))
                 .collect(),
         };
         Ok(config)
@@ -134,19 +134,19 @@ mod tests {
         let content = serde_yaml::to_string(&TmpConfig::template()).unwrap();
         let mut config: TmpConfig = serde_yaml::from_str(&content).unwrap();
 
-        for (name, program) in config.programs.iter_mut() {
-            *program.name_mut() = name.clone();
+        for (name, task) in config.tasks.iter_mut() {
+            *task.name_mut() = name.clone();
         }
         assert_eq!(config, TmpConfig::template());
     }
 
     #[test]
     fn from_config_serialization_test() {
-        let mut programs = HashMap::new();
+        let mut tasks = HashMap::new();
         let name = "task".to_string();
-        programs.insert(name.clone(), Arc::new(TaskConfig::template()));
+        tasks.insert(name.clone(), Arc::new(TaskConfig::template()));
 
-        let original_config = Config { tasks: programs };
+        let original_config = Config { tasks: tasks };
 
         // Test From<Config> for TmpConfig
         let tmp_config = TmpConfig::from(original_config);
@@ -160,7 +160,7 @@ mod tests {
         // Convert back to Config via from_reader logic and assert equality
         let final_config = Config {
             tasks: deserialized_tmp
-                .programs()
+                .tasks()
                 .unwrap()
                 .into_iter()
                 .map(|(k, v)| (k, Arc::new(v)))

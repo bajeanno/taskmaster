@@ -128,7 +128,7 @@ impl ProcessRegistry {
             .lock()
             .await
             .get_mut(task_name)
-            .expect("program is absent from processes")
+            .expect("task is absent from processes")
             .iter_mut()
         {
             process.update_program_config(Arc::clone(new_config)).await;
@@ -164,7 +164,7 @@ impl ProcessRegistry {
         } else if procs_delta < 0 {
             let mut lock = self.0.lock().await;
             let Some(process_vec) = lock.get_mut(task_name) else {
-                panic!("program is uninitialized");
+                panic!("task is uninitialized");
             };
 
             for id in current_num_procs..new_num_procs {

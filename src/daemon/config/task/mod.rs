@@ -247,9 +247,9 @@ impl FromStr for Command {
         let parts = shell_words::split(s).map_err(CommandError::SplitError)?;
 
         let mut parts_iter = parts.into_iter();
-        let program = parts_iter.next().ok_or(CommandError::EmptyCommand)?;
+        let task = parts_iter.next().ok_or(CommandError::EmptyCommand)?;
         Ok(Command {
-            exec: program,
+            exec: task,
             args: parts_iter.collect(),
         })
     }

@@ -120,7 +120,7 @@ mod tests {
     };
 
     fn create_tasks_yaml_content() -> String {
-        r#"programs:
+        r#"tasks:
     nginx:
         cmd: "/usr/bin/nginx -conf /etc/nginx.conf"
         num-procs: 4

@@ -1,7 +1,7 @@
 use crate::daemon::{
     config::{
         Config,
-        program::{AutoRestart, Command, CommandError, TaskConfig},
+        task::{AutoRestart, Command, CommandError, TaskConfig},
     },
     output_file::OutputFile,
     test_utils::TestDir,
@@ -13,14 +13,14 @@ use std::sync::Arc;
 use std::{collections::HashMap, str::FromStr};
 
 fn yaml_from_string_command(command: &str) -> String {
-    let start = r#"programs:
+    let start = r#"tasks:
         taskmaster_test_program:
             cmd: ""#;
     String::from(start) + command + "\""
 }
 
 fn yaml_with_fields(command: &str, additional_fields: &str) -> String {
-    let start = r#"programs:
+    let start = r#"tasks:
         taskmaster_test_program:
             cmd: ""#;
     String::from(start) + command + "\"" + additional_fields
@@ -74,7 +74,7 @@ impl TestProgramBuilder {
             return Err(CommandError::EmptyCommand);
         }
 
-        let program = TaskConfig {
+        let task = TaskConfig {
             name: self.name,
             cmd: self.command,
             umask: self.umask,
@@ -94,14 +94,14 @@ impl TestProgramBuilder {
             stderr: self.stderr,
         };
 
-        Ok(program)
+        Ok(task)
     }
 }
 
 fn assert_config_parses_to(yaml_content: &str, expected_program: TaskConfig) {
-    let mut programs = HashMap::new();
-    programs.insert(expected_program.name.clone(), Arc::new(expected_program));
-    let expected_config = Config { tasks: programs };
+    let mut tasks = HashMap::new();
+    tasks.insert(expected_program.name.clone(), Arc::new(expected_program));
+    let expected_config = Config { tasks: tasks };
 
     let config_reader = Cursor::new(yaml_content);
     let parsed_config = Config::from_reader(config_reader);
@@ -116,7 +116,7 @@ fn assert_config_parsing_error(yaml_content: &str) {
 
 #[test]
 fn create_yaml_test() {
-    let left = r#"programs:
+    let left = r#"tasks:
         taskmaster_test_program:
             cmd: "bash -c 'echo Hello $STARTED_BY!'""#;
     let right = yaml_from_string_command(r#"bash -c 'echo Hello $STARTED_BY!'"#);
@@ -125,73 +125,73 @@ fn create_yaml_test() {
 
 #[test]
 fn parsing_default() {
-    let program = TestProgramBuilder::new(r#"bash -c 'echo Hello $STARTED_BY!'"#)
+    let task = TestProgramBuilder::new(r#"bash -c 'echo Hello $STARTED_BY!'"#)
         .expect("Failed to create builder")
         .build()
-        .expect("Failed to build program");
+        .expect("Failed to build task");
     let yaml_content = yaml_from_string_command(r#"bash -c 'echo Hello $STARTED_BY!'"#);
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
 fn parsing_with_multiple_args() {
-    let program = TestProgramBuilder::new(r#"bash -c 'echo test'"#)
+    let task = TestProgramBuilder::new(r#"bash -c 'echo test'"#)
         .expect("Failed to create builder")
         .build()
-        .expect("Failed to build program");
+        .expect("Failed to build task");
     let yaml_content = yaml_from_string_command(r#"bash -c 'echo test'"#);
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
 fn parsing_with_env_vars() {
-    let program = TestProgramBuilder::new(r#"echo $HOME"#)
+    let task = TestProgramBuilder::new(r#"echo $HOME"#)
         .expect("Failed to create builder")
         .build()
-        .expect("Failed to build program");
+        .expect("Failed to build task");
     let yaml_content = yaml_from_string_command(r#"echo $HOME"#);
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
 fn parsing_simple_command() {
-    let program = TestProgramBuilder::new(r#"ls -la"#)
+    let task = TestProgramBuilder::new(r#"ls -la"#)
         .expect("Failed to create builder")
         .build()
-        .expect("Failed to build program");
+        .expect("Failed to build task");
     let yaml_content = yaml_from_string_command(r#"ls -la"#);
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
 fn parsing_with_umask_octal() {
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
     builder.umask = 0o644;
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
             umask: "0o644""#,
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
 fn parsing_with_umask_zero() {
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
     builder.umask = 0;
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
             umask: "0o0""#,
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
 fn parsing_program_with_digits_in_name() {
-    let yaml_content = r#"programs:
+    let yaml_content = r#"tasks:
         program1:
             cmd: "echo test""#;
     assert_config_parsing_error(yaml_content);
@@ -199,7 +199,7 @@ fn parsing_program_with_digits_in_name() {
 
 #[test]
 fn parsing_program_with_multiple_digits_not_at_end() {
-    let yaml_content = r#"programs:
+    let yaml_content = r#"tasks:
         pro123gram:
             cmd: "echo test""#;
     assert_config_parsing_error(yaml_content);
@@ -209,13 +209,13 @@ fn parsing_program_with_multiple_digits_not_at_end() {
 fn parsing_with_umask_max() {
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
     builder.umask = 0o777;
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
             umask: "0o777""#,
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
@@ -224,7 +224,7 @@ fn parsing_with_multiple_fields() {
     builder.umask = 0o644;
     builder.working_dir = "/tmp".to_string();
     builder.auto_start = true;
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
@@ -232,7 +232,7 @@ fn parsing_with_multiple_fields() {
             working-dir: "/tmp"
             auto-start: true"#,
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
@@ -249,117 +249,117 @@ fn parsing_with_exit_code_greater_than_256() {
 fn parsing_with_exit_codes() {
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
     builder.exit_codes = vec![0, 1, 2];
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
             exit-codes: [0, 1, 2]"#,
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
 fn parsing_with_num_procs() {
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
     builder.num_procs = 3;
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
             num-procs: 3"#,
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
 fn parsing_with_start_retries() {
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
     builder.start_retries = 5;
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
             start-retries: 5"#,
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
 fn parsing_with_start_time() {
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
     builder.start_time = 10;
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
             start-time: 10"#,
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
 fn parsing_with_stop_time() {
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
     builder.stop_time = 15;
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
             stop-time: 15"#,
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
 fn parsing_with_stop_signal_no_sig() {
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
     builder.stop_signal = Signal::SIGTERM;
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
             stop-signal: "TERM""#,
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
 fn parsing_with_stop_signal_with_sig() {
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
     builder.stop_signal = Signal::SIGTERM;
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
             stop-signal: "SIGTERM""#,
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
 fn parsing_with_auto_restart() {
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
     builder.auto_restart = AutoRestart::True;
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
             auto-restart: true"#,
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
 fn parsing_with_clear_env() {
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
     builder.clear_env = true;
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
             clear-env: true"#,
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
@@ -371,7 +371,7 @@ fn parsing_with_stdout() {
         OutputFile::new_stdout(stdout.as_str())
             .expect(format!("Failed to open stderr file ({stdout})").as_str()),
     );
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         format!(
@@ -380,7 +380,7 @@ fn parsing_with_stdout() {
         )
         .as_str(),
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
@@ -392,7 +392,7 @@ fn parsing_with_stderr() {
         OutputFile::new_stderr(stderr.as_str())
             .expect(format!("Failed to open stderr file ({stderr})").as_str()),
     );
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         format!(
@@ -401,7 +401,7 @@ fn parsing_with_stderr() {
         )
         .as_str(),
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
 
 #[test]
@@ -409,7 +409,7 @@ fn parsing_with_env() {
     let mut builder = TestProgramBuilder::new("echo test").expect("Failed to create builder");
     builder.env.insert("VAR1".to_string(), "value1".to_string());
     builder.env.insert("VAR2".to_string(), "value2".to_string());
-    let program = builder.build().expect("Failed to build program");
+    let task = builder.build().expect("Failed to build task");
     let yaml_content = yaml_with_fields(
         "echo test",
         r#"
@@ -417,5 +417,5 @@ fn parsing_with_env() {
                 VAR1: "value1"
                 VAR2: "value2""#,
     );
-    assert_config_parses_to(&yaml_content, program);
+    assert_config_parses_to(&yaml_content, task);
 }
