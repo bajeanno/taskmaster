@@ -30,7 +30,7 @@ pub async fn run(
         };
 
         // Handling exit command here as it's only about the shell, not inline commands
-        if let Some(cmd_first) = command.iter().next() {
+        if let Some(cmd_first) = command.first() {
             if cmd_first == "exit" {
                 return Ok(());
             }
