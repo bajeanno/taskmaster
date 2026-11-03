@@ -1,5 +1,9 @@
 use libc::sys::file::{self, LOCK_EX, flock};
-use std::{fs::File, ops::{Deref, DerefMut}, os::fd::AsRawFd};
+use std::{
+    fs::File,
+    ops::{Deref, DerefMut},
+    os::fd::AsRawFd,
+};
 
 #[derive(Debug)]
 pub struct FileLock {
