@@ -4,6 +4,7 @@ mod tests;
 mod pid_file;
 
 use signal::Signal;
+use std::thread::sleep;
 
 use crate::{
     daemon::{
@@ -16,10 +17,7 @@ use crate::{
 
 use libc::signal::kill;
 use std::{
-    io::{self},
-    os::raw::c_int,
-    process::{Command, Stdio},
-    str::FromStr,
+    io::{self}, os::raw::c_int, process::{Command, Stdio}, str::FromStr, time::Duration,
 };
 
 #[cfg(not(test))]
@@ -104,10 +102,12 @@ impl Claim {
             let pgrep_pid = line.parse::<i32>().map_err(ParsePgrep)?;
 
             if pid == pgrep_pid {
-                unsafe { kill(pid, Signal::SIGKILL as c_int) };
+                unsafe { kill(pid, Signal::SIGINT as c_int) };
                 return Ok(());
             }
         }
+        sleep(Duration::from_millis(400));
+        
         Ok(())
     }
 }
