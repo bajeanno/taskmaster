@@ -5,6 +5,7 @@ mod pid_file;
 
 use signal::Signal;
 use std::thread::sleep;
+use tokio::net::unix::pid_t;
 
 use crate::{
     daemon::{
@@ -94,6 +95,14 @@ impl Claim {
             return Ok(());
         }
 
+        Self::signal_running_instance(pid, Signal::SIGTERM)?;
+        sleep(Duration::from_millis(400));
+        Self::signal_running_instance(pid, Signal::SIGKILL)?;
+
+        Ok(())
+    }
+
+    fn signal_running_instance(pid: pid_t, signal: Signal) -> Result<(), CheckInstanceAlive> {
         let output = Command::new("pgrep")
             .arg("taskmaster")
             .stdout(Stdio::piped())
@@ -106,12 +115,10 @@ impl Claim {
             let pgrep_pid = line.parse::<i32>().map_err(ParsePgrep)?;
 
             if pid == pgrep_pid {
-                unsafe { kill(pid, Signal::SIGINT as c_int) };
-                return Ok(());
+                unsafe { kill(pid, signal as c_int) };
+                break;
             }
         }
-        sleep(Duration::from_millis(400));
-
         Ok(())
     }
 }
