@@ -76,7 +76,7 @@ fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
         let mut rl =
             try_daemonized_outside!(rustyline::DefaultEditor::new().map_err(Error::InitCliEditor));
 
-        if !should_start_daemon(&mut rl, &start_mode) {
+        if !try_daemonized_outside!(should_start_daemon(&mut rl, &start_mode)) {
             return Daemonized::OutsideDaemon(Ok(()));
         }
 
@@ -98,12 +98,15 @@ fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
     Daemonized::OutsideDaemon(client::run(maybe_rl, args))
 }
 
-fn should_start_daemon(rl: &mut rustyline::DefaultEditor, start_mode: &StartMode) -> bool {
+fn should_start_daemon(
+    rl: &mut rustyline::DefaultEditor,
+    start_mode: &StartMode,
+) -> Result<bool, Error> {
     if matches!(
         start_mode,
         StartMode::Force { .. } | StartMode::Acknowledge { .. }
     ) {
-        return true;
+        return Ok(true);
     }
 
     loop {
@@ -111,11 +114,11 @@ fn should_start_daemon(rl: &mut rustyline::DefaultEditor, start_mode: &StartMode
             .readline(
                 "Daemon is not started, type yes to start it, no to cancel the command (Y/n): ",
             )
-            .unwrap();
+            .map_err(Error::ReadingLine)?;
 
         match line.trim().to_lowercase().as_str() {
-            "y" | "yes" | "" => return true,
-            "n" | "no" => return false,
+            "y" | "yes" | "" => return Ok(true),
+            "n" | "no" => return Ok(false),
             _ => {
                 eprintln!("Please write yes / no");
             }
