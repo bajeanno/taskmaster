@@ -8,7 +8,7 @@ use std::thread::sleep;
 
 use crate::{
     daemon::{
-        claim_pid::{CheckInstanceAlive::ParsePgrep, pid_file::PidFile},
+        claim_pid::{CheckInstanceAlive::ParsePgrep, pid_file::PidFileLock},
         error::ClaimError::{self, OtherInstanceRunning},
     },
     rpc::RPC_UNIX_SOCKET_PATH,
@@ -17,7 +17,11 @@ use crate::{
 
 use libc::signal::kill;
 use std::{
-    io::{self}, os::raw::c_int, process::{Command, Stdio}, str::FromStr, time::Duration,
+    io::{self},
+    os::raw::c_int,
+    process::{Command, Stdio},
+    str::FromStr,
+    time::Duration,
 };
 
 #[cfg(not(test))]
@@ -37,7 +41,7 @@ pub enum CheckInstanceAlive {
 
 #[derive(Debug)]
 pub struct Claim {
-    file: PidFile,
+    file: PidFileLock,
 }
 
 impl Claim {
@@ -50,10 +54,10 @@ impl Claim {
     }
 
     fn new_at(pid_file_path: &str, start_mode: StartMode) -> Result<Self, ClaimError> {
-        let mut pid_file = PidFile::open(pid_file_path)?;
+        let mut pid_file = PidFileLock::open(pid_file_path)?;
 
         pid_file.with_lock(|file| {
-            if let Some(pid) = unsafe { file.read_pid()? } {
+            if let Some(pid) = file.read_pid()? {
                 match start_mode {
                     StartMode::Force { .. } => {
                         Self::kill_running_instance(pid as c_int)?;
@@ -65,7 +69,7 @@ impl Claim {
                     }
                 }
             }
-            unsafe { file.write_pid()? };
+            file.write_pid()?;
 
             Ok(())
         })?;
@@ -79,8 +83,8 @@ impl Claim {
     }
 
     fn get_running_pid() -> Result<Option<u32>, ClaimError> {
-        let mut pid_file = PidFile::open(PID_FILE)?;
-        pid_file.with_lock(|file| unsafe { file.read_pid() })
+        let mut pid_file = PidFileLock::open(PID_FILE)?;
+        pid_file.with_lock(|file| file.read_pid())
     }
 
     fn kill_running_instance(pid: c_int) -> Result<(), CheckInstanceAlive> {
@@ -107,7 +111,7 @@ impl Claim {
             }
         }
         sleep(Duration::from_millis(400));
-        
+
         Ok(())
     }
 }
@@ -115,7 +119,7 @@ impl Claim {
 impl Drop for Claim {
     fn drop(&mut self) {
         match self.file.with_lock(|file| {
-            unsafe { file.truncate() };
+            file.truncate();
             Ok(())
         }) {
             Ok(_) => {}

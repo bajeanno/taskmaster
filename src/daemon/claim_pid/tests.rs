@@ -1,7 +1,7 @@
 use std::{assert_matches, sync::Mutex};
 
 use crate::daemon::{
-    claim_pid::{Claim, PidFile},
+    claim_pid::{Claim, PidFileLock},
     error::ClaimError,
     test_utils::TestDir,
 };
@@ -12,7 +12,7 @@ static PID_TEST_LOCK: Mutex<()> = Mutex::new(());
 fn set_pid_file_content(content: &str) -> (TestDir, String) {
     let dir = TestDir::new("pid").sub_dir("set_content");
     let path = dir.join("taskmaster.pid");
-    let mut pid_file = PidFile::open(&path).unwrap();
+    let mut pid_file = PidFileLock::open(&path).unwrap();
     pid_file.set_content_for_tests(content);
     (dir, path)
 }
@@ -23,10 +23,10 @@ fn test_read_pid_returns_some_for_valid_pid() {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let (_dir, path) = set_pid_file_content("12345");
-    let mut pid_file = PidFile::open(&path).unwrap();
+    let mut pid_file = PidFileLock::open(&path).unwrap();
     assert_eq!(
         pid_file
-            .with_lock(|file| unsafe { file.read_pid() })
+            .with_lock(|file| file.read_pid())
             .unwrap(),
         Some(12345)
     );
@@ -38,10 +38,10 @@ fn test_read_pid_returns_none_for_empty_file() {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let (_dir, path) = set_pid_file_content("");
-    let mut pid_file = PidFile::open(&path).unwrap();
+    let mut pid_file = PidFileLock::open(&path).unwrap();
     assert_eq!(
         pid_file
-            .with_lock(|file| unsafe { file.read_pid() })
+            .with_lock(|file| file.read_pid())
             .unwrap(),
         None
     );
@@ -53,9 +53,9 @@ fn test_read_pid_returns_error_for_invalid_content() {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let (_dir, path) = set_pid_file_content("taskmaster");
-    let mut pid_file = PidFile::open(&path).unwrap();
+    let mut pid_file = PidFileLock::open(&path).unwrap();
     assert_matches!(
-        pid_file.with_lock(|file| unsafe { file.read_pid() }),
+        pid_file.with_lock(|file| file.read_pid()),
         Err(ClaimError::Parse(_))
     );
 }
@@ -70,7 +70,7 @@ fn test_claim_writes_pid_when_free() {
     assert_eq!(
         claim
             .file
-            .with_lock(|file| unsafe { file.read_pid() })
+            .with_lock(|file| file.read_pid())
             .unwrap(),
         Some(std::process::id())
     );
@@ -129,17 +129,17 @@ fn test_pid_file_truncate_clears_content() {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     let (_dir, path) = set_pid_file_content("12345");
-    let mut pid_file = PidFile::open(&path).unwrap();
+    let mut pid_file = PidFileLock::open(&path).unwrap();
     let _ = pid_file.with_lock(|file| {
-        unsafe { file.truncate() };
+        file.truncate();
         Ok::<(), ClaimError>(())
     });
     drop(pid_file);
 
-    let mut pid_file = PidFile::open(&path).unwrap();
+    let mut pid_file = PidFileLock::open(&path).unwrap();
     assert_eq!(
         pid_file
-            .with_lock(|file| unsafe { file.read_pid() })
+            .with_lock(|file| file.read_pid())
             .unwrap(),
         None
     );
@@ -153,10 +153,10 @@ fn test_claim_erases_file_on_drop() {
     let (_dir, path) = set_pid_file_content("");
 
     let claim = Claim::new_at(&path, StartMode::Classic).unwrap();
-    let mut pid_file = PidFile::open(&path).unwrap();
+    let mut pid_file = PidFileLock::open(&path).unwrap();
     assert!(
         pid_file
-            .with_lock(|file| unsafe { file.read_pid() })
+            .with_lock(|file| file.read_pid())
             .unwrap()
             .is_some()
     );
@@ -164,10 +164,10 @@ fn test_claim_erases_file_on_drop() {
 
     drop(claim);
 
-    let mut pid_file = PidFile::open(&path).unwrap();
+    let mut pid_file = PidFileLock::open(&path).unwrap();
     assert_eq!(
         pid_file
-            .with_lock(|file| unsafe { file.read_pid() })
+            .with_lock(|file| file.read_pid())
             .unwrap(),
         None
     );
