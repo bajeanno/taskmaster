@@ -10,12 +10,12 @@ pub struct FileLock {
     file: File,
 }
 
-impl<'a> FileLock {
+impl<'file> FileLock {
     pub fn new(file: File) -> Self {
         Self { file }
     }
 
-    pub fn lock(&'a self) -> Result<FileLockGuard<'a>, std::io::Error> {
+    pub fn lock(&'file self) -> Result<FileLockGuard<'file>, std::io::Error> {
         if unsafe { flock(self.file.as_raw_fd(), LOCK_EX) == -1 } {
             return Err(std::io::Error::last_os_error());
         }
@@ -28,25 +28,25 @@ impl<'a> FileLock {
 }
 
 #[derive(Debug)]
-pub struct FileLockGuard<'a> {
-    file: &'a File,
+pub struct FileLockGuard<'file> {
+    file: &'file File,
 }
 
-impl<'a> Drop for FileLockGuard<'a> {
+impl<'file> Drop for FileLockGuard<'file> {
     fn drop(&mut self) {
         unsafe { file::flock(self.file.as_raw_fd(), file::LOCK_UN) };
     }
 }
 
-impl<'a> Deref for FileLockGuard<'a> {
-    type Target = &'a File;
+impl<'file> Deref for FileLockGuard<'file> {
+    type Target = &'file File;
 
     fn deref(&self) -> &Self::Target {
         &self.file
     }
 }
 
-impl<'a> DerefMut for FileLockGuard<'a> {
+impl<'file> DerefMut for FileLockGuard<'file> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.file
     }
