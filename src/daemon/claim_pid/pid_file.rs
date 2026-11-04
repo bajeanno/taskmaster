@@ -30,9 +30,9 @@ impl PidFileLock {
         })
     }
 
-    pub fn lock(&self) -> Result<PidFileLockGuard<'_>, io::Error> {
+    pub fn lock(&self) -> Result<PidFileLockGuard<'_>, ClaimError> {
         Ok(PidFileLockGuard {
-            file: self.file.lock()?,
+            file: self.file.lock().map_err(ClaimError::Flock)?,
         })
     }
 
@@ -56,8 +56,7 @@ impl PidFileLock {
     where
         F: FnOnce(&mut PidFileLockGuard) -> Result<T, ClaimError>,
     {
-        let mut guard = self.lock().map_err(ClaimError::Flock)?;
-        call_back(&mut guard)
+        call_back(&mut self.lock()?)
     }
 }
 

@@ -84,8 +84,7 @@ impl Claim {
     }
 
     fn get_running_pid() -> Result<Option<u32>, ClaimError> {
-        let mut pid_file = PidFileLock::open(PID_FILE)?;
-        pid_file.with_lock(|file| file.read_pid())
+        PidFileLock::open(PID_FILE)?.lock()?.read_pid()
     }
 
     fn kill_running_instance(pid: c_int) -> Result<(), CheckInstanceAlive> {
@@ -125,10 +124,7 @@ impl Claim {
 
 impl Drop for Claim {
     fn drop(&mut self) {
-        match self.file.with_lock(|file| {
-            file.truncate();
-            Ok(())
-        }) {
+        match self.file.lock().and_then(|mut file| Ok(file.truncate())) {
             Ok(_) => {}
             Err(err) => logging::log_with_msg(
                 "Error while clearing pid file",
