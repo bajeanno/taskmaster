@@ -1,5 +1,5 @@
 use crate::{
-    client::handle_command::{self, ShellAction, ParseError, handle_command},
+    client::handle_command::{self, ParseError, ShellAction, handle_command},
     rpc::ClientHandle,
 };
 use logging::LogLevel;
