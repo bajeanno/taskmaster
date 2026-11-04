@@ -1,5 +1,5 @@
 use crate::{
-    client::handle_command::{self, CommandWasShutdown, ParseError, handle_command},
+    client::handle_command::{self, CommandIntention, ParseError, handle_command},
     rpc::ClientHandle,
 };
 use logging::LogLevel;
@@ -29,16 +29,9 @@ pub async fn run(
             }
         };
 
-        // Handling exit command here as it's only about the shell, not inline commands
-        if let Some(cmd_first) = command.first()
-            && cmd_first == "exit"
-        {
-            return Ok(());
-        }
-
         match handle_command(&client, command.into_iter()).await {
-            Ok(CommandWasShutdown::True) => break Ok(()),
-            Ok(CommandWasShutdown::False) => {}
+            Ok(CommandIntention::Shutdown | CommandIntention::Exit) => break Ok(()),
+            Ok(CommandIntention::Continue) => {}
             Err(handle_command::Error::Parsing(ParseError::EmptyCommand)) => {}
             Err(handle_command::Error::Parsing(err)) => logging::log(&err, LogLevel::Stderr),
             Err(handle_command::Error::CommandExecution(err)) => {
