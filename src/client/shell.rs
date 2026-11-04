@@ -1,5 +1,5 @@
 use crate::{
-    client::handle_command::{self, CommandIntention, ParseError, handle_command},
+    client::handle_command::{self, ShellAction, ParseError, handle_command},
     rpc::ClientHandle,
 };
 use logging::LogLevel;
@@ -30,8 +30,8 @@ pub async fn run(
         };
 
         match handle_command(&client, command.into_iter()).await {
-            Ok(CommandIntention::Shutdown | CommandIntention::Exit) => break Ok(()),
-            Ok(CommandIntention::Continue) => {}
+            Ok(ShellAction::Shutdown | ShellAction::Exit) => break Ok(()),
+            Ok(ShellAction::Continue) => {}
             Err(handle_command::Error::Parsing(ParseError::EmptyCommand)) => {}
             Err(handle_command::Error::Parsing(err)) => logging::log(&err, LogLevel::Stderr),
             Err(handle_command::Error::CommandExecution(err)) => {

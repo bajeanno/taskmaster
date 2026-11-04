@@ -30,7 +30,7 @@ pub enum ParseError {
     MissingArgument(Option<&'static str>),
 }
 
-pub enum CommandIntention {
+pub enum ShellAction {
     Shutdown,
     Exit,
     Continue,
@@ -162,7 +162,7 @@ macro_rules! handle_sub_command {
 pub async fn handle_command(
     client: &ClientHandle,
     mut args: impl Iterator<Item = String>,
-) -> Result<CommandIntention, Error> {
+) -> Result<ShellAction, Error> {
     handle_command! {
         args;
 
@@ -209,15 +209,15 @@ pub async fn handle_command(
         /// Stops all programs and shutdowns the daemon
         "shutdown" => {
             handle_shutdown_command(client).await?;
-            return Ok(CommandIntention::Shutdown);
+            return Ok(ShellAction::Shutdown);
         },
 
         /// Exits the shell
         "exit" => {
-            return Ok(CommandIntention::Exit);
+            return Ok(ShellAction::Exit);
         },
     }
-    Ok(CommandIntention::Continue)
+    Ok(ShellAction::Continue)
 }
 
 async fn handle_status_command(client: &ClientHandle) -> Result<(), Error> {
