@@ -75,7 +75,7 @@ async fn create_task() {
     let base = TestDir::new("create_task");
     let (stdout_file, stderr_file) = (base.join("stdout.log"), base.join("stderr.log"));
     let yaml_content = format!(
-        r#"programs:
+        r#"tasks:
     taskmaster_test_task:
         cmd: "bash -c \"echo Hello $STARTED_BY!\""
         num-procs: 1
@@ -98,9 +98,9 @@ async fn create_task() {
         stdout = stdout_file,
         stderr = stderr_file
     );
-    let program = Config::from_reader(Cursor::new(yaml_content))
+    let task = Config::from_reader(Cursor::new(yaml_content))
         .expect("Parse error")
-        .programs
+        .tasks
         .into_iter()
         .next()
         .expect("Config vector is empty")
@@ -109,11 +109,11 @@ async fn create_task() {
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, log_receiver) = mpsc::unbounded_channel();
     let process_id = ProcessId {
-        task_name: program.name().clone(),
+        task_name: task.name().clone(),
         id: 0,
     };
 
-    let routine_handle = Routine::spawn(program, status_sender, log_sender, process_id.clone(), 0);
+    let routine_handle = Routine::spawn(task, status_sender, log_sender, process_id.clone(), 0);
     let log_checker_handle = tokio::spawn(check_realtime_output(log_receiver));
     let status_receiver = Arc::new(Mutex::new(status_receiver));
     let status_checker_handle = tokio::spawn(check_status(
@@ -162,7 +162,7 @@ async fn create_task_then_interrupt() {
     let base = TestDir::new("create_task").sub_dir("then_interrupt");
     let (stdout_file, stderr_file) = (base.join("stdout.log"), base.join("stderr.log"));
     let yaml_content = format!(
-        r#"programs:
+        r#"tasks:
     taskmaster_test_task:
         cmd: "cat"
         num-procs: 1
@@ -187,7 +187,7 @@ async fn create_task_then_interrupt() {
     );
     let config = Config::from_reader(Cursor::new(yaml_content))
         .unwrap()
-        .programs
+        .tasks
         .into_iter()
         .next()
         .expect("Config hashmap is empty")
@@ -236,16 +236,16 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
     use crate::daemon::config::Config;
     use std::io::Cursor;
 
-    fn program_from_yaml(content: &str) -> Arc<crate::daemon::config::ProgramConfig> {
+    fn program_from_yaml(content: &str) -> Arc<crate::daemon::config::TaskConfig> {
         Config::from_reader(Cursor::new(content.to_string()))
             .expect("failed to parse config")
-            .programs
+            .tasks
             .into_values()
             .next()
-            .expect("config has no program")
+            .expect("config has no task")
     }
 
-    let initial_yaml = r#"programs:
+    let initial_yaml = r#"tasks:
   reload_test:
     cmd: "sh -c 'sleep 0.1; exit 1'"
     num-procs: 1
@@ -253,7 +253,7 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
     auto-restart: unexpected
     exit-codes: [1]"#;
 
-    let reloaded_yaml = r#"programs:
+    let reloaded_yaml = r#"tasks:
   reload_test:
     cmd: "sh -c 'sleep 0.1; exit 1'"
     num-procs: 1
@@ -283,10 +283,10 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
         .send_reloaded_config(program_from_yaml(reloaded_yaml))
         .await;
 
-    // The reloaded config makes exit code 1 unexpected, so once the program
+    // The reloaded config makes exit code 1 unexpected, so once the task
     // exits the subroutine must restart it instead of giving up. Skip any
     // statuses (e.g. the extra Running emitted when the config is received)
-    // until the program exits.
+    // until the task exits.
     let mut status = status_receiver.lock().await.recv().await.unwrap().status;
     while !matches!(status, Status::Exited(_)) {
         status = status_receiver.lock().await.recv().await.unwrap().status;
@@ -297,14 +297,14 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
             status_receiver.lock().await.recv().await.unwrap().status,
             Status::Starting
         ),
-        "subroutine must restart the program using the reloaded config"
+        "subroutine must restart the task using the reloaded config"
     );
     assert!(
         matches!(
             status_receiver.lock().await.recv().await.unwrap().status,
             Status::Running
         ),
-        "restarted program must be running"
+        "restarted task must be running"
     );
 
     routine_handle.stop_and_join().await;
@@ -319,7 +319,7 @@ async fn create_task_with_working_dir() {
     let base = TestDir::new("create_task").sub_dir("with_working_dir");
     let (stdout_file, stderr_file) = (base.join("stdout.log"), base.join("stderr.log"));
     let yaml_content = format!(
-        r#"programs:
+        r#"tasks:
     taskmaster_test_task:
         cmd: "pwd"
         num-procs: 1
@@ -339,9 +339,9 @@ async fn create_task_with_working_dir() {
         stderr = stderr_file
     );
 
-    let program = Config::from_reader(Cursor::new(yaml_content))
+    let task = Config::from_reader(Cursor::new(yaml_content))
         .expect("Parse error")
-        .programs
+        .tasks
         .into_iter()
         .next()
         .expect("Config vector is empty")
@@ -350,11 +350,11 @@ async fn create_task_with_working_dir() {
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, _log_receiver) = mpsc::unbounded_channel();
     let process_id = ProcessId {
-        task_name: program.name().clone(),
+        task_name: task.name().clone(),
         id: 0,
     };
 
-    let _routine_handle = Routine::spawn(program, status_sender, log_sender, process_id.clone(), 0);
+    let _routine_handle = Routine::spawn(task, status_sender, log_sender, process_id.clone(), 0);
     let status_receiver = Arc::new(Mutex::new(status_receiver));
     check_status(Arc::clone(&status_receiver), process_id.clone()).await;
     check_status_exited(Arc::clone(&status_receiver), &process_id).await;

@@ -3,7 +3,7 @@ use super::{
     StatusSender, command,
 };
 use crate::daemon::{
-    config::{ProgramConfig, program::AutoRestart},
+    config::{TaskConfig, task::AutoRestart},
     output_file::OutputFile,
     process::ProcessId,
     process_handler::{Log, LogType, Outputs},
@@ -23,7 +23,7 @@ pub struct Routine {
     log_sender: LogSender,
     kill_command_receiver: KillCommandReceiver,
     reload_event_receiver: ReloadEventReceiver,
-    config: Arc<ProgramConfig>,
+    config: Arc<TaskConfig>,
     start_attempts: u32,
     command: Command,
     process_id: ProcessId,
@@ -33,7 +33,7 @@ pub struct Routine {
 
 impl Routine {
     pub fn spawn(
-        config: Arc<ProgramConfig>,
+        config: Arc<TaskConfig>,
         status_sender: UnboundedSender<NominativeStatus>,
         log_sender: LogSender,
         process_id: ProcessId,
@@ -180,12 +180,12 @@ impl Routine {
     /// Condition for restart:
     /// - The programmed failed to start (i.e. it crashed before `config.start_time` seconds
     ///   elapsed):
-    ///   - We already attempted to start the program `config.start_retries` times (note that the
-    ///     attempted start count is reset whenever the program starts successfully):
+    ///   - We already attempted to start the task `config.start_retries` times (note that the
+    ///     attempted start count is reset whenever the task starts successfully):
     ///     returns false (we don't want to retry)
     ///   - otherwise return true (we want to retry)
     ///
-    /// - The program started properly:
+    /// - The task started properly:
     ///   - `config.auto_restart` is `false`: Return false (we don't want to restart)
     ///   - `config.auto_restart` is `unexpected` and the exit status is in `config.exit-codes`: Return false (we don't want to restart)
     ///   - otherwise return true (we want to restart)

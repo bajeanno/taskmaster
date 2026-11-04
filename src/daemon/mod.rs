@@ -3,8 +3,8 @@ mod error;
 pub use error::{ClaimError, Error};
 mod config_state;
 pub use config_state::ReloadType;
-mod tasks_manager;
-pub use tasks_manager::{Handle as TasksManagerHandle, ServerCommandError, TasksManagerStatus};
+mod task_manager;
+pub use task_manager::{Handle as TasksManagerHandle, ServerCommandError, TasksManagerStatus};
 
 mod claim_pid;
 mod config;
@@ -26,9 +26,9 @@ use test_utils::TestDir;
 use crate::daemon::{
     config_state::ConfigState,
     signal_handling::SignalError,
-    tasks_manager::{RoutineStoppedReceiver, TaskManagerCommand},
+    task_manager::{RoutineStoppedReceiver, TaskManagerCommand},
 };
-use config::ProgramConfig;
+use config::TaskConfig;
 use std::{panic, pin::Pin, sync::Arc, time::Duration};
 use tokio::{
     sync::{mpsc, oneshot},
@@ -130,9 +130,9 @@ async fn run_daemon(config_state: ConfigState) -> Result<(), Error> {
 async fn start_tasks_manager(
     futures: &mut Vec<FutureToJoin>,
     config_state: ConfigState,
-) -> (Arc<tasks_manager::Handle>, RoutineStoppedReceiver) {
+) -> (Arc<task_manager::Handle>, RoutineStoppedReceiver) {
     let (tasks_manager, tasks_manager_routine_join_handle, routine_stopped_receiver) =
-        tasks_manager::Routine::spawn(config_state);
+        task_manager::Routine::spawn(config_state);
     let tasks_manager = Arc::new(tasks_manager);
 
     let tasks_manager_handle_clone = Arc::clone(&tasks_manager);
@@ -154,7 +154,7 @@ async fn start_tasks_manager(
 
 async fn start_server(
     mut futures: Vec<FutureToJoin>,
-    tasks_manager: Arc<tasks_manager::Handle>,
+    tasks_manager: Arc<task_manager::Handle>,
 ) -> Result<Vec<FutureToJoin>, Error> {
     let server_handle = match crate::rpc::start_server(tasks_manager).await {
         Ok(server_handle) => server_handle,
@@ -176,7 +176,7 @@ async fn start_server(
 
 async fn start_handle_signals_loop(
     futures: &mut Vec<FutureToJoin>,
-    tasks_manager: Arc<tasks_manager::Handle>,
+    tasks_manager: Arc<task_manager::Handle>,
 ) -> oneshot::Receiver<SignalError> {
     let (handle_signal_error_sender, handle_signals_error_receiver) = oneshot::channel();
 
