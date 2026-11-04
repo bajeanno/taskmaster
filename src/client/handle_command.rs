@@ -31,8 +31,7 @@ pub enum ParseError {
 }
 
 pub enum ShellAction {
-    Shutdown,
-    Exit,
+    Break,
     Continue,
 }
 
@@ -209,12 +208,12 @@ pub async fn handle_command(
         /// Stops all programs and shutdowns the daemon
         "shutdown" => {
             handle_shutdown_command(client).await?;
-            return Ok(ShellAction::Shutdown);
+            return Ok(ShellAction::Break);
         },
 
         /// Exits the shell
         "exit" => {
-            return Ok(ShellAction::Exit);
+            return Ok(ShellAction::Break);
         },
     }
     Ok(ShellAction::Continue)

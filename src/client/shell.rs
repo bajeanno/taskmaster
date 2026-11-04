@@ -30,7 +30,7 @@ pub async fn run(
         };
 
         match handle_command(&client, command.into_iter()).await {
-            Ok(ShellAction::Shutdown | ShellAction::Exit) => break Ok(()),
+            Ok(ShellAction::Break) => break Ok(()),
             Ok(ShellAction::Continue) => {}
             Err(handle_command::Error::Parsing(ParseError::EmptyCommand)) => {}
             Err(handle_command::Error::Parsing(err)) => logging::log(&err, LogLevel::Stderr),
