@@ -124,7 +124,7 @@ impl Claim {
 
 impl Drop for Claim {
     fn drop(&mut self) {
-        match self.file.lock().and_then(|mut file| Ok(file.truncate())) {
+        match self.file.lock().map(|mut file| file.truncate()) {
             Ok(_) => {}
             Err(err) => logging::log_with_msg(
                 "Error while clearing pid file",
