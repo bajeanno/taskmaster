@@ -12,6 +12,11 @@ use crate::{
     rpc::{self, ClientHandle},
 };
 
+enum CommandContext {
+    InteractiveShell,
+    CommandLine,
+}
+
 pub fn run(maybe_rl: Option<rustyline::DefaultEditor>) -> Result<(), crate::Error> {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
@@ -22,7 +27,12 @@ async fn start_client(maybe_rl: Option<rustyline::DefaultEditor>) -> Result<(), 
     let client = connect_client().await?;
 
     if std::env::args().nth(1).is_some() {
-        handle_command(&client, std::env::args().skip(1)).await?;
+        handle_command(
+            &client,
+            std::env::args().skip(1),
+            CommandContext::CommandLine,
+        )
+        .await?;
     } else {
         shell::run(client, maybe_rl).await?;
     }
