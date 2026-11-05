@@ -21,7 +21,10 @@ pub enum Status {
     RoutineStarting,
     Starting,
     Running,
-    FailedToStartProcess(String),
+    FailedToStartProcess {
+        error: String,
+        cmd: String,
+    },
     #[serde(
         serialize_with = "serialize_exit_status",
         deserialize_with = "deserialize_exit_status"

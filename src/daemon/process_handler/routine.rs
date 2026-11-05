@@ -86,7 +86,10 @@ impl Routine {
                     .send_new_status_to_task_manager(Status::Starting);
                 self.handle_running_child(child).await
             }
-            Err(err) => Status::FailedToStartProcess(err.to_string()),
+            Err(err) => Status::FailedToStartProcess {
+                error: err.to_string(),
+                cmd: self.config.cmd.to_string(),
+            },
         }
     }
 
@@ -191,7 +194,9 @@ impl Routine {
     ///   - otherwise return true (we want to restart)
     fn should_try_restart(&mut self, status: &Status) -> bool {
         match status {
-            Status::ErrorDuringStartup(_) => self.start_attempts < *self.config.start_retries(),
+            Status::ErrorDuringStartup(_) | Status::FailedToStartProcess { .. } => {
+                self.start_attempts < *self.config.start_retries()
+            }
 
             _ => {
                 self.start_attempts = 0;
