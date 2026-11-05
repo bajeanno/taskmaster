@@ -9,10 +9,8 @@ use daemonize::{Daemonized, DaemonizedOk, try_daemonized, try_daemonized_outside
 use logging::LogLevel;
 use rustyline::error::ReadlineError;
 
-use crate::{
-    daemon::{ClaimError, is_daemon_started},
-    start_mode::StartMode,
-};
+use crate::daemon::{ClaimError, is_daemon_started};
+pub use crate::start_mode::StartMode;
 
 #[derive(Debug, thiserror::Error)]
 enum Error {

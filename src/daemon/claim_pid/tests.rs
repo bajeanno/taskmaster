@@ -1,8 +1,7 @@
 use std::{assert_matches, sync::Mutex};
 
 use crate::daemon::{
-    claim_pid::{Claim, PidFileLock},
-    error::ClaimError,
+    claim_pid::{Claim, ClaimError, PidFileLock},
     test_utils::TestDir,
 };
 use crate::start_mode::StartMode;

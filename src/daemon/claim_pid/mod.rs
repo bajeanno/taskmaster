@@ -1,17 +1,16 @@
 #[cfg(test)]
 mod tests;
 
+mod error;
 mod pid_file;
+pub use error::ClaimError;
 
 use signal::Signal;
 use std::thread::sleep;
 use tokio::net::unix::pid_t;
 
 use crate::{
-    daemon::{
-        claim_pid::{CheckInstanceAlive::ParsePgrep, pid_file::PidFileLock},
-        error::ClaimError::{self, OtherInstanceRunning},
-    },
+    daemon::claim_pid::{CheckInstanceAlive::ParsePgrep, pid_file::PidFileLock},
     rpc::RPC_UNIX_SOCKET_PATH,
     start_mode::StartMode,
 };
@@ -66,7 +65,7 @@ impl Claim {
                     }
 
                     StartMode::Acknowledge { .. } | StartMode::Classic => {
-                        Err(OtherInstanceRunning)?
+                        Err(ClaimError::OtherInstanceRunning)?
                     }
                 }
             }

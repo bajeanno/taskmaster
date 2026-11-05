@@ -1,12 +1,13 @@
 mod error;
 
-pub use error::{ClaimError, Error};
+pub use error::Error;
 mod config_state;
 pub use config_state::ReloadType;
 mod tasks_manager;
 pub use tasks_manager::{Handle as TasksManagerHandle, ServerCommandError, TasksManagerStatus};
-
 mod claim_pid;
+pub use claim_pid::ClaimError;
+
 mod config;
 mod output_file;
 mod process;
@@ -23,13 +24,11 @@ use libc::sys::types::Pid;
 #[cfg(test)]
 use test_utils::TestDir;
 
-use crate::{
-    daemon::{
-        config_state::ConfigState,
-        signal_handling::SignalError,
-        tasks_manager::{RoutineStoppedReceiver, TaskManagerCommand},
-    },
-    start_mode::StartMode,
+use crate::StartMode;
+use crate::daemon::{
+    config_state::ConfigState,
+    signal_handling::SignalError,
+    tasks_manager::{RoutineStoppedReceiver, TaskManagerCommand},
 };
 use config::ProgramConfig;
 use std::{panic, pin::Pin, sync::Arc, time::Duration};
@@ -47,8 +46,8 @@ pub type CommandSender = mpsc::UnboundedSender<(
     oneshot::Sender<Result<(), ServerCommandError>>,
 )>;
 
-pub fn is_daemon_started() -> Result<bool, ClaimError> {
-    claim_pid::Claim::is_claimed()
+pub fn is_daemon_started() -> Result<bool, Error> {
+    claim_pid::Claim::is_claimed().map_err(Error::Claim)
 }
 
 /// # Safety

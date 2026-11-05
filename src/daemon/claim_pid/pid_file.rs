@@ -1,5 +1,4 @@
-use crate::daemon::error::ClaimError::{self};
-
+use super::ClaimError;
 use std::{
     fs::OpenOptions,
     io::{self, Read, Seek, Write},
