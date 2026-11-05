@@ -1,4 +1,5 @@
 use crate::{
+    client::CommandContext,
     daemon::{ReloadType, ServerCommandError},
     rpc::ClientHandle,
 };
@@ -161,6 +162,7 @@ macro_rules! handle_sub_command {
 pub async fn handle_command(
     client: &ClientHandle,
     mut args: impl Iterator<Item = String>,
+    command_context: CommandContext,
 ) -> Result<ShellAction, Error> {
     handle_command! {
         args;
@@ -213,7 +215,12 @@ pub async fn handle_command(
 
         /// Exits the shell
         "exit" => {
-            return Ok(ShellAction::Break);
+            match command_context {
+                CommandContext::CommandLine => return Err(
+                    Error::Parsing(ParseError::UnknownCommand("exit".to_owned()))
+                ),
+                CommandContext::InteractiveShell => return Ok(ShellAction::Break),
+            }
         },
     }
     Ok(ShellAction::Continue)

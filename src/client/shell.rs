@@ -1,5 +1,8 @@
 use crate::{
-    client::handle_command::{self, ParseError, ShellAction, handle_command},
+    client::{
+        CommandContext,
+        handle_command::{self, ParseError, ShellAction, handle_command},
+    },
     rpc::ClientHandle,
 };
 use logging::LogLevel;
@@ -29,7 +32,13 @@ pub async fn run(
             }
         };
 
-        match handle_command(&client, command.into_iter()).await {
+        match handle_command(
+            &client,
+            command.into_iter(),
+            CommandContext::InteractiveShell,
+        )
+        .await
+        {
             Ok(ShellAction::Break) => break Ok(()),
             Ok(ShellAction::Continue) => {}
             Err(handle_command::Error::Parsing(ParseError::EmptyCommand)) => {}
