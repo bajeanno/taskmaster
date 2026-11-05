@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests;
 
-use crate::daemon::error::ClaimError::{self, OtherInstanceRunning};
+mod error;
+pub use error::ClaimError;
 
 use libc::sys::file::{LOCK_EX, LOCK_UN, flock};
 use std::{
@@ -36,7 +37,7 @@ impl Claim {
     fn new_at(pid_file_path: String) -> Result<Self, ClaimError> {
         let mut pid_file = PidFile::open(&pid_file_path)?;
         match pid_file.read_pid()? {
-            Some(_) => Err(OtherInstanceRunning)?,
+            Some(_) => Err(ClaimError::OtherInstanceRunning)?,
             None => {
                 pid_file.write_pid()?;
                 Ok(Self { pid_file_path })
