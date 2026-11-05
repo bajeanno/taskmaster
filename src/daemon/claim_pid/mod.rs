@@ -16,7 +16,6 @@ const PID_FILE: &str = "/var/run/taskmaster.d/taskmaster.pid";
 #[cfg(test)]
 const PID_FILE: &str = "target/tests/pid/taskmaster.pid";
 
-
 #[derive(Debug)]
 pub struct Claim {
     pid_file_path: String,
