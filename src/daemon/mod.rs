@@ -1,12 +1,13 @@
 mod error;
 
-pub use error::{ClaimError, Error};
+pub use error::Error;
 mod config_state;
 pub use config_state::ReloadType;
 mod tasks_manager;
 pub use tasks_manager::{Handle as TasksManagerHandle, ServerCommandError, TasksManagerStatus};
-
 mod claim_pid;
+pub use claim_pid::ClaimError;
+
 mod config;
 mod output_file;
 mod process;
@@ -44,8 +45,8 @@ pub type CommandSender = mpsc::UnboundedSender<(
     oneshot::Sender<Result<(), ServerCommandError>>,
 )>;
 
-pub fn is_daemon_started() -> Result<bool, ClaimError> {
-    claim_pid::Claim::is_claimed()
+pub fn is_daemon_started() -> Result<bool, Error> {
+    claim_pid::Claim::is_claimed().map_err(Error::Claim)
 }
 
 /// # Safety

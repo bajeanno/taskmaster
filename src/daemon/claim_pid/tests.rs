@@ -5,8 +5,7 @@ use std::{
 };
 
 use crate::daemon::{
-    claim_pid::{Claim, PidFile},
-    error::ClaimError,
+    claim_pid::{Claim, ClaimError, PidFile},
     test_utils::TestDir,
 };
 

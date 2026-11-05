@@ -8,13 +8,13 @@ use daemonize::{Daemonized, DaemonizedOk, try_daemonized, try_daemonized_outside
 use logging::LogLevel;
 use rustyline::error::ReadlineError;
 
-use crate::daemon::{ClaimError, is_daemon_started};
+use crate::daemon::is_daemon_started;
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
     // Daemon errors
     #[error("Failed to check if daemon is started")]
-    CheckingIfDaemonIsStarted(#[from] ClaimError),
+    CheckingIfDaemonIsStarted(#[from] daemon::ClaimError),
     #[error("Failed to start daemon")]
     StartingDaemon(#[from] daemon::Error),
 
