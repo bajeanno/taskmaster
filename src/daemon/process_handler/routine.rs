@@ -197,14 +197,14 @@ impl Routine {
         match status {
             Status::ErrorDuringStartup(_) => self.start_attempts < *self.config.start_retries(),
             Status::FailedToStartProcess { error_kind, .. }
-                if error_kind.to_owned() == ErrorKind::WouldBlock.to_string() =>
+                if *error_kind == ErrorKind::WouldBlock.to_string() =>
             {
                 sleep(Duration::from_millis(500)).await;
                 true
             }
 
             Status::FailedToStartProcess { error_kind, .. }
-                if error_kind.to_owned() == ErrorKind::NotFound.to_string() =>
+                if *error_kind == ErrorKind::NotFound.to_string() =>
             {
                 false
             }
