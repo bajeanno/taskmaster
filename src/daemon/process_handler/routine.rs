@@ -10,12 +10,12 @@ use crate::daemon::{
 };
 use libc::{signal::kill, unistd::umask};
 use signal::Signal;
-use std::{panic, process::Stdio, sync::Arc};
+use std::{io::ErrorKind, panic, process::Stdio, sync::Arc};
 use tokio::{
     io::{AsyncBufRead, AsyncBufReadExt, Error},
     process::{Child, Command},
     sync::mpsc::{self, UnboundedSender},
-    time::Duration,
+    time::{Duration, sleep},
 };
 
 pub struct Routine {
@@ -66,7 +66,7 @@ impl Routine {
         loop {
             let status = self.run_program().await;
 
-            let should_try_restart = self.should_try_restart(&status);
+            let should_try_restart = self.should_try_restart(&status).await;
 
             self.status_sender.send_new_status_to_task_manager(status);
             if self.kill_command_received || !should_try_restart {
@@ -86,7 +86,11 @@ impl Routine {
                     .send_new_status_to_task_manager(Status::Starting);
                 self.handle_running_child(child).await
             }
-            Err(err) => Status::FailedToStartProcess(err.to_string()),
+            Err(err) => Status::FailedToStartProcess {
+                error: err.to_string(),
+                error_kind: err.kind().to_string(),
+                cmd: self.config.cmd.to_string(),
+            },
         }
     }
 
@@ -189,9 +193,21 @@ impl Routine {
     ///   - `config.auto_restart` is `false`: Return false (we don't want to restart)
     ///   - `config.auto_restart` is `unexpected` and the exit status is in `config.exit-codes`: Return false (we don't want to restart)
     ///   - otherwise return true (we want to restart)
-    fn should_try_restart(&mut self, status: &Status) -> bool {
+    async fn should_try_restart(&mut self, status: &Status) -> bool {
         match status {
             Status::ErrorDuringStartup(_) => self.start_attempts < *self.config.start_retries(),
+            Status::FailedToStartProcess { error_kind, .. }
+                if *error_kind == ErrorKind::WouldBlock.to_string() =>
+            {
+                sleep(Duration::from_millis(500)).await;
+                true
+            }
+
+            Status::FailedToStartProcess { error_kind, .. }
+                if *error_kind == ErrorKind::NotFound.to_string() =>
+            {
+                false
+            }
 
             _ => {
                 self.start_attempts = 0;
