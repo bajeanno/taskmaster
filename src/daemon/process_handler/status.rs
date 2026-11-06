@@ -21,8 +21,11 @@ pub enum Status {
     RoutineStarting,
     Starting,
     Running,
+    // Using Strings instead of raw io::Error and io::ErrorKind because of
+    // needed serialize and deserialize traits implementation
     FailedToStartProcess {
         error: String,
+        error_kind: String,
         cmd: String,
     },
     #[serde(
