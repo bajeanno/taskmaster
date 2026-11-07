@@ -39,6 +39,11 @@ pub enum CheckInstanceAlive {
     ParsePgrep(#[source] <i32 as FromStr>::Err),
 }
 
+enum AliveProcessFound {
+    Yes,
+    No,
+}
+
 #[derive(Debug)]
 pub struct Claim {
     file: PidFileLock,
@@ -93,14 +98,25 @@ impl Claim {
             return Ok(());
         }
 
-        Self::signal_running_instance(pid, Signal::SIGTERM)?;
-        sleep(Duration::from_millis(400));
-        Self::signal_running_instance(pid, Signal::SIGKILL)?;
+        if let AliveProcessFound::Yes = Self::is_there_an_instance_running(pid)? {
+            unsafe { Self::signal_running_instance(pid, Signal::SIGTERM) };
+            sleep(Duration::from_millis(100));
+        }
+        if let AliveProcessFound::Yes = Self::is_there_an_instance_running(pid)? {
+            unsafe { Self::signal_running_instance(pid, Signal::SIGKILL) };
+        }
+        while let AliveProcessFound::Yes = Self::is_there_an_instance_running(pid)? {
+            sleep(Duration::from_millis(50));
+        }
 
         Ok(())
     }
 
-    fn signal_running_instance(pid: pid_t, signal: Signal) -> Result<(), CheckInstanceAlive> {
+    unsafe fn signal_running_instance(pid: pid_t, signal: Signal) {
+        unsafe { kill(pid, signal as c_int) };
+    }
+
+    fn is_there_an_instance_running(pid: pid_t) -> Result<AliveProcessFound, CheckInstanceAlive> {
         let output = Command::new("pgrep")
             .arg("taskmaster")
             .stdout(Stdio::piped())
@@ -113,11 +129,10 @@ impl Claim {
             let pgrep_pid = line.parse::<i32>().map_err(ParsePgrep)?;
 
             if pid == pgrep_pid {
-                unsafe { kill(pid, signal as c_int) };
-                break;
+                return Ok(AliveProcessFound::Yes);
             }
         }
-        Ok(())
+        Ok(AliveProcessFound::No)
     }
 }
 
