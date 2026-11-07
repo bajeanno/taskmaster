@@ -59,7 +59,8 @@ impl PidFileLock {
     }
 }
 
-impl<'a> PidFileLockGuard<'a> {
+
+impl<'file> PidFileLockGuard<'file> {
     pub(super) fn read_pid(&mut self) -> Result<Option<u32>, ClaimError> {
         let mut buf = String::new();
         self.file
