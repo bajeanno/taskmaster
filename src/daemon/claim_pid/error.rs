@@ -1,3 +1,4 @@
+use super::CheckInstanceAlive;
 use std::num::ParseIntError;
 
 #[derive(Debug, thiserror::Error)]
@@ -10,8 +11,12 @@ pub enum ClaimError {
     ReadFile(#[source] std::io::Error),
     #[error("Failed to write to pid file")]
     WriteFile(#[source] std::io::Error),
+    #[error("Failed to rewind pid file before reading/writing")]
+    RewindFile(#[source] std::io::Error),
     #[error("Failed to parse pid file content")]
     Parse(#[source] ParseIntError),
+    #[error("Failed to check if another instance of daemon is running")]
+    Kill(#[from] CheckInstanceAlive),
     #[error(
         "The taskmaster PID file contains a pid meaning another instance of the daemon is \
         currently running.\n\

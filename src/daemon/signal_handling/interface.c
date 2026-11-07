@@ -15,7 +15,8 @@ static int register_sighandler(int signal, void(*handler)(int)) {
 
 char *declare_sighandlers() {
 	if (register_sighandler(SIGINT, on_signal) != 0
-		|| register_sighandler(SIGHUP, on_signal) != 0) {
+		|| register_sighandler(SIGHUP, on_signal) != 0
+		|| register_sighandler(SIGTERM, on_signal) != 0) {
 		return strerror(errno);
 	}
 	return 0;

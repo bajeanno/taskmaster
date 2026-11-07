@@ -24,6 +24,7 @@ use libc::sys::types::Pid;
 #[cfg(test)]
 use test_utils::TestDir;
 
+use crate::StartMode;
 use crate::daemon::{
     config_state::ConfigState,
     signal_handling::SignalError,
@@ -52,9 +53,8 @@ pub fn is_daemon_started() -> Result<bool, Error> {
 /// # Safety
 ///
 /// Only call when it is safe to call fork()
-pub unsafe fn run() -> Daemonized<(), Error, Pid, Error> {
+pub unsafe fn run(start_mode: StartMode) -> Daemonized<(), Error, Pid, Error> {
     let config_state = try_daemonized_outside!(ConfigState::from_default_config_file());
-
     if !cfg!(debug_assertions) {
         match try_daemonized!(unsafe { daemonize() }) {
             DaemonizedOk::InsideDaemon(()) => {}
@@ -64,7 +64,7 @@ pub unsafe fn run() -> Daemonized<(), Error, Pid, Error> {
         }
     }
 
-    let pid_file_claim = match claim_pid::Claim::new() {
+    let pid_file_claim = match claim_pid::Claim::new(start_mode) {
         Ok(claim) => claim,
         Err(err) => return Daemonized::InsideDaemon(Err(err.into())),
     };
