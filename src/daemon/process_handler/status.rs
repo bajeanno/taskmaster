@@ -1,15 +1,52 @@
-use std::{fmt::Debug, os::unix::process::ExitStatusExt, process::ExitStatus};
+use std::{
+    fmt::{Debug, Display},
+    os::unix::process::ExitStatusExt,
+    process::ExitStatus,
+};
 
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::daemon::process::ProcessId;
 
-#[allow(dead_code)] //TODO: remove that
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(test, derive(PartialEq, Eq))]
 pub struct NominativeStatus {
-    pub process_id: ProcessId,
-    pub status: Status,
+    process_id: ProcessId,
+    status: Status,
+    has_been_logged: bool,
+}
+
+impl NominativeStatus {
+    pub fn new(process_id: ProcessId, status: Status) -> Self {
+        Self {
+            process_id,
+            status,
+            has_been_logged: false,
+        }
+    }
+
+    pub fn log(&mut self) {
+        match self {
+            NominativeStatus {
+                has_been_logged: false,
+                ..
+            } => {
+                self.has_been_logged = true;
+                logging::info!("{self}");
+            }
+            _ => {}
+        }
+    }
+
+    fn status(&self) -> Status {
+        self.status.clone()
+    }
+}
+
+impl Display for NominativeStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.process_id, self.status)
+    }
 }
 
 #[allow(dead_code)] //TODO: Remove that
@@ -35,6 +72,23 @@ pub enum Status {
     NotRestarting {
         instance_id: usize,
     },
+}
+
+impl Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Status::NotRunning => write!(f, "Not running"),
+            Status::RoutineStarting => write!(f, "Routine starting"),
+            Status::Starting => write!(f, "Starting"),
+            Status::Running => write!(f, "Running"),
+            Status::FailedToStartProcess(_) => write!(f, "Failed to start process"),
+            Status::ErrorDuringStartup(exit_status) => {
+                write!(f, "Error during startup {exit_status}")
+            }
+            Status::Exited(exit_status) => write!(f, "Exited {exit_status}"),
+            Status::NotRestarting { .. } => write!(f, "Not restarting"),
+        }
+    }
 }
 
 fn serialize_exit_status<S>(exit_status: &ExitStatus, serializer: S) -> Result<S::Ok, S::Error>
@@ -69,10 +123,7 @@ impl StatusSender {
 
     pub fn send_new_status_to_task_manager(&mut self, status: Status) {
         self.sender
-            .send(NominativeStatus {
-                process_id: self.process_id.clone(),
-                status,
-            })
+            .send(NominativeStatus::new(self.process_id.clone(), status))
             .expect("Receiver was dropped");
     }
 }

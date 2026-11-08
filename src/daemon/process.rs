@@ -51,13 +51,13 @@ impl Process {
         Self {
             program_config: Arc::clone(&program),
             handle: None,
-            nominative_status: NominativeStatus {
-                process_id: ProcessId {
+            nominative_status: NominativeStatus::new(
+                ProcessId {
                     task_name: program.name().clone(),
                     id,
                 },
-                status: Status::default(),
-            },
+                Status::default(),
+            ),
             instance_id: 0,
             process_id: ProcessId {
                 task_name: program.name().clone(),
