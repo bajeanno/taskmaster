@@ -12,6 +12,11 @@ use crate::{
     rpc::{self, ClientHandle},
 };
 
+enum CommandContext {
+    InteractiveShell,
+    CommandLine,
+}
+
 pub fn run(
     maybe_rl: Option<rustyline::DefaultEditor>,
     args: Vec<String>,
@@ -30,7 +35,7 @@ async fn start_client(
     if args.is_empty() {
         shell::run(client, maybe_rl).await?;
     } else {
-        handle_command(&client, args.into_iter()).await?;
+        handle_command(&client, args.into_iter(), CommandContext::CommandLine).await?;
     }
 
     Ok(())
