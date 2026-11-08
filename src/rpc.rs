@@ -5,7 +5,7 @@ use tokio::net::{UnixListener, UnixStream};
 use crate::daemon::TasksManagerHandle;
 
 const MAX_FRAME_SIZE: usize = 1024 * 1024;
-const RPC_UNIX_SOCKET_PATH: &str = "/var/run/taskmaster.d/taskmaster.sock";
+pub const RPC_UNIX_SOCKET_PATH: &str = "/var/run/taskmaster.d/taskmaster.sock";
 
 pub type ClientHandle = service::ClientHandle<UnixStream>;
 pub type ConnectClientError = rpc_genie::client::Error;

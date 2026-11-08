@@ -7,7 +7,7 @@ members = [
     "crates/time",
     "crates/serializable-error",
     "vendor/rpc-genie/rpc-genie",
-    "vendor/rpc-genie/rpc-genie-macros",
+    "vendor/rpc-genie/rpc-genie-macros", "crates/file-lock",
 ]
 
 [patch.crates-io]
@@ -44,6 +44,7 @@ signal = "0.7.0"
 serde_with = "3.16.1"
 toml = "1.1.4"
 ron = "0.12.2"
+file-lock = { version = "0.1.0", path = "crates/file-lock" }
 
 [build-dependencies]
 cc = "1.5.1"

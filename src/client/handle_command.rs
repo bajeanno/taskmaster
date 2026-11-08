@@ -1,4 +1,5 @@
 use crate::{
+    client::CommandContext,
     daemon::{ReloadType, ServerCommandError},
     rpc::ClientHandle,
 };
@@ -30,9 +31,9 @@ pub enum ParseError {
     MissingArgument(Option<&'static str>),
 }
 
-pub enum CommandWasShutdown {
-    True,
-    False,
+pub enum ShellAction {
+    Break,
+    Continue,
 }
 
 macro_rules! handle_command {
@@ -41,10 +42,9 @@ macro_rules! handle_command {
         $($cases:tt)*
     ) => {{
         let command_name = $args_iter.next().ok_or(ParseError::EmptyCommand)?;
-        let command_name = command_name.trim();
 
         handle_command_cases!(
-            || Err(ParseError::UnknownCommand(command_name.to_owned()).into()),
+            || Err(ParseError::UnknownCommand(command_name).into()),
             $args_iter,
             command_name,
             $($cases)*
@@ -161,7 +161,8 @@ macro_rules! handle_sub_command {
 pub async fn handle_command(
     client: &ClientHandle,
     mut args: impl Iterator<Item = String>,
-) -> Result<CommandWasShutdown, Error> {
+    command_context: CommandContext,
+) -> Result<ShellAction, Error> {
     handle_command! {
         args;
 
@@ -208,10 +209,20 @@ pub async fn handle_command(
         /// Stops all tasks and shutdowns the daemon
         "shutdown" => {
             handle_shutdown_command(client).await?;
-            return Ok(CommandWasShutdown::True);
+            return Ok(ShellAction::Break);
+        },
+
+        /// Exits the shell
+        "exit" => {
+            match command_context {
+                CommandContext::CommandLine => return Err(
+                    Error::Parsing(ParseError::UnknownCommand("exit".to_owned()))
+                ),
+                CommandContext::InteractiveShell => return Ok(ShellAction::Break),
+            }
         },
     }
-    Ok(CommandWasShutdown::False)
+    Ok(ShellAction::Continue)
 }
 
 async fn handle_status_command(client: &ClientHandle) -> Result<(), Error> {
