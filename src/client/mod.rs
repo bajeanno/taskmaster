@@ -17,24 +17,25 @@ enum CommandContext {
     CommandLine,
 }
 
-pub fn run(maybe_rl: Option<rustyline::DefaultEditor>) -> Result<(), crate::Error> {
+pub fn run(
+    maybe_rl: Option<rustyline::DefaultEditor>,
+    args: Vec<String>,
+) -> Result<(), crate::Error> {
     tokio::runtime::Runtime::new()
         .expect("Failed to init tokio runtime")
-        .block_on(start_client(maybe_rl))
+        .block_on(start_client(maybe_rl, args))
 }
 
-async fn start_client(maybe_rl: Option<rustyline::DefaultEditor>) -> Result<(), crate::Error> {
+async fn start_client(
+    maybe_rl: Option<rustyline::DefaultEditor>,
+    args: Vec<String>,
+) -> Result<(), crate::Error> {
     let client = connect_client().await?;
 
-    if std::env::args().nth(1).is_some() {
-        handle_command(
-            &client,
-            std::env::args().skip(1),
-            CommandContext::CommandLine,
-        )
-        .await?;
-    } else {
+    if args.is_empty() {
         shell::run(client, maybe_rl).await?;
+    } else {
+        handle_command(&client, args.into_iter(), CommandContext::CommandLine).await?;
     }
 
     Ok(())

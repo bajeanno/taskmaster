@@ -42,10 +42,9 @@ macro_rules! handle_command {
         $($cases:tt)*
     ) => {{
         let command_name = $args_iter.next().ok_or(ParseError::EmptyCommand)?;
-        let command_name = command_name.trim();
 
         handle_command_cases!(
-            || Err(ParseError::UnknownCommand(command_name.to_owned()).into()),
+            || Err(ParseError::UnknownCommand(command_name).into()),
             $args_iter,
             command_name,
             $($cases)*

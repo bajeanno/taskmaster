@@ -10,6 +10,8 @@ use std::{
 use tokio::sync::oneshot;
 
 unsafe extern "C" {
+    /// Declares sighandler for SIGHUP, SIGTERM and SIGINT
+    ///
     /// This function is implemented inside interface.c file (this is C code linking with the Rust binary)
     ///
     /// # Return value
@@ -41,7 +43,6 @@ fn install_sighandlers() -> Result<SignalChannel, SignalError> {
     let channel = SignalChannel::init();
 
     unsafe {
-        // declare sighandler for SIGHUP and SIGINT
         let errno = declare_sighandlers();
         if !errno.is_null() {
             return Err(SignalError::SigAction(CStr::from_ptr(errno).to_owned()));
@@ -89,7 +90,7 @@ async fn react_to_signal(signum: c_int, tasks_manager_handle: &Handle) -> bool {
                 let _ = tasks_manager_handle.reload(ReloadType::UseCurrent).await;
             }
 
-            Signal::SIGINT => {
+            Signal::SIGINT | Signal::SIGTERM => {
                 let _ = tasks_manager_handle.shutdown().await;
                 return true;
             }
