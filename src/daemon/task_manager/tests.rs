@@ -255,7 +255,7 @@ async fn task_manager_reload_plus_1_proc() {
 }
 
 #[tokio::test]
-async fn task_manager_reload_keeps_unchanged_program() {
+async fn task_manager_reload_keeps_unchanged_task() {
     let initial_content = r#"tasks:
     keep:
         cmd: "sleep 30"
@@ -276,7 +276,7 @@ async fn task_manager_reload_keeps_unchanged_program() {
         ConfigState::from_content(initial_content.to_string(), "".to_string()),
     );
 
-    let path = TestDir::new("reload_keeps_program_unchanged");
+    let path = TestDir::new("reload_keeps_task_unchanged");
     let new_file = path.join("taskmaster_task_manager_reload.yaml");
     let mut file = OpenOptions::new()
         .create(true)

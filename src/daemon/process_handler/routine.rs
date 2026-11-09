@@ -64,7 +64,7 @@ impl Routine {
 
     async fn routine(mut self) {
         loop {
-            let status = self.run_program().await;
+            let status = self.run_task().await;
 
             let should_try_restart = self.should_try_restart(&status);
 
@@ -79,7 +79,7 @@ impl Routine {
         }
     }
 
-    async fn run_program(&mut self) -> Status {
+    async fn run_task(&mut self) -> Status {
         match self.child_spawn() {
             Ok(child) => {
                 self.status_sender
@@ -178,7 +178,7 @@ impl Routine {
     }
 
     /// Condition for restart:
-    /// - The programmed failed to start (i.e. it crashed before `config.start_time` seconds
+    /// - The taskmed failed to start (i.e. it crashed before `config.start_time` seconds
     ///   elapsed):
     ///   - We already attempted to start the task `config.start_retries` times (note that the
     ///     attempted start count is reset whenever the task starts successfully):

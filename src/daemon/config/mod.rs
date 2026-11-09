@@ -168,12 +168,12 @@ mod tests {
         };
 
         // Re-wrap original for comparison (re-creating to avoid move issues)
-        let mut expected_programs = HashMap::new();
-        let mut expected_program = TaskConfig::template();
-        *expected_program.name_mut() = name.clone();
-        expected_programs.insert(name, Arc::new(expected_program));
+        let mut expected_tasks = HashMap::new();
+        let mut expected_task = TaskConfig::template();
+        *expected_task.name_mut() = name.clone();
+        expected_tasks.insert(name, Arc::new(expected_task));
         let expected_config = Config {
-            tasks: expected_programs,
+            tasks: expected_tasks,
         };
 
         assert_eq!(final_config, expected_config);

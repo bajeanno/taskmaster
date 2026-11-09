@@ -30,18 +30,16 @@ impl Handle {
     }
 
     pub async fn start(&self, task_name: String) -> Result<()> {
-        self.send(TaskManagerCommand::StartProgram { task_name })
-            .await
+        self.send(TaskManagerCommand::Starttask { task_name }).await
     }
 
     pub async fn restart(&self, task_name: String) -> Result<()> {
-        self.send(TaskManagerCommand::RestartProgram { task_name })
+        self.send(TaskManagerCommand::Restarttask { task_name })
             .await
     }
 
     pub async fn stop(&self, task_name: String) -> Result<()> {
-        self.send(TaskManagerCommand::StopProgram { task_name })
-            .await
+        self.send(TaskManagerCommand::Stoptask { task_name }).await
     }
 
     pub async fn stop_all_processes(&self) -> Result<()> {

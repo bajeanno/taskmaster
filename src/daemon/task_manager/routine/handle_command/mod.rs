@@ -25,26 +25,26 @@ impl Routine {
                 self.reload_config(reload_args).await?;
             }
 
-            TaskManagerCommand::StartProgram { task_name } => {
-                self.handle_start_program_command(task_name).await?
+            TaskManagerCommand::Starttask { task_name } => {
+                self.handle_start_task_command(task_name).await?
             }
 
-            TaskManagerCommand::RestartProgram { task_name } => {
-                self.processes.stop_program(&task_name).await?;
-                self.handle_start_program_command(task_name).await?
+            TaskManagerCommand::Restarttask { task_name } => {
+                self.processes.stop_task(&task_name).await?;
+                self.handle_start_task_command(task_name).await?
             }
 
-            TaskManagerCommand::StopProgram { task_name } => {
-                self.processes.stop_program(task_name).await?
+            TaskManagerCommand::Stoptask { task_name } => {
+                self.processes.stop_task(task_name).await?
             }
 
-            TaskManagerCommand::SubscribeToProgramEvents { task_name, client } => {
-                self.handle_subscribe_to_program_events(task_name, client)
+            TaskManagerCommand::SubscribeTotaskEvents { task_name, client } => {
+                self.handle_subscribe_to_task_events(task_name, client)
                     .await?
             }
 
-            TaskManagerCommand::UnsubscribeToProgramEvents { task_name, client } => {
-                self.handle_unsubscribe_to_program_events(task_name, client)
+            TaskManagerCommand::UnsubscribeTotaskEvents { task_name, client } => {
+                self.handle_unsubscribe_to_task_events(task_name, client)
                     .await?
             }
 
@@ -64,20 +64,20 @@ impl Routine {
         Ok(ShouldStopEventLoop::False)
     }
 
-    async fn handle_start_program_command(
+    async fn handle_start_task_command(
         &mut self,
         task_name: String,
     ) -> Result<(), ServerCommandError> {
-        let program_config = self
-            .get_program_config(task_name.as_str())
-            .ok_or(super::ServerCommandError::NoSuchProgram(task_name))?;
+        let task_config = self
+            .get_task_config(task_name.as_str())
+            .ok_or(super::ServerCommandError::NoSuchtask(task_name))?;
         self.processes
-            .start_program(&program_config, &self.status_sender, &self.log_sender)
+            .start_task(&task_config, &self.status_sender, &self.log_sender)
             .await;
         Ok(())
     }
 
-    async fn handle_subscribe_to_program_events(
+    async fn handle_subscribe_to_task_events(
         &mut self,
         task_name: String,
         client: Client,
@@ -86,12 +86,12 @@ impl Routine {
             .lock()
             .await
             .get(&task_name)
-            .ok_or(super::ServerCommandError::NoSuchProgram(task_name))?
+            .ok_or(super::ServerCommandError::NoSuchtask(task_name))?
             .add(client);
         Ok(())
     }
 
-    async fn handle_unsubscribe_to_program_events(
+    async fn handle_unsubscribe_to_task_events(
         &mut self,
         task_name: String,
         client: Client,
@@ -100,12 +100,12 @@ impl Routine {
             .lock()
             .await
             .get(&task_name)
-            .ok_or(super::ServerCommandError::NoSuchProgram(task_name))?
+            .ok_or(super::ServerCommandError::NoSuchtask(task_name))?
             .remove(client);
         Ok(())
     }
 
-    fn get_program_config(&self, task_name: &str) -> Option<Arc<TaskConfig>> {
+    fn get_task_config(&self, task_name: &str) -> Option<Arc<TaskConfig>> {
         if let Active {
             config,
             config_file_path: _,

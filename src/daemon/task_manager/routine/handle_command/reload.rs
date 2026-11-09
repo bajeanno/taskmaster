@@ -31,7 +31,7 @@ impl Routine {
                     | LoadError {
                         error: _,
                         config_file_path: _,
-                    } => self.start_programs(&new_config.tasks).await,
+                    } => self.start_tasks(&new_config.tasks).await,
                 }
                 Ok(())
             }
@@ -56,46 +56,40 @@ impl Routine {
     // remove it from the hashmap because we only handle one user command
     // at a time
     async fn update_processes(&mut self, current_config: &Arc<Config>, new_config: &Arc<Config>) {
-        for (name, new_program_config) in new_config.tasks.iter() {
+        for (name, new_task_config) in new_config.tasks.iter() {
             match current_config.tasks.get(name) {
-                Some(current_program_config) => {
-                    match current_program_config.diff(new_program_config) {
-                        TaskConfigDiff::NeedRestart => {
-                            self.processes
-                                .stop_and_remove_program(name)
-                                .await
-                                .expect("task should be in the processes map");
-                            self.processes
-                                .start_program(
-                                    new_program_config,
-                                    &self.status_sender,
-                                    &self.log_sender,
-                                )
-                                .await;
-                        }
-                        TaskConfigDiff::NumProcsChanged { before, after } => {
-                            self.processes
-                                .handle_num_procs_diff(
-                                    new_program_config,
-                                    before,
-                                    after,
-                                    name,
-                                    &self.status_sender,
-                                    &self.log_sender,
-                                )
-                                .await;
-                        }
-                        TaskConfigDiff::Other => {
-                            self.processes
-                                .update_processes_program_data(name, new_program_config)
-                                .await;
-                        }
+                Some(current_task_config) => match current_task_config.diff(new_task_config) {
+                    TaskConfigDiff::NeedRestart => {
+                        self.processes
+                            .stop_and_remove_task(name)
+                            .await
+                            .expect("task should be in the processes map");
+                        self.processes
+                            .start_task(new_task_config, &self.status_sender, &self.log_sender)
+                            .await;
                     }
-                }
+                    TaskConfigDiff::NumProcsChanged { before, after } => {
+                        self.processes
+                            .handle_num_procs_diff(
+                                new_task_config,
+                                before,
+                                after,
+                                name,
+                                &self.status_sender,
+                                &self.log_sender,
+                            )
+                            .await;
+                    }
+                    TaskConfigDiff::Other => {
+                        self.processes
+                            .update_processes_task_data(name, new_task_config)
+                            .await;
+                    }
+                },
 
                 None => {
                     self.processes
-                        .start_program(new_program_config, &self.status_sender, &self.log_sender)
+                        .start_task(new_task_config, &self.status_sender, &self.log_sender)
                         .await;
                 }
             }
@@ -104,7 +98,7 @@ impl Routine {
         for name in current_config.tasks.keys() {
             if !new_config.tasks.contains_key(name) {
                 self.processes
-                    .stop_and_remove_program(name)
+                    .stop_and_remove_task(name)
                     .await
                     .expect("task should be in the processes map");
             }
@@ -204,13 +198,13 @@ mod tests {
             status_sender,
             routine_stopped_sender,
         };
-        routine.start_programs(&current_config.tasks).await;
+        routine.start_tasks(&current_config.tasks).await;
 
         (routine, status_receiver, log_receiver)
     }
 
     #[tokio::test]
-    async fn reload_keeps_unchanged_programs_running() {
+    async fn reload_keeps_unchanged_tasks_running() {
         let current_config = config(CURRENT_CONFIG);
         let new_config = config(NEW_CONFIG);
 
@@ -239,12 +233,12 @@ mod tests {
 
         routine
             .processes
-            .stop_program("changed_decreased")
+            .stop_task("changed_decreased")
             .await
             .unwrap();
         routine
             .processes
-            .stop_program("changed_increased")
+            .stop_task("changed_increased")
             .await
             .unwrap();
 
@@ -518,7 +512,7 @@ mod tests {
                 "process must keep running on a non-destructive reload"
             );
 
-            let updated_config = process.program_config();
+            let updated_config = process.task_config();
             assert_eq!(*updated_config.exit_codes(), vec![0, 2]);
             assert_eq!(*updated_config.start_retries(), 5);
             assert_eq!(*updated_config.stop_time(), 10);
@@ -531,7 +525,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reload_restarts_program_on_destructive_changes() {
+    async fn reload_restarts_task_on_destructive_changes() {
         let current_yaml = r#"tasks:
   app:
     cmd: "sleep 30"
@@ -574,7 +568,7 @@ mod tests {
                 "restarted process must be running after reload"
             );
             assert_eq!(
-                process.program_config().cmd(),
+                process.task_config().cmd(),
                 &Command::from_str("sleep 31").unwrap(),
                 "process must run with the reloaded command"
             );
@@ -605,7 +599,7 @@ mod tests {
 
         let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
 
-        routine.processes.stop_program("app").await.unwrap();
+        routine.processes.stop_task("app").await.unwrap();
         assert!(
             !routine
                 .processes
@@ -626,7 +620,7 @@ mod tests {
             let processes = process_registry.lock().await;
             let process = processes.get("app").unwrap().first().unwrap();
             assert_eq!(
-                *process.program_config().start_retries(),
+                *process.task_config().start_retries(),
                 5,
                 "stopped process must still receive the reloaded config"
             );

@@ -17,11 +17,11 @@ impl TasksManagerStatus {
         Self { list: Vec::new() }
     }
 
-    pub fn push(&mut self, program_config: &Arc<TaskConfig>, list: Vec<NominativeStatus>) {
+    pub fn push(&mut self, task_config: &Arc<TaskConfig>, list: Vec<NominativeStatus>) {
         let list = StatusList {
             list,
-            task_name: program_config.name().clone(),
-            command: program_config.cmd().to_string(),
+            task_name: task_config.name().clone(),
+            command: task_config.cmd().to_string(),
         };
         self.list.push(list);
     }

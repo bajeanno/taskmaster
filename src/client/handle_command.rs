@@ -188,10 +188,10 @@ pub async fn handle_command(
             },
         },
 
-        /// Starts the task named task_name
+        /// Starts the task named `task_name`
         "start", task_name => handle_start_command(client, task_name).await?,
 
-        /// Restarts the task named task_name
+        /// Restarts the task named `task_name`
         "restart", task_name => handle_restart_command(client, task_name).await?,
 
         /// Stops tasks
@@ -199,7 +199,7 @@ pub async fn handle_command(
             /// Stops all tasks handled by taskmaster
             "--all" => handle_stop_all_command(client).await?,
 
-            /// Stops the task named task_name
+            /// Stops the task named `task_name`
             task_name => handle_stop_command(client, task_name).await?,
         },
 

@@ -236,7 +236,7 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
     use crate::daemon::config::Config;
     use std::io::Cursor;
 
-    fn program_from_yaml(content: &str) -> Arc<crate::daemon::config::TaskConfig> {
+    fn task_from_yaml(content: &str) -> Arc<crate::daemon::config::TaskConfig> {
         Config::from_reader(Cursor::new(content.to_string()))
             .expect("failed to parse config")
             .tasks
@@ -269,7 +269,7 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
     };
 
     let routine_handle = Routine::spawn(
-        program_from_yaml(initial_yaml),
+        task_from_yaml(initial_yaml),
         status_sender,
         log_sender,
         name.clone(),
@@ -280,7 +280,7 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
     check_status(Arc::clone(&status_receiver), name.clone()).await;
 
     routine_handle
-        .send_reloaded_config(program_from_yaml(reloaded_yaml))
+        .send_reloaded_config(task_from_yaml(reloaded_yaml))
         .await;
 
     // The reloaded config makes exit code 1 unexpected, so once the task

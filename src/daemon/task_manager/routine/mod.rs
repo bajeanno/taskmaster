@@ -87,7 +87,7 @@ impl Routine {
             config_file_path: _,
         } = &self.config_state
         {
-            self.start_programs(&Arc::clone(config).tasks).await;
+            self.start_tasks(&Arc::clone(config).tasks).await;
         }
 
         let logs_handle = tokio::spawn(Self::listen_for_logs(log_receiver, self.clients.clone()));
@@ -107,10 +107,10 @@ impl Routine {
         let _ = self.routine_stopped_sender.send(());
     }
 
-    async fn start_programs(&mut self, tasks: &HashMap<String, Arc<TaskConfig>>) {
-        for program_config in tasks.values() {
+    async fn start_tasks(&mut self, tasks: &HashMap<String, Arc<TaskConfig>>) {
+        for task_config in tasks.values() {
             self.processes
-                .start_program(program_config, &self.status_sender, &self.log_sender)
+                .start_task(task_config, &self.status_sender, &self.log_sender)
                 .await;
         }
     }
@@ -162,7 +162,7 @@ mod tests {
 
     use crate::daemon::{config::task::TaskConfigDiff, config_state::ConfigState};
 
-    fn program_from_yaml(content: &str, task_name: &str) -> Arc<crate::daemon::config::TaskConfig> {
+    fn task_from_yaml(content: &str, task_name: &str) -> Arc<crate::daemon::config::TaskConfig> {
         match ConfigState::from_content(content.to_string(), "".to_string()) {
             ConfigState::Active {
                 config,
@@ -173,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn test_program_diff_cmd_changed() {
+    fn test_task_diff_cmd_changed() {
         let current_yaml = r#"tasks:
   testprog:
     cmd: "sleep 30"
@@ -183,14 +183,14 @@ mod tests {
     cmd: "sleep 31"
     num-procs: 2"#;
 
-        let current = program_from_yaml(current_yaml, "testprog");
-        let new = program_from_yaml(new_yaml, "testprog");
+        let current = task_from_yaml(current_yaml, "testprog");
+        let new = task_from_yaml(new_yaml, "testprog");
 
         assert_matches!(current.diff(&new), TaskConfigDiff::NeedRestart);
     }
 
     #[test]
-    fn test_program_diff_num_procs_changed() {
+    fn test_task_diff_num_procs_changed() {
         let current_yaml = r#"tasks:
   testprog:
     cmd: "sleep 30"
@@ -200,8 +200,8 @@ mod tests {
     cmd: "sleep 30"
     num-procs: 3"#;
 
-        let current = program_from_yaml(current_yaml, "testprog");
-        let new = program_from_yaml(new_yaml, "testprog");
+        let current = task_from_yaml(current_yaml, "testprog");
+        let new = task_from_yaml(new_yaml, "testprog");
 
         match current.diff(&new) {
             TaskConfigDiff::NumProcsChanged { before, after } => {
@@ -213,7 +213,7 @@ mod tests {
     }
 
     #[test]
-    fn test_program_diff_other() {
+    fn test_task_diff_other() {
         let current_yaml = r#"tasks:
   testprog:
     cmd: "sleep 30"
@@ -225,8 +225,8 @@ mod tests {
     num-procs: 2
     auto-start: true"#;
 
-        let current = program_from_yaml(current_yaml, "testprog");
-        let new = program_from_yaml(new_yaml, "testprog");
+        let current = task_from_yaml(current_yaml, "testprog");
+        let new = task_from_yaml(new_yaml, "testprog");
 
         assert_matches!(current.diff(&new), TaskConfigDiff::Other);
     }

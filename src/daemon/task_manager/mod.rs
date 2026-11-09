@@ -16,7 +16,7 @@ use tokio::sync::oneshot;
 #[derive(Debug, thiserror::Error, serde::Serialize, serde::Deserialize)]
 pub enum ServerCommandError {
     #[error("Task not found in current config: {0}")]
-    NoSuchProgram(String),
+    NoSuchtask(String),
 
     #[error("error loading config from file '{config_file_path}': {error}")]
     FailedToLoadNewConfig {
@@ -39,11 +39,11 @@ pub enum ServerCommandError {
 pub enum TaskManagerCommand {
     ListProcesses(oneshot::Sender<TasksManagerStatus>),
     Reload(ReloadType),
-    StartProgram { task_name: String },
-    RestartProgram { task_name: String },
-    StopProgram { task_name: String },
-    SubscribeToProgramEvents { task_name: String, client: Client },
-    UnsubscribeToProgramEvents { task_name: String, client: Client },
+    Starttask { task_name: String },
+    Restarttask { task_name: String },
+    Stoptask { task_name: String },
+    SubscribeTotaskEvents { task_name: String, client: Client },
+    UnsubscribeTotaskEvents { task_name: String, client: Client },
     StopAllProcesses,
     RestoreConfigFile,
     Shutdown,

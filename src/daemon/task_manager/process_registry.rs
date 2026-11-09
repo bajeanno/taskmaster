@@ -20,14 +20,14 @@ impl ProcessRegistry {
         Arc::new(Self(Mutex::new(HashMap::new())))
     }
 
-    pub async fn start_program(
+    pub async fn start_task(
         &self,
-        program_config: &Arc<TaskConfig>,
+        task_config: &Arc<TaskConfig>,
         status_sender: &UnboundedSender<NominativeStatus>,
         log_sender: &LogSender,
     ) {
         let mut process_registry = self.0.lock().await;
-        match process_registry.get_mut(program_config.name()) {
+        match process_registry.get_mut(task_config.name()) {
             Some(process_vec) => {
                 process_vec
                     .iter_mut()
@@ -35,8 +35,8 @@ impl ProcessRegistry {
             }
             None => {
                 process_registry.insert(
-                    program_config.name().clone(),
-                    self.create_processes_vec(program_config, status_sender, log_sender)
+                    task_config.name().clone(),
+                    self.create_processes_vec(task_config, status_sender, log_sender)
                         .await,
                 );
             }
@@ -45,18 +45,16 @@ impl ProcessRegistry {
 
     async fn create_processes_vec(
         &self,
-        program_config: &Arc<TaskConfig>,
+        task_config: &Arc<TaskConfig>,
         status_sender: &UnboundedSender<NominativeStatus>,
         log_sender: &LogSender,
     ) -> Vec<Process> {
-        (0..*program_config.num_procs() as usize)
-            .map(|id| {
-                Process::new(program_config.clone(), id).auto_start(status_sender, log_sender)
-            })
+        (0..*task_config.num_procs() as usize)
+            .map(|id| Process::new(task_config.clone(), id).auto_start(status_sender, log_sender))
             .collect()
     }
 
-    pub async fn stop_program(
+    pub async fn stop_task(
         &self,
         task_name: impl AsRef<str> + Into<String>,
     ) -> Result<(), ServerCommandError> {
@@ -64,7 +62,7 @@ impl ProcessRegistry {
 
         for process in processes
             .get_mut(task_name.as_ref())
-            .ok_or_else(|| ServerCommandError::NoSuchProgram(task_name.into()))?
+            .ok_or_else(|| ServerCommandError::NoSuchtask(task_name.into()))?
             .iter_mut()
         {
             process.stop_and_join_if_running().await;
@@ -72,12 +70,12 @@ impl ProcessRegistry {
         Ok(())
     }
 
-    pub async fn stop_and_remove_program(&self, task_name: &str) -> Result<(), ServerCommandError> {
+    pub async fn stop_and_remove_task(&self, task_name: &str) -> Result<(), ServerCommandError> {
         let mut processes = self.0.lock().await;
 
         for process in processes
             .get_mut(task_name)
-            .ok_or_else(|| ServerCommandError::NoSuchProgram(task_name.into()))?
+            .ok_or_else(|| ServerCommandError::NoSuchtask(task_name.into()))?
             .iter_mut()
         {
             process.stop_and_join_if_running().await;
@@ -107,7 +105,7 @@ impl ProcessRegistry {
             };
 
             list.push(
-                &first_process.program_config(),
+                &first_process.task_config(),
                 processes
                     .iter()
                     .map(|process| process.nominative_status.clone())
@@ -118,11 +116,7 @@ impl ProcessRegistry {
         })
     }
 
-    pub async fn update_processes_program_data(
-        &self,
-        task_name: &str,
-        new_config: &Arc<TaskConfig>,
-    ) {
+    pub async fn update_processes_task_data(&self, task_name: &str, new_config: &Arc<TaskConfig>) {
         for process in self
             .0
             .lock()
@@ -131,13 +125,13 @@ impl ProcessRegistry {
             .expect("task is absent from processes")
             .iter_mut()
         {
-            process.update_program_config(Arc::clone(new_config)).await;
+            process.update_task_config(Arc::clone(new_config)).await;
         }
     }
 
     pub async fn handle_num_procs_diff(
         &self,
-        new_program_config: &Arc<TaskConfig>,
+        new_task_config: &Arc<TaskConfig>,
         current_num_procs: usize,
         new_num_procs: usize,
         task_name: &str,
@@ -157,7 +151,7 @@ impl ProcessRegistry {
 
             for process in process_vec.iter_mut() {
                 process
-                    .update_program_config(Arc::clone(new_program_config))
+                    .update_task_config(Arc::clone(new_task_config))
                     .await;
                 process.auto_start_on_reload(status_sender, log_sender);
             }
@@ -168,12 +162,12 @@ impl ProcessRegistry {
             };
 
             for id in current_num_procs..new_num_procs {
-                process_vec.push(Process::new(Arc::clone(new_program_config), id));
+                process_vec.push(Process::new(Arc::clone(new_task_config), id));
             }
 
             for process in process_vec.iter_mut() {
                 process
-                    .update_program_config(Arc::clone(new_program_config))
+                    .update_task_config(Arc::clone(new_task_config))
                     .await;
                 process.auto_start_on_reload(status_sender, log_sender);
             }
