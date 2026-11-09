@@ -169,6 +169,9 @@ pub async fn handle_command(
         /// Prints the status of the programs handled by taskmaster
         "status" => handle_status_command(client).await?,
 
+        /// Prints the status of the programs handled by taskmaster
+        "ps" => handle_status_command(client).await?,
+
         /// Reload config file
         "reload" => sub_commands! {
             /// Reload config file from the default config file
