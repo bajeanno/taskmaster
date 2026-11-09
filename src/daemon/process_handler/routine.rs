@@ -31,6 +31,12 @@ pub struct Routine {
     instance_id: usize,
 }
 
+enum ShouldRestart {
+    True,
+    WaitThenRestart,
+    False,
+}
+
 impl Routine {
     pub fn spawn(
         config: Arc<ProgramConfig>,
@@ -66,7 +72,14 @@ impl Routine {
         loop {
             let status = self.run_program().await;
 
-            let should_try_restart = self.should_try_restart(&status).await;
+            let should_try_restart = match self.should_try_restart(&status).await {
+                ShouldRestart::True => true,
+                ShouldRestart::WaitThenRestart => {
+                    sleep(Duration::from_millis(500)).await;
+                    true
+                }
+                ShouldRestart::False => false,
+            };
 
             self.status_sender.send_new_status_to_task_manager(status);
             if self.kill_command_received || !should_try_restart {
@@ -193,29 +206,40 @@ impl Routine {
     ///   - `config.auto_restart` is `false`: Return false (we don't want to restart)
     ///   - `config.auto_restart` is `unexpected` and the exit status is in `config.exit-codes`: Return false (we don't want to restart)
     ///   - otherwise return true (we want to restart)
-    async fn should_try_restart(&mut self, status: &Status) -> bool {
+    async fn should_try_restart(&mut self, status: &Status) -> ShouldRestart {
         match status {
-            Status::ErrorDuringStartup(_) => self.start_attempts < *self.config.start_retries(),
+            Status::ErrorDuringStartup(_) => {
+                if self.start_attempts < *self.config.start_retries() {
+                    ShouldRestart::True
+                } else {
+                    ShouldRestart::False
+                }
+            }
             Status::FailedToStartProcess { error_kind, .. }
                 if *error_kind == ErrorKind::WouldBlock.to_string() =>
             {
-                sleep(Duration::from_millis(500)).await;
-                true
+                ShouldRestart::WaitThenRestart
             }
 
             Status::FailedToStartProcess { error_kind, .. }
                 if *error_kind == ErrorKind::NotFound.to_string() =>
             {
-                false
+                ShouldRestart::False
             }
 
             _ => {
                 self.start_attempts = 0;
 
                 match *self.config.auto_restart() {
-                    AutoRestart::False => false,
-                    AutoRestart::OnFailure => !self.is_expected_status(status),
-                    AutoRestart::True => true,
+                    AutoRestart::False => ShouldRestart::False,
+                    AutoRestart::OnFailure => {
+                        if self.is_expected_status(status) {
+                            ShouldRestart::False
+                        } else {
+                            ShouldRestart::True
+                        }
+                    }
+                    AutoRestart::True => ShouldRestart::True,
                 }
             }
         }
