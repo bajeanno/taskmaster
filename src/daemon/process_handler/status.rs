@@ -13,29 +13,16 @@ use crate::daemon::process::ProcessId;
 pub struct NominativeStatus {
     process_id: ProcessId,
     status: Status,
-    has_been_logged: bool,
 }
 
 impl NominativeStatus {
     pub fn new(process_id: ProcessId, status: Status) -> Self {
-        Self {
-            process_id,
-            status,
-            has_been_logged: false,
-        }
+        Self { process_id, status }.log()
     }
 
-    pub fn log(&mut self) {
-        match self {
-            NominativeStatus {
-                has_been_logged: false,
-                ..
-            } => {
-                self.has_been_logged = true;
-                logging::info!("{self}");
-            }
-            _ => {}
-        }
+    fn log(self) -> Self {
+        logging::info!("{self}");
+        self
     }
 
     pub fn process_id(&self) -> &ProcessId {

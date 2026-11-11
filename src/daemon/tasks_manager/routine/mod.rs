@@ -120,8 +120,7 @@ impl Routine {
         mut status_receiver: StatusReceiver,
         processes: Arc<ProcessRegistry>,
     ) {
-        while let Some(mut nominative_status) = status_receiver.recv().await {
-            nominative_status.log();
+        while let Some(nominative_status) = status_receiver.recv().await {
             processes
                 .store_status_and_join_task_if_terminated(nominative_status)
                 .await;
