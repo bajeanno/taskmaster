@@ -69,7 +69,7 @@ impl StatusList {
         let mut exited_count = 0;
         let mut not_restarting_count = 0;
 
-        self.list.iter().for_each(|nstatus| match nstatus.status {
+        self.list.iter().for_each(|nstatus| match nstatus.status() {
             Status::NotRunning => not_running_count += 1,
             Status::RoutineStarting => routine_starting_count += 1,
             Status::Starting => starting_count += 1,
@@ -133,34 +133,34 @@ mod tests {
     #[test]
     fn status_list_print() {
         let vec = vec![
-            NominativeStatus {
-                process_id: ProcessId {
+            NominativeStatus::new(
+                ProcessId {
                     task_name: "nginix".to_string(),
                     id: 0,
                 },
-                status: Status::NotRunning,
-            },
-            NominativeStatus {
-                process_id: ProcessId {
+                Status::NotRunning,
+            ),
+            NominativeStatus::new(
+                ProcessId {
                     task_name: "nginix".to_string(),
                     id: 0,
                 },
-                status: Status::NotRunning,
-            },
-            NominativeStatus {
-                process_id: ProcessId {
+                Status::NotRunning,
+            ),
+            NominativeStatus::new(
+                ProcessId {
                     task_name: "nginix".to_string(),
                     id: 0,
                 },
-                status: Status::NotRunning,
-            },
-            NominativeStatus {
-                process_id: ProcessId {
+                Status::NotRunning,
+            ),
+            NominativeStatus::new(
+                ProcessId {
                     task_name: "nginix".to_string(),
                     id: 0,
                 },
-                status: Status::NotRunning,
-            },
+                Status::NotRunning,
+            ),
         ];
         let list = StatusList {
             list: vec,
@@ -173,64 +173,64 @@ mod tests {
     #[test]
     fn process_list_print() {
         let list = vec![
-            NominativeStatus {
-                process_id: ProcessId {
+            NominativeStatus::new(
+                ProcessId {
                     task_name: "nginix".to_string(),
                     id: 0,
                 },
-                status: Status::Running,
-            },
-            NominativeStatus {
-                process_id: ProcessId {
+                Status::Running,
+            ),
+            NominativeStatus::new(
+                ProcessId {
                     task_name: "nginix".to_string(),
                     id: 1,
                 },
-                status: Status::Starting,
-            },
-            NominativeStatus {
-                process_id: ProcessId {
+                Status::Starting,
+            ),
+            NominativeStatus::new(
+                ProcessId {
                     task_name: "nginix".to_string(),
                     id: 2,
                 },
-                status: Status::Starting,
-            },
-            NominativeStatus {
-                process_id: ProcessId {
+                Status::Starting,
+            ),
+            NominativeStatus::new(
+                ProcessId {
                     task_name: "nginix".to_string(),
                     id: 3,
                 },
-                status: Status::RoutineStarting,
-            },
+                Status::RoutineStarting,
+            ),
         ];
         let list2 = vec![
-            NominativeStatus {
-                process_id: ProcessId {
+            NominativeStatus::new(
+                ProcessId {
                     task_name: "postgres".to_string(),
                     id: 0,
                 },
-                status: Status::Running,
-            },
-            NominativeStatus {
-                process_id: ProcessId {
+                Status::Running,
+            ),
+            NominativeStatus::new(
+                ProcessId {
                     task_name: "postgres".to_string(),
                     id: 1,
                 },
-                status: Status::Running,
-            },
-            NominativeStatus {
-                process_id: ProcessId {
+                Status::Running,
+            ),
+            NominativeStatus::new(
+                ProcessId {
                     task_name: "postgres".to_string(),
                     id: 2,
                 },
-                status: Status::Running,
-            },
-            NominativeStatus {
-                process_id: ProcessId {
+                Status::Running,
+            ),
+            NominativeStatus::new(
+                ProcessId {
                     task_name: "postgres".to_string(),
                     id: 3,
                 },
-                status: Status::Starting,
-            },
+                Status::Starting,
+            ),
         ];
         let content = create_tasks_yaml_content();
         let config =

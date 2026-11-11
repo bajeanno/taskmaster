@@ -105,7 +105,14 @@ impl Process {
         );
 
         self.handle = Some(handle);
-        self.nominative_status.status = Status::RoutineStarting;
+        self.nominative_status = NominativeStatus::new(
+            ProcessId {
+                task_name: self.program_config.name().clone(),
+                id: self.instance_id,
+            },
+            Status::RoutineStarting,
+        );
+        
     }
 
     pub async fn update_program_config(&mut self, new_config: Arc<ProgramConfig>) {

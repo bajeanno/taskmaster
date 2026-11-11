@@ -38,8 +38,12 @@ impl NominativeStatus {
         }
     }
 
-    fn status(&self) -> Status {
-        self.status.clone()
+    pub fn process_id(&self) -> &ProcessId {
+        &self.process_id
+    }
+
+    pub fn status(&self) -> &Status {
+        &self.status
     }
 }
 

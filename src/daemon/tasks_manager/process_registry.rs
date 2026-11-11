@@ -188,16 +188,16 @@ impl ProcessRegistry {
         nominative_status: NominativeStatus,
     ) {
         let mut processes = self.0.lock().await;
-        let process_id = nominative_status.process_id.clone();
+        let process_id = nominative_status.process_id();
         if let Some(processes) = processes.get_mut(&process_id.task_name)
             && let Some(process) = processes.get_mut(process_id.id)
         {
-            if let Status::NotRestarting { instance_id } = nominative_status.status
-                && process.instance_id() == instance_id
+            if let Status::NotRestarting { instance_id } = nominative_status.status()
+                && &process.instance_id() == instance_id
             {
                 process.join_if_running().await;
             }
-            process.nominative_status = nominative_status;
+            process.nominative_status = nominative_status.clone();
         }
     }
 

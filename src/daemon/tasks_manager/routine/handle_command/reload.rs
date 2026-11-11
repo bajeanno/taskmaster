@@ -664,14 +664,14 @@ mod tests {
 
         assert!(
             matches!(
-                status_receiver.recv().await.unwrap().status,
+                status_receiver.recv().await.unwrap().status(),
                 Status::Starting
             ),
             "expected the initial program to start"
         );
         assert!(
             matches!(
-                status_receiver.recv().await.unwrap().status,
+                status_receiver.recv().await.unwrap().status(),
                 Status::Running
             ),
             "expected the initial program to be running"
@@ -683,21 +683,21 @@ mod tests {
         // program exits the subroutine must restart it instead of giving up.
         // Skip any statuses (e.g. the extra Running emitted when the config is
         // received) until the program exits.
-        let mut status = status_receiver.recv().await.unwrap().status;
+        let mut status = status_receiver.recv().await.unwrap().status().clone();
         while !matches!(status, Status::Exited(_)) {
-            status = status_receiver.recv().await.unwrap().status;
+            status = status_receiver.recv().await.unwrap().status().clone();
         }
 
         assert!(
             matches!(
-                status_receiver.recv().await.unwrap().status,
+                status_receiver.recv().await.unwrap().status(),
                 Status::Starting
             ),
             "subroutine must restart the process using the reloaded config"
         );
         assert!(
             matches!(
-                status_receiver.recv().await.unwrap().status,
+                status_receiver.recv().await.unwrap().status(),
                 Status::Running
             ),
             "restarted process must be running"

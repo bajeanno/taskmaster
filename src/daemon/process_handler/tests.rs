@@ -13,23 +13,25 @@ async fn check_status(
 ) {
     let nominative_status = status_receiver.lock().await.recv().await.unwrap();
     assert_eq!(
-        nominative_status.process_id, process_id,
+        nominative_status.process_id(),
+        &process_id,
         "process name doesn't match in nominative status, while expecting for Status::Starting"
     );
     assert!(
-        matches!(nominative_status.status, Status::Starting),
+        matches!(nominative_status.status(), Status::Starting),
         "expected status::starting, got {:?}",
-        nominative_status.status
+        nominative_status.status()
     );
     let nominative_status = status_receiver.lock().await.recv().await.unwrap();
     assert_eq!(
-        nominative_status.process_id, process_id,
+        nominative_status.process_id(),
+        &process_id,
         "process name doesn't match in nominative status, while expecting for Status::Running"
     );
     assert!(
-        matches!(nominative_status.status, Status::Running),
+        matches!(nominative_status.status(), Status::Running),
         "expected Status::Running, got {:?}",
-        nominative_status.status
+        nominative_status.status()
     );
 }
 
@@ -38,11 +40,11 @@ async fn check_status_exited(
     process_id: &ProcessId,
 ) {
     let nominative_status = status_receiver.lock().await.recv().await.unwrap();
-    assert_eq!(&nominative_status.process_id, process_id);
+    assert_eq!(nominative_status.process_id(), process_id);
     assert!(
-        matches!(nominative_status.status, Status::Exited(_)),
+        matches!(nominative_status.status(), Status::Exited(_)),
         "not expected {:?}",
-        nominative_status.status
+        nominative_status.status()
     );
 }
 
@@ -287,21 +289,21 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
     // exits the subroutine must restart it instead of giving up. Skip any
     // statuses (e.g. the extra Running emitted when the config is received)
     // until the program exits.
-    let mut status = status_receiver.lock().await.recv().await.unwrap().status;
+    let mut status = status_receiver.lock().await.recv().await.unwrap().status().clone();
     while !matches!(status, Status::Exited(_)) {
-        status = status_receiver.lock().await.recv().await.unwrap().status;
+        status = status_receiver.lock().await.recv().await.unwrap().status().clone();
     }
 
     assert!(
         matches!(
-            status_receiver.lock().await.recv().await.unwrap().status,
+            status_receiver.lock().await.recv().await.unwrap().status(),
             Status::Starting
         ),
         "subroutine must restart the program using the reloaded config"
     );
     assert!(
         matches!(
-            status_receiver.lock().await.recv().await.unwrap().status,
+            status_receiver.lock().await.recv().await.unwrap().status(),
             Status::Running
         ),
         "restarted program must be running"

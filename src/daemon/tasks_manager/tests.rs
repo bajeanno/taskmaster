@@ -301,7 +301,7 @@ async fn task_manager_reload_keeps_unchanged_program() {
             status_list
                 .list
                 .into_iter()
-                .map(|status| status.process_id.to_string())
+                .map(|status| status.process_id().to_string())
         })
         .collect();
     assert!(
