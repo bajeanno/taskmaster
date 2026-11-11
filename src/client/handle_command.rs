@@ -60,12 +60,14 @@ macro_rules! handle_command_cases {
         $command_name:ident,
 
         #[doc = $doc:literal]
-        $command_lit:literal => sub_commands! { $($handler:tt)* },
+        $command_lit:literal $(| $alt_command_lit:literal)* => sub_commands! { $($handler:tt)* },
 
         $($cases:tt)*
     ) => {
         match $command_name.as_ref() {
-            $command_lit => { handle_sub_command!($args_iter, $($handler)*) }
+            $command_lit $(| $alt_command_lit)* => {
+                handle_sub_command!($args_iter, $($handler)*)
+            }
             _ => { handle_command_cases!($default, $args_iter, $command_name, $($cases)*) }
         }
     };
@@ -77,12 +79,13 @@ macro_rules! handle_command_cases {
         $command_name:ident,
 
         #[doc = $doc:literal]
-        $command_lit:literal $(, $command_param:ident)* $(,)? => $handler:expr,
+        $command_lit:literal $(| $alt_command_lit:literal)* $(, $command_param:ident)* $(,)?
+            => $handler:expr,
 
         $($cases:tt)*
     ) => {
         match $command_name.as_ref() {
-            $command_lit => {
+            $command_lit $(| $alt_command_lit)* => {
                 $(
                     let $command_param = get_next_arg_without_dash(
                         &mut $args_iter,
@@ -103,12 +106,12 @@ macro_rules! handle_command_cases {
         $command_name:ident,
 
         #[doc = $doc:literal]
-        $command_lit:literal => $handler:expr,
+        $command_lit:literal $(| $alt_command_lit:literal)*  => $handler:expr,
 
         $($cases:tt)*
     ) => {
         match $command_name.as_ref() {
-            $command_lit => {
+            $command_lit $(| $alt_command_lit)* => {
                 check_no_additional_args($args_iter)?;
                 $handler
             }
@@ -167,10 +170,7 @@ pub async fn handle_command(
         args;
 
         /// Prints the status of the programs handled by taskmaster
-        "status" => handle_status_command(client).await?,
-
-        /// Prints the status of the programs handled by taskmaster
-        "ps" => handle_status_command(client).await?,
+        "status" | "ps" => handle_status_command(client).await?,
 
         /// Reload config file
         "reload" => sub_commands! {
