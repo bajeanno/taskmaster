@@ -74,7 +74,7 @@ impl StatusList {
             Status::RoutineStarting => routine_starting_count += 1,
             Status::Starting => starting_count += 1,
             Status::Running => running_count += 1,
-            Status::FailedToStartProcess(_) => failed_to_start_count += 1,
+            Status::FailedToStartProcess { .. } => failed_to_start_count += 1,
             Status::ErrorDuringStartup(_) => startup_error_count += 1,
             Status::Exited(_) => exited_count += 1,
             Status::NotRestarting { instance_id: _ } => not_restarting_count += 1,
