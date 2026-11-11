@@ -178,7 +178,7 @@ impl Routine {
     }
 
     /// Condition for restart:
-    /// - The taskmed failed to start (i.e. it crashed before `config.start_time` seconds
+    /// - The task failed to start (i.e. it crashed before `config.start_time` seconds
     ///   elapsed):
     ///   - We already attempted to start the task `config.start_retries` times (note that the
     ///     attempted start count is reset whenever the task starts successfully):
