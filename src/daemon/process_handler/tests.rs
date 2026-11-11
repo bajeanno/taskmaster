@@ -289,9 +289,23 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
     // exits the subroutine must restart it instead of giving up. Skip any
     // statuses (e.g. the extra Running emitted when the config is received)
     // until the program exits.
-    let mut status = status_receiver.lock().await.recv().await.unwrap().status().clone();
+    let mut status = status_receiver
+        .lock()
+        .await
+        .recv()
+        .await
+        .unwrap()
+        .status()
+        .clone();
     while !matches!(status, Status::Exited(_)) {
-        status = status_receiver.lock().await.recv().await.unwrap().status().clone();
+        status = status_receiver
+            .lock()
+            .await
+            .recv()
+            .await
+            .unwrap()
+            .status()
+            .clone();
     }
 
     assert!(

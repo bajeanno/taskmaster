@@ -112,7 +112,6 @@ impl Process {
             },
             Status::RoutineStarting,
         );
-        
     }
 
     pub async fn update_program_config(&mut self, new_config: Arc<ProgramConfig>) {
