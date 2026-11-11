@@ -19,11 +19,8 @@ macro_rules! handle_command {
 }
 
 macro_rules! help_command_name {
-    ($command_lit:literal, $command_param:ident) => {
-        concat!($command_lit, " <", stringify!($command_param), ">")
-    };
-    ($command_lit:literal) => {
-        $command_lit
+    ($command_lit:literal $(, $command_param:ident)*) => {
+        concat!($command_lit, $(" <", stringify!($command_param), ">", )*)
     };
 }
 
@@ -36,51 +33,99 @@ macro_rules! print_help_cases {
         $($cases:tt)*
     ) => {
         println!("{:<34} {}", $command_lit, $doc);
-        print_help_sub_cases!($($sub_cases)*);
+        print_help_sub_cases!("  ", $($sub_cases)*);
+        println!();
         print_help_cases!($($cases)*);
     };
 
     (
         #[doc = $doc:literal]
-        $command_lit:literal $(, $command_param:ident)? => $handler:expr,
+        $command_lit:literal $(, $command_param:ident)* $(,)? => $handler:expr,
         $($cases:tt)*
     ) => {
         println!(
             "{:<34} {}",
-            help_command_name!($command_lit $(, $command_param)?),
-            $doc
+            help_command_name!($command_lit $(, $command_param)*),
+            $doc,
         );
+        println!();
         print_help_cases!($($cases)*);
     };
 }
 
 macro_rules! print_help_sub_cases {
-    () => {};
+    ($indentation:expr,) => {};
 
     (
+        $indentation:expr,
+
         #[doc = $doc:literal]
-        $command_lit:literal $(, $command_param:ident)? => $handler:expr,
+        $command_lit:literal => sub_commands! { $($sub_cases:tt)* },
         $($cases:tt)*
     ) => {
-        println!(
-            "  {:<32} {}",
-            help_command_name!($command_lit $(, $command_param)?),
-            $doc
+        let command_display = help_command_name!($command_lit);
+        let padding = $crate::client::handle_command::macros::calculate_padding(
+            $indentation,
+            command_display
         );
-        print_help_sub_cases!($($cases)*);
+
+
+        println!(
+            "{}{}{} {}",
+            $indentation,
+            command_display,
+            padding,
+            $doc,
+        );
+        print_help_sub_cases!(concat!($indentation, "  "), $($sub_cases)*);
+        print_help_sub_cases!($indentation, $($cases)*);
     };
 
     (
+        $indentation:expr,
+
+        #[doc = $doc:literal]
+        $command_lit:literal $(, $command_param:ident)* $(,)? => $handler:expr,
+        $($cases:tt)*
+    ) => {
+        let command_display = help_command_name!($command_lit $(, $command_param)*);
+        let padding = $crate::client::handle_command::macros::calculate_padding(
+            $indentation,
+            command_display
+        );
+
+
+        println!(
+            "{}{}{} {}",
+            $indentation,
+            command_display,
+            padding,
+            $doc,
+        );
+        print_help_sub_cases!($indentation, $($cases)*);
+    };
+
+    (
+        $indentation:expr,
+
         #[doc = $doc:literal]
         $command_param:ident => $handler:expr,
         $($cases:tt)*
     ) => {
-        println!(
-            "  {:<32} {}",
-            concat!("<", stringify!($command_param), ">"),
-            $doc
+        let command_display = concat!("<", stringify!($command_param), ">");
+        let padding = $crate::client::handle_command::macros::calculate_padding(
+            $indentation,
+            command_display
         );
-        print_help_sub_cases!($($cases)*);
+
+        println!(
+            "{}{}{} {}",
+            $indentation,
+            command_display,
+            padding,
+            $doc,
+        );
+        print_help_sub_cases!($indentation, $($cases)*);
     };
 }
 
@@ -188,4 +233,10 @@ macro_rules! handle_sub_command {
             $($cases)*
         )
     }};
+}
+
+pub fn calculate_padding(indentation: &str, command_display: &str) -> String {
+    " ".repeat(
+        (34 as isize - indentation.len() as isize - command_display.len() as isize).max(0) as usize,
+    )
 }
