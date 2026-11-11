@@ -237,6 +237,6 @@ macro_rules! handle_sub_command {
 
 pub fn calculate_padding(indentation: &str, command_display: &str) -> String {
     " ".repeat(
-        (34 as isize - indentation.len() as isize - command_display.len() as isize).max(0) as usize,
+        (34_isize - indentation.len() as isize - command_display.len() as isize).max(0) as usize,
     )
 }
