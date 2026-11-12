@@ -430,12 +430,12 @@ async fn create_task_with_non_existing_command() {
     let mut status_receiver = status_receiver;
 
     let nominative_status = status_receiver.recv().await.unwrap();
-    assert_eq!(nominative_status.process_id, process_id);
+    assert_eq!(nominative_status.process_id(), &process_id);
     assert_matches!(
-        nominative_status.status,
+        nominative_status.status(),
         Status::FailedToStartProcess { .. },
         "expected Status::FailedToStartProcess, got {:?}",
-        nominative_status.status
+        nominative_status.status()
     );
 
     routine_handle.join().await;
@@ -472,12 +472,12 @@ async fn create_task_with_invalid_working_directory() {
     let routine_handle = Routine::spawn(program, status_sender, log_sender, process_id.clone(), 0);
     let nominative_status = status_receiver.recv().await.unwrap();
 
-    assert_eq!(nominative_status.process_id, process_id);
+    assert_eq!(nominative_status.process_id(), &process_id);
     assert_matches!(
-        nominative_status.status,
+        nominative_status.status(),
         Status::FailedToStartProcess { .. },
         "expected Status::FailedToStartProcess, got {:?}",
-        nominative_status.status
+        nominative_status.status()
     );
 
     routine_handle.join().await;

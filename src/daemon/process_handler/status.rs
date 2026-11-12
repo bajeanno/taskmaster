@@ -13,16 +13,23 @@ use crate::daemon::process::ProcessId;
 pub struct NominativeStatus {
     process_id: ProcessId,
     status: Status,
+    has_been_logged: bool,
 }
 
 impl NominativeStatus {
     pub fn new(process_id: ProcessId, status: Status) -> Self {
-        Self { process_id, status }.log()
+        Self {
+            process_id,
+            status,
+            has_been_logged: false,
+        }
     }
 
-    fn log(self) -> Self {
-        logging::info!("{self}");
-        self
+    pub fn log(&mut self) {
+        if !self.has_been_logged {
+            self.has_been_logged = true;
+            logging::info!("{self}");
+        }
     }
 
     pub fn process_id(&self) -> &ProcessId {
@@ -78,7 +85,7 @@ impl Display for Status {
             Status::RoutineStarting => write!(f, "Routine starting"),
             Status::Starting => write!(f, "Starting"),
             Status::Running => write!(f, "Running"),
-            Status::FailedToStartProcess(_) => write!(f, "Failed to start process"),
+            Status::FailedToStartProcess { .. } => write!(f, "Failed to start process"),
             Status::ErrorDuringStartup(exit_status) => {
                 write!(f, "Error during startup {exit_status}")
             }
