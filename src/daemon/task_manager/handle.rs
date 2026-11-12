@@ -1,9 +1,7 @@
 use tokio::sync::oneshot;
 
-use crate::daemon::{
-    CommandSender, ReloadType, TaskManagerCommand, TasksManagerStatus,
-    tasks_manager::ServerCommandError,
-};
+use super::ServerCommandError;
+use crate::daemon::{CommandSender, ReloadType, TaskManagerCommand, TasksManagerStatus};
 
 type Result<T, Err = ServerCommandError> = core::result::Result<T, Err>;
 
@@ -31,19 +29,17 @@ impl Handle {
         self.send(TaskManagerCommand::Reload(reload_type)).await
     }
 
-    pub async fn start(&self, program_name: String) -> Result<()> {
-        self.send(TaskManagerCommand::StartProgram { program_name })
+    pub async fn start(&self, task_name: String) -> Result<()> {
+        self.send(TaskManagerCommand::Starttask { task_name }).await
+    }
+
+    pub async fn restart(&self, task_name: String) -> Result<()> {
+        self.send(TaskManagerCommand::Restarttask { task_name })
             .await
     }
 
-    pub async fn restart(&self, program_name: String) -> Result<()> {
-        self.send(TaskManagerCommand::RestartProgram { program_name })
-            .await
-    }
-
-    pub async fn stop(&self, program_name: String) -> Result<()> {
-        self.send(TaskManagerCommand::StopProgram { program_name })
-            .await
+    pub async fn stop(&self, task_name: String) -> Result<()> {
+        self.send(TaskManagerCommand::Stoptask { task_name }).await
     }
 
     pub async fn stop_all_processes(&self) -> Result<()> {

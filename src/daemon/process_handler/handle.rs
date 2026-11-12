@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::daemon::{
-    config::ProgramConfig,
+    config::TaskConfig,
     process_handler::{KillCommandSender, ReloadEventSender},
 };
 use tokio::task::JoinHandle as TokioJoinHandle;
@@ -42,7 +42,7 @@ impl Handle {
         self.join_handle.await.expect("failed to join handle");
     }
 
-    pub async fn send_reloaded_config(&self, reloaded_config: Arc<ProgramConfig>) {
+    pub async fn send_reloaded_config(&self, reloaded_config: Arc<TaskConfig>) {
         self.reload_event_sender
             .send(reloaded_config)
             .await
