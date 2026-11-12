@@ -90,11 +90,13 @@ These commands work in the interactive shell and as arguments to the executable:
 
 | Command                       | Description                                                  |
 | ----------------------------- | ------------------------------------------------------------ |
-| `status`                      | Show managed task and process status.                     |
-| `start <task>`             | Start a task.                                             |
-| `restart <task>`           | Restart a task.                                           |
-| `stop <task>`              | Stop a task.                                              |
-| `stop --all`                  | Stop all managed tasks.                                   |
+| `help`                        | Show the available client commands.                          |
+| `status`                      | Show managed program and process status.                     |
+| `ps`                          | Identical to `status`                                        |
+| `start <program>`             | Start a program.                                             |
+| `restart <program>`           | Restart a program.                                           |
+| `stop <program>`              | Stop a program.                                              |
+| `stop --all`                  | Stop all managed programs.                                   |
 | `reload --default`            | Reload the configured default YAML file.                     |
 | `reload --current`            | Reload the file used by the current active configuration.    |
 | `reload <path>`               | Load a YAML file for this reload only.                       |
