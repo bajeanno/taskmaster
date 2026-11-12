@@ -119,10 +119,13 @@ macro_rules! print_help_sub_cases {
         $indentation:expr,
 
         #[doc = $doc:literal]
-        $command_param:ident => $handler:expr,
+        $command_param:ident $(, $additional_command_param:ident)* $(,)? => $handler:expr,
         $($cases:tt)*
     ) => {
-        let command_display = concat!("<", stringify!($command_param), ">");
+        let command_display = concat!(
+            "<", stringify!($command_param), ">"
+            $(, " <", stringify!($additional_command_param), ">")*
+        );
         let padding = $crate::client::handle_command::macros::calculate_padding(
             $indentation,
             command_display
