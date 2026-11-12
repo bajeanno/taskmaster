@@ -10,7 +10,7 @@ use crate::daemon::{
 use tokio::time::sleep;
 
 fn create_tasks_yaml_content() -> String {
-    r#"programs:
+    r#"tasks:
     taskmaster_test_task:
         cmd: "sleep 30"
         num-procs: 2
@@ -32,7 +32,7 @@ fn create_tasks_yaml_content() -> String {
 }
 
 fn create_restore_yaml_content() -> String {
-    r#"programs:
+    r#"tasks:
     taskmaster_test_task:
         umask: '0o22'
         cmd: sleep "30"
@@ -57,7 +57,7 @@ fn create_restore_yaml_content() -> String {
 }
 
 fn create_tasks_yaml_content_reload() -> String {
-    r#"programs:
+    r#"tasks:
     reload:
         cmd: "sleep 30"
         num-procs: 2
@@ -79,7 +79,7 @@ fn create_tasks_yaml_content_reload() -> String {
 }
 
 fn create_tasks_alternate_yaml_content_minus_1_proc() -> String {
-    r#"programs:
+    r#"tasks:
     reload:
         cmd: "sleep 30"
         num-procs: 1
@@ -101,7 +101,7 @@ fn create_tasks_alternate_yaml_content_minus_1_proc() -> String {
 }
 
 fn create_tasks_alternate_yaml_content_plus_1_proc() -> String {
-    r#"programs:
+    r#"tasks:
     reload:
         cmd: "sleep 30"
         num-procs: 3
@@ -255,8 +255,8 @@ async fn task_manager_reload_plus_1_proc() {
 }
 
 #[tokio::test]
-async fn task_manager_reload_keeps_unchanged_program() {
-    let initial_content = r#"programs:
+async fn task_manager_reload_keeps_unchanged_task() {
+    let initial_content = r#"tasks:
     keep:
         cmd: "sleep 30"
         auto-start: true
@@ -264,7 +264,7 @@ async fn task_manager_reload_keeps_unchanged_program() {
         cmd: "sleep 30"
         auto-start: true"#;
 
-    let new_content = r#"programs:
+    let new_content = r#"tasks:
     keep:
         cmd: "sleep 30"
         auto-start: true
@@ -276,7 +276,7 @@ async fn task_manager_reload_keeps_unchanged_program() {
         ConfigState::from_content(initial_content.to_string(), "".to_string()),
     );
 
-    let path = TestDir::new("reload_keeps_program_unchanged");
+    let path = TestDir::new("reload_keeps_task_unchanged");
     let new_file = path.join("taskmaster_task_manager_reload.yaml");
     let mut file = OpenOptions::new()
         .create(true)
@@ -306,15 +306,15 @@ async fn task_manager_reload_keeps_unchanged_program() {
         .collect();
     assert!(
         process_names.contains(&"keep-0".to_string()),
-        "unchanged program must survive a reload"
+        "unchanged task must survive a reload"
     );
     assert!(
         process_names.contains(&"add-0".to_string()),
-        "new program must be started on reload"
+        "new task must be started on reload"
     );
     assert!(
         !process_names.contains(&"remove-0".to_string()),
-        "removed program must be stopped on reload"
+        "removed task must be stopped on reload"
     );
 
     handle.shutdown().await.unwrap();

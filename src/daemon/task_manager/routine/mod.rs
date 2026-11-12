@@ -1,15 +1,14 @@
 mod handle_command;
+use handle_command::ShouldStopEventLoop;
 
-use super::handle::Handle;
+use super::{
+    ServerCommandError, TaskManagerCommand, handle::Handle, process_registry::ProcessRegistry,
+};
 use crate::daemon::{
     CommandReceiver,
-    config::ProgramConfig,
+    config::TaskConfig,
     config_state::ConfigState,
     process_handler::{LogReceiver, LogSender, NominativeStatus, StatusReceiver},
-    tasks_manager::{
-        ServerCommandError, process_registry::ProcessRegistry,
-        routine::handle_command::ShouldStopEventLoop,
-    },
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -88,7 +87,7 @@ impl Routine {
             config_file_path: _,
         } = &self.config_state
         {
-            self.start_programs(&Arc::clone(config).programs).await;
+            self.start_tasks(&Arc::clone(config).tasks).await;
         }
 
         let logs_handle = tokio::spawn(Self::listen_for_logs(log_receiver, self.clients.clone()));
@@ -108,10 +107,10 @@ impl Routine {
         let _ = self.routine_stopped_sender.send(());
     }
 
-    async fn start_programs(&mut self, programs: &HashMap<String, Arc<ProgramConfig>>) {
-        for program_config in programs.values() {
+    async fn start_tasks(&mut self, tasks: &HashMap<String, Arc<TaskConfig>>) {
+        for task_config in tasks.values() {
             self.processes
-                .start_program(program_config, &self.status_sender, &self.log_sender)
+                .start_task(task_config, &self.status_sender, &self.log_sender)
                 .await;
         }
     }
@@ -161,54 +160,51 @@ mod tests {
     use std::assert_matches;
     use std::sync::Arc;
 
-    use crate::daemon::{config::program::ProgramDiff, config_state::ConfigState};
+    use crate::daemon::{config::task::TaskConfigDiff, config_state::ConfigState};
 
-    fn program_from_yaml(
-        content: &str,
-        program_name: &str,
-    ) -> Arc<crate::daemon::config::ProgramConfig> {
+    fn task_from_yaml(content: &str, task_name: &str) -> Arc<crate::daemon::config::TaskConfig> {
         match ConfigState::from_content(content.to_string(), "".to_string()) {
             ConfigState::Active {
                 config,
                 config_file_path: _,
-            } => config.programs.get(program_name).unwrap().clone(),
+            } => config.tasks.get(task_name).unwrap().clone(),
             _ => panic!("config should parse"),
         }
     }
 
     #[test]
-    fn test_program_diff_cmd_changed() {
-        let current_yaml = r#"programs:
+    fn test_task_diff_cmd_changed() {
+        let current_yaml = r#"tasks:
   testprog:
     cmd: "sleep 30"
     num-procs: 2"#;
-        let new_yaml = r#"programs:
+        let new_yaml = r#"tasks:
   testprog:
     cmd: "sleep 31"
     num-procs: 2"#;
 
-        let current = program_from_yaml(current_yaml, "testprog");
-        let new = program_from_yaml(new_yaml, "testprog");
+        let current = task_from_yaml(current_yaml, "testprog");
+        let new = task_from_yaml(new_yaml, "testprog");
 
-        assert_matches!(current.diff(&new), ProgramDiff::NeedRestart);
+        assert_matches!(current.diff(&new), TaskConfigDiff::NeedRestart);
     }
 
     #[test]
-    fn test_program_diff_num_procs_changed() {
-        let current_yaml = r#"programs:
+    fn test_task_diff_num_procs_changed() {
+        let current_yaml = r#"tasks:
   testprog:
     cmd: "sleep 30"
     num-procs: 2"#;
-        let new_yaml = r#"programs:
+        let new_yaml = r#"tasks:
   testprog:
     cmd: "sleep 30"
     num-procs: 3"#;
 
-        let current = program_from_yaml(current_yaml, "testprog");
-        let new = program_from_yaml(new_yaml, "testprog");
+        let current = task_from_yaml(current_yaml, "testprog");
+        let new = task_from_yaml(new_yaml, "testprog");
 
         match current.diff(&new) {
-            ProgramDiff::NumProcsChanged { before, after } => {
+            TaskConfigDiff::NumProcsChanged { before, after } => {
                 assert_eq!(before, 2_usize);
                 assert_eq!(after, 3_usize);
             }
@@ -217,21 +213,21 @@ mod tests {
     }
 
     #[test]
-    fn test_program_diff_other() {
-        let current_yaml = r#"programs:
+    fn test_task_diff_other() {
+        let current_yaml = r#"tasks:
   testprog:
     cmd: "sleep 30"
     num-procs: 2
     auto-start: false"#;
-        let new_yaml = r#"programs:
+        let new_yaml = r#"tasks:
   testprog:
     cmd: "sleep 30"
     num-procs: 2
     auto-start: true"#;
 
-        let current = program_from_yaml(current_yaml, "testprog");
-        let new = program_from_yaml(new_yaml, "testprog");
+        let current = task_from_yaml(current_yaml, "testprog");
+        let new = task_from_yaml(new_yaml, "testprog");
 
-        assert_matches!(current.diff(&new), ProgramDiff::Other);
+        assert_matches!(current.diff(&new), TaskConfigDiff::Other);
     }
 }

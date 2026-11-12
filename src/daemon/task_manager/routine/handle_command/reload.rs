@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
+use super::{Routine, ServerCommandError};
 use crate::daemon::{
-    config::{Config, program::ProgramDiff},
+    config::{Config, task::TaskConfigDiff},
     config_state::ConfigState::{self, Active, LoadError, Uninitialized},
     config_state::ReloadType,
-    tasks_manager::{ServerCommandError, routine::Routine},
 };
 
 impl Routine {
@@ -31,7 +31,7 @@ impl Routine {
                     | LoadError {
                         error: _,
                         config_file_path: _,
-                    } => self.start_programs(&new_config.programs).await,
+                    } => self.start_tasks(&new_config.tasks).await,
                 }
                 Ok(())
             }
@@ -50,63 +50,57 @@ impl Routine {
         }
     }
 
-    // Even though we don't lock anything between the moment we stop the program
+    // Even though we don't lock anything between the moment we stop the task
     // and the moment we remove it from the map, it is still impossible for a
-    // second user to start the program after we stopped it and before we
+    // second user to start the task after we stopped it and before we
     // remove it from the hashmap because we only handle one user command
     // at a time
     async fn update_processes(&mut self, current_config: &Arc<Config>, new_config: &Arc<Config>) {
-        for (name, new_program_config) in new_config.programs.iter() {
-            match current_config.programs.get(name) {
-                Some(current_program_config) => {
-                    match current_program_config.diff(new_program_config) {
-                        ProgramDiff::NeedRestart => {
-                            self.processes
-                                .stop_and_remove_program(name)
-                                .await
-                                .expect("program should be in the processes map");
-                            self.processes
-                                .start_program(
-                                    new_program_config,
-                                    &self.status_sender,
-                                    &self.log_sender,
-                                )
-                                .await;
-                        }
-                        ProgramDiff::NumProcsChanged { before, after } => {
-                            self.processes
-                                .handle_num_procs_diff(
-                                    new_program_config,
-                                    before,
-                                    after,
-                                    name,
-                                    &self.status_sender,
-                                    &self.log_sender,
-                                )
-                                .await;
-                        }
-                        ProgramDiff::Other => {
-                            self.processes
-                                .update_processes_program_data(name, new_program_config)
-                                .await;
-                        }
+        for (name, new_task_config) in new_config.tasks.iter() {
+            match current_config.tasks.get(name) {
+                Some(current_task_config) => match current_task_config.diff(new_task_config) {
+                    TaskConfigDiff::NeedRestart => {
+                        self.processes
+                            .stop_and_remove_task(name)
+                            .await
+                            .expect("task should be in the processes map");
+                        self.processes
+                            .start_task(new_task_config, &self.status_sender, &self.log_sender)
+                            .await;
                     }
-                }
+                    TaskConfigDiff::NumProcsChanged { before, after } => {
+                        self.processes
+                            .handle_num_procs_diff(
+                                new_task_config,
+                                before,
+                                after,
+                                name,
+                                &self.status_sender,
+                                &self.log_sender,
+                            )
+                            .await;
+                    }
+                    TaskConfigDiff::Other => {
+                        self.processes
+                            .update_processes_task_data(name, new_task_config)
+                            .await;
+                    }
+                },
 
                 None => {
                     self.processes
-                        .start_program(new_program_config, &self.status_sender, &self.log_sender)
+                        .start_task(new_task_config, &self.status_sender, &self.log_sender)
                         .await;
                 }
             }
         }
 
-        for name in current_config.programs.keys() {
-            if !new_config.programs.contains_key(name) {
+        for name in current_config.tasks.keys() {
+            if !new_config.tasks.contains_key(name) {
                 self.processes
-                    .stop_and_remove_program(name)
+                    .stop_and_remove_task(name)
                     .await
-                    .expect("program should be in the processes map");
+                    .expect("task should be in the processes map");
             }
         }
     }
@@ -121,14 +115,14 @@ mod tests {
     use signal::Signal;
 
     use crate::daemon::{
-        config::program::{AutoRestart, Command},
+        config::task::{AutoRestart, Command},
         config_state::{ConfigState, DEFAULT_TASKS_FILE},
         process_handler::{LogReceiver, Status, StatusReceiver},
-        tasks_manager::{process_registry::ProcessRegistry, routine::Routine},
+        task_manager::{process_registry::ProcessRegistry, routine::Routine},
     };
     use tokio::sync::{Mutex, mpsc, oneshot};
 
-    const CURRENT_CONFIG: &str = r#"programs:
+    const CURRENT_CONFIG: &str = r#"tasks:
     unchanged:
         cmd: "sleep 30"
         auto-start: true
@@ -148,7 +142,7 @@ mod tests {
         cmd: "sleep 30"
         auto-start: true"#;
 
-    const NEW_CONFIG: &str = r#"programs:
+    const NEW_CONFIG: &str = r#"tasks:
     unchanged:
         cmd: "sleep 30"
         auto-start: true
@@ -204,13 +198,13 @@ mod tests {
             status_sender,
             routine_stopped_sender,
         };
-        routine.start_programs(&current_config.programs).await;
+        routine.start_tasks(&current_config.tasks).await;
 
         (routine, status_receiver, log_receiver)
     }
 
     #[tokio::test]
-    async fn reload_keeps_unchanged_programs_running() {
+    async fn reload_keeps_unchanged_tasks_running() {
         let current_config = config(CURRENT_CONFIG);
         let new_config = config(NEW_CONFIG);
 
@@ -239,12 +233,12 @@ mod tests {
 
         routine
             .processes
-            .stop_program("changed_decreased")
+            .stop_task("changed_decreased")
             .await
             .unwrap();
         routine
             .processes
-            .stop_program("changed_increased")
+            .stop_task("changed_increased")
             .await
             .unwrap();
 
@@ -255,42 +249,42 @@ mod tests {
 
             let unchanged = processes
                 .get("unchanged")
-                .expect("unchanged program should stay registered");
+                .expect("unchanged task should stay registered");
             assert_eq!(
                 unchanged
                     .iter()
                     .map(|process| process.instance_id())
                     .collect::<Vec<_>>(),
                 unchanged_ids_before,
-                "unchanged program must not be restarted on reload"
+                "unchanged task must not be restarted on reload"
             );
             assert!(
                 unchanged.iter().all(|process| process.is_running()),
-                "unchanged program must keep running on reload"
+                "unchanged task must keep running on reload"
             );
 
             let changed = processes
                 .get("changed_increased")
-                .expect("changed program should be re-registered");
+                .expect("changed task should be re-registered");
             assert_ne!(
                 changed
                     .iter()
                     .map(|process| process.instance_id())
                     .collect::<Vec<_>>(),
                 changed_ids_before,
-                "changed program must be restarted on reload"
+                "changed task must be restarted on reload"
             );
 
             let changed = processes
                 .get("changed_decreased")
-                .expect("changed program should be re-registered");
+                .expect("changed task should be re-registered");
             assert_ne!(
                 changed
                     .iter()
                     .map(|process| process.instance_id())
                     .collect::<Vec<_>>(),
                 changed_ids_before,
-                "changed program must be restarted on reload"
+                "changed task must be restarted on reload"
             );
             assert!(
                 !processes
@@ -298,7 +292,7 @@ mod tests {
                     .unwrap()
                     .iter()
                     .any(|p| p.is_running()),
-                "changed_increased program must not be running on reload"
+                "changed_increased task must not be running on reload"
             );
             assert!(
                 processes
@@ -306,7 +300,7 @@ mod tests {
                     .unwrap()
                     .iter()
                     .all(|p| p.is_running()),
-                "changed_increased program must be running on reload"
+                "changed_increased task must be running on reload"
             );
             assert!(
                 processes
@@ -314,16 +308,16 @@ mod tests {
                     .unwrap()
                     .iter()
                     .all(|p| p.is_running()),
-                "changed_decreased program must be running on reload"
+                "changed_decreased task must be running on reload"
             );
 
             assert!(
                 processes.contains_key("added"),
-                "new program must be started on reload"
+                "new task must be started on reload"
             );
             assert!(
                 !processes.contains_key("removed"),
-                "removed program must be stopped on reload"
+                "removed task must be stopped on reload"
             );
         }
 
@@ -332,14 +326,14 @@ mod tests {
 
     #[tokio::test]
     async fn reload_num_procs_increase_preserves_existing_processes() {
-        let current_yaml = r#"programs:
+        let current_yaml = r#"tasks:
     scale:
         cmd: "sleep 30"
         num-procs: 2
         auto-start: true
         auto-start-on-reload: true"#;
 
-        let increase_yaml = r#"programs:
+        let increase_yaml = r#"tasks:
     scale:
         cmd: "sleep 30"
         num-procs: 3
@@ -394,13 +388,13 @@ mod tests {
 
     #[tokio::test]
     async fn reload_num_procs_decrease_preserves_remaining_processes() {
-        let current_yaml = r#"programs:
+        let current_yaml = r#"tasks:
     scale:
         cmd: "sleep 30"
         num-procs: 2
         auto-start: true"#;
 
-        let decrease_yaml = r#"programs:
+        let decrease_yaml = r#"tasks:
     scale:
         cmd: "sleep 30"
         num-procs: 1
@@ -450,7 +444,7 @@ mod tests {
 
     #[tokio::test]
     async fn reload_updates_config_on_non_destructive_changes() {
-        let current_yaml = r#"programs:
+        let current_yaml = r#"tasks:
   app:
     cmd: "sleep 30"
     num-procs: 1
@@ -462,7 +456,7 @@ mod tests {
     auto-restart: false
     clear-env: true"#;
 
-        let new_yaml = r#"programs:
+        let new_yaml = r#"tasks:
   app:
     cmd: "sleep 30"
     num-procs: 1
@@ -518,7 +512,7 @@ mod tests {
                 "process must keep running on a non-destructive reload"
             );
 
-            let updated_config = process.program_config();
+            let updated_config = process.task_config();
             assert_eq!(*updated_config.exit_codes(), vec![0, 2]);
             assert_eq!(*updated_config.start_retries(), 5);
             assert_eq!(*updated_config.stop_time(), 10);
@@ -531,13 +525,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn reload_restarts_program_on_destructive_changes() {
-        let current_yaml = r#"programs:
+    async fn reload_restarts_task_on_destructive_changes() {
+        let current_yaml = r#"tasks:
   app:
     cmd: "sleep 30"
     auto-start: true"#;
 
-        let new_yaml = r#"programs:
+        let new_yaml = r#"tasks:
   app:
     cmd: "sleep 31"
     auto-start: true"#;
@@ -574,7 +568,7 @@ mod tests {
                 "restarted process must be running after reload"
             );
             assert_eq!(
-                process.program_config().cmd(),
+                process.task_config().cmd(),
                 &Command::from_str("sleep 31").unwrap(),
                 "process must run with the reloaded command"
             );
@@ -585,14 +579,14 @@ mod tests {
 
     #[tokio::test]
     async fn reload_updates_config_of_stopped_process_without_starting_it() {
-        let current_yaml = r#"programs:
+        let current_yaml = r#"tasks:
   app:
     cmd: "sleep 30"
     num-procs: 1
     auto-start: true
     start-retries: 1"#;
 
-        let new_yaml = r#"programs:
+        let new_yaml = r#"tasks:
   app:
     cmd: "sleep 30"
     num-procs: 1
@@ -605,7 +599,7 @@ mod tests {
 
         let (mut routine, _status_receiver, _log_receiver) = test_routine(&current_config).await;
 
-        routine.processes.stop_program("app").await.unwrap();
+        routine.processes.stop_task("app").await.unwrap();
         assert!(
             !routine
                 .processes
@@ -626,7 +620,7 @@ mod tests {
             let processes = process_registry.lock().await;
             let process = processes.get("app").unwrap().first().unwrap();
             assert_eq!(
-                *process.program_config().start_retries(),
+                *process.task_config().start_retries(),
                 5,
                 "stopped process must still receive the reloaded config"
             );
@@ -641,7 +635,7 @@ mod tests {
 
     #[tokio::test]
     async fn reload_non_destructive_change_is_propagated_to_running_subroutine() {
-        let current_yaml = r#"programs:
+        let current_yaml = r#"tasks:
   app:
     cmd: "sh -c 'sleep 0.1; exit 1'"
     num-procs: 1
@@ -649,7 +643,7 @@ mod tests {
     auto-restart: unexpected
     exit-codes: [1]"#;
 
-        let new_yaml = r#"programs:
+        let new_yaml = r#"tasks:
   app:
     cmd: "sh -c 'sleep 0.1; exit 1'"
     num-procs: 1
@@ -667,22 +661,22 @@ mod tests {
                 status_receiver.recv().await.unwrap().status,
                 Status::Starting
             ),
-            "expected the initial program to start"
+            "expected the initial task to start"
         );
         assert!(
             matches!(
                 status_receiver.recv().await.unwrap().status,
                 Status::Running
             ),
-            "expected the initial program to be running"
+            "expected the initial task to be running"
         );
 
         routine.update_processes(&current_config, &new_config).await;
 
         // The reloaded config makes exit code 1 unexpected, so once the
-        // program exits the subroutine must restart it instead of giving up.
+        // task exits the subroutine must restart it instead of giving up.
         // Skip any statuses (e.g. the extra Running emitted when the config is
-        // received) until the program exits.
+        // received) until the task exits.
         let mut status = status_receiver.recv().await.unwrap().status;
         while !matches!(status, Status::Exited(_)) {
             status = status_receiver.recv().await.unwrap().status;

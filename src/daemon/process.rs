@@ -9,7 +9,7 @@ use std::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::daemon::{
-    config::ProgramConfig,
+    config::TaskConfig,
     process_handler::{self, LogSender, NominativeStatus, Status},
 };
 
@@ -28,7 +28,7 @@ impl Display for ProcessId {
 }
 
 pub struct Process {
-    program_config: Arc<ProgramConfig>,
+    task_config: Arc<TaskConfig>,
     handle: Option<process_handler::Handle>,
     pub nominative_status: NominativeStatus,
     instance_id: usize,
@@ -47,20 +47,20 @@ impl Debug for Process {
 static NEXT_PROCESS_INSTANCE_ID: AtomicUsize = AtomicUsize::new(1);
 
 impl Process {
-    pub fn new(program: Arc<ProgramConfig>, id: usize) -> Self {
+    pub fn new(task: Arc<TaskConfig>, id: usize) -> Self {
         Self {
-            program_config: Arc::clone(&program),
+            task_config: Arc::clone(&task),
             handle: None,
             nominative_status: NominativeStatus {
                 process_id: ProcessId {
-                    task_name: program.name().clone(),
+                    task_name: task.name().clone(),
                     id,
                 },
                 status: Status::default(),
             },
             instance_id: 0,
             process_id: ProcessId {
-                task_name: program.name().clone(),
+                task_name: task.name().clone(),
                 id,
             },
         }
@@ -71,7 +71,7 @@ impl Process {
         status_sender: &UnboundedSender<NominativeStatus>,
         log_sender: &LogSender,
     ) -> Self {
-        if *self.program_config.auto_start() {
+        if *self.task_config.auto_start() {
             self.start(status_sender, log_sender);
         }
         self
@@ -82,7 +82,7 @@ impl Process {
         status_sender: &UnboundedSender<NominativeStatus>,
         log_sender: &LogSender,
     ) {
-        if *self.program_config.auto_start_on_reload() {
+        if *self.task_config.auto_start_on_reload() {
             self.start(status_sender, log_sender);
         }
     }
@@ -97,7 +97,7 @@ impl Process {
         }
         self.instance_id = NEXT_PROCESS_INSTANCE_ID.fetch_add(1, Ordering::Relaxed);
         let handle = process_handler::Routine::spawn(
-            self.program_config.clone(),
+            self.task_config.clone(),
             status_sender.clone(),
             log_sender.clone(),
             self.process_id.clone(),
@@ -108,12 +108,12 @@ impl Process {
         self.nominative_status.status = Status::RoutineStarting;
     }
 
-    pub async fn update_program_config(&mut self, new_config: Arc<ProgramConfig>) {
-        self.program_config = new_config;
+    pub async fn update_task_config(&mut self, new_config: Arc<TaskConfig>) {
+        self.task_config = new_config;
 
         if let Some(handle) = &self.handle {
             handle
-                .send_reloaded_config(Arc::clone(&self.program_config))
+                .send_reloaded_config(Arc::clone(&self.task_config))
                 .await;
         };
     }
@@ -140,7 +140,7 @@ impl Process {
         self.handle.is_some()
     }
 
-    pub fn program_config(&self) -> Arc<ProgramConfig> {
-        Arc::clone(&self.program_config)
+    pub fn task_config(&self) -> Arc<TaskConfig> {
+        Arc::clone(&self.task_config)
     }
 }
