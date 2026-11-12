@@ -3,7 +3,7 @@ use crate::daemon::{
     process_handler::{Log, NominativeStatus, Routine, Status, log::LogType},
     test_utils::TestDir,
 };
-use std::sync::Arc;
+use std::{assert_matches, sync::Arc};
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, mpsc::UnboundedReceiver};
 
@@ -397,4 +397,88 @@ async fn create_task_with_working_dir() {
         format!("{}: {}", process_id, expected),
         "process should have run in /tmp directory"
     );
+}
+#[tokio::test]
+async fn create_task_with_non_existing_command() {
+    use crate::daemon::config::Config;
+    use std::io::Cursor;
+
+    let yaml_content = r#"programs:
+    non_existing_task:
+        cmd: "non_existing_command_12345"
+        num-procs: 1
+        auto-start: true
+        start-retries: 0
+        start-time: 0"#;
+
+    let program = Config::from_reader(Cursor::new(yaml_content))
+        .expect("Parse error")
+        .programs
+        .into_iter()
+        .next()
+        .expect("Config vector is empty")
+        .1;
+
+    let (status_sender, status_receiver) = mpsc::unbounded_channel();
+    let (log_sender, _log_receiver) = mpsc::unbounded_channel();
+    let process_id = ProcessId {
+        task_name: program.name().clone(),
+        id: 0,
+    };
+
+    let routine_handle = Routine::spawn(program, status_sender, log_sender, process_id.clone(), 0);
+    let mut status_receiver = status_receiver;
+
+    let nominative_status = status_receiver.recv().await.unwrap();
+    assert_eq!(nominative_status.process_id, process_id);
+    assert_matches!(
+        nominative_status.status,
+        Status::FailedToStartProcess { .. },
+        "expected Status::FailedToStartProcess, got {:?}",
+        nominative_status.status
+    );
+
+    routine_handle.join().await;
+}
+
+#[tokio::test]
+async fn create_task_with_invalid_working_directory() {
+    use crate::daemon::config::Config;
+    use std::io::Cursor;
+
+    let yaml_content = r#"programs:
+    invalid_working_directory_task:
+        cmd: "true"
+        num-procs: 1
+        working-dir: /path/that/does/not/exist
+        auto-start: true
+        start-retries: 0"#;
+
+    let program = Config::from_reader(Cursor::new(yaml_content))
+        .expect("Parse error")
+        .programs
+        .into_iter()
+        .next()
+        .expect("Config vector is empty")
+        .1;
+
+    let (status_sender, mut status_receiver) = mpsc::unbounded_channel();
+    let (log_sender, _log_receiver) = mpsc::unbounded_channel();
+    let process_id = ProcessId {
+        task_name: program.name().clone(),
+        id: 0,
+    };
+
+    let routine_handle = Routine::spawn(program, status_sender, log_sender, process_id.clone(), 0);
+    let nominative_status = status_receiver.recv().await.unwrap();
+
+    assert_eq!(nominative_status.process_id, process_id);
+    assert_matches!(
+        nominative_status.status,
+        Status::FailedToStartProcess { .. },
+        "expected Status::FailedToStartProcess, got {:?}",
+        nominative_status.status
+    );
+
+    routine_handle.join().await;
 }

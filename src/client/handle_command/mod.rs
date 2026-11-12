@@ -1,4 +1,8 @@
+#[macro_use]
+mod macros;
+
 use crate::{
+    client::CommandContext,
     daemon::{ReloadType, ServerCommandError},
     rpc::ClientHandle,
 };
@@ -30,137 +34,16 @@ pub enum ParseError {
     MissingArgument(Option<&'static str>),
 }
 
-pub enum CommandWasShutdown {
-    True,
-    False,
-}
-
-macro_rules! handle_command {
-    (
-        $args_iter:ident;
-        $($cases:tt)*
-    ) => {{
-        let command_name = $args_iter.next().ok_or(ParseError::EmptyCommand)?;
-
-        handle_command_cases!(
-            || Err(ParseError::UnknownCommand(command_name).into()),
-            $args_iter,
-            command_name,
-            $($cases)*
-        )
-    }};
-}
-
-macro_rules! handle_command_cases {
-    // -- literal => sub_commands! { .. }
-    (
-        $default:expr,
-        $args_iter:ident,
-        $command_name:ident,
-
-        #[doc = $doc:literal]
-        $command_lit:literal => sub_commands! { $($handler:tt)* },
-
-        $($cases:tt)*
-    ) => {
-        match $command_name.as_ref() {
-            $command_lit => { handle_sub_command!($args_iter, $($handler)*) }
-            _ => { handle_command_cases!($default, $args_iter, $command_name, $($cases)*) }
-        }
-    };
-
-    // -- literal, [ident] => expr
-    (
-        $default:expr,
-        $args_iter:ident,
-        $command_name:ident,
-
-        #[doc = $doc:literal]
-        $command_lit:literal $(, $command_param:ident)* $(,)? => $handler:expr,
-
-        $($cases:tt)*
-    ) => {
-        match $command_name.as_ref() {
-            $command_lit => {
-                $(
-                    let $command_param = get_next_arg_without_dash(
-                        &mut $args_iter,
-                        stringify!($command_param),
-                    )?;
-                )*
-                check_no_additional_args($args_iter)?;
-                $handler
-            }
-            _ => { handle_command_cases!($default, $args_iter, $command_name, $($cases)*) }
-        }
-    };
-
-    // -- literal => expr
-    (
-        $default:expr,
-        $args_iter:ident,
-        $command_name:ident,
-
-        #[doc = $doc:literal]
-        $command_lit:literal => $handler:expr,
-
-        $($cases:tt)*
-    ) => {
-        match $command_name.as_ref() {
-            $command_lit => {
-                check_no_additional_args($args_iter)?;
-                $handler
-            }
-            _ => { handle_command_cases!($default, $args_iter, $command_name, $($cases)*) }
-        }
-    };
-
-    // -- [ident] => expr
-    (
-        $default:expr,
-        $args_iter:ident,
-        $command_name:ident,
-
-        #[doc = $doc:literal]
-        $command_param:ident $(, $additional_command_param:ident)* $(,)? => $handler:expr,
-    ) => {{
-        let $command_param = check_doesnt_start_with_dash(
-            $command_name,
-            stringify!($command_param),
-        )?;
-        $(
-            let $additional_command_param = get_next_arg_without_dash(
-                &mut $args_iter,
-                stringify!($additional_command_param)
-            )?;
-        )*
-        check_no_additional_args($args_iter)?;
-        $handler
-    }};
-
-    // -- No cases left
-    ($default:expr, $args_iter:ident, $command_name:ident, ) => {
-        return ($default)()
-    };
-}
-
-macro_rules! handle_sub_command {
-    ($args_iter:ident, $($cases:tt)*) => {{
-        let arg = get_next_arg(&mut $args_iter, None)?;
-
-        handle_command_cases!(
-            || Err(ParseError::UnexpectedArg(arg).into()),
-            $args_iter,
-            arg,
-            $($cases)*
-        )
-    }};
+pub enum ShellAction {
+    Break,
+    Continue,
 }
 
 pub async fn handle_command(
     client: &ClientHandle,
     mut args: impl Iterator<Item = String>,
-) -> Result<CommandWasShutdown, Error> {
+    command_context: CommandContext,
+) -> Result<ShellAction, Error> {
     handle_command! {
         args;
 
@@ -207,10 +90,20 @@ pub async fn handle_command(
         /// Stops all programs and shutdowns the daemon
         "shutdown" => {
             handle_shutdown_command(client).await?;
-            return Ok(CommandWasShutdown::True);
+            return Ok(ShellAction::Break);
+        },
+
+        /// Exits the shell
+        "exit" => {
+            match command_context {
+                CommandContext::CommandLine => return Err(
+                    Error::Parsing(ParseError::UnknownCommand("exit".to_owned()))
+                ),
+                CommandContext::InteractiveShell => return Ok(ShellAction::Break),
+            }
         },
     }
-    Ok(CommandWasShutdown::False)
+    Ok(ShellAction::Continue)
 }
 
 async fn handle_status_command(client: &ClientHandle) -> Result<(), Error> {
