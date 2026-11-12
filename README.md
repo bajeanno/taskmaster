@@ -91,6 +91,7 @@ These commands work in the interactive shell and as arguments to the executable:
 | Command                       | Description                                                  |
 | ----------------------------- | ------------------------------------------------------------ |
 | `status`                      | Show managed program and process status.                     |
+| `ps`                          | Identical to `status`                                        |
 | `start <program>`             | Start a program.                                             |
 | `restart <program>`           | Restart a program.                                           |
 | `stop <program>`              | Stop a program.                                              |
