@@ -659,6 +659,13 @@ mod tests {
         assert!(
             matches!(
                 status_receiver.recv().await.unwrap().status,
+                Status::RoutineStarting
+            ),
+            "expected the initial task to start"
+        );
+        assert!(
+            matches!(
+                status_receiver.recv().await.unwrap().status,
                 Status::Starting
             ),
             "expected the initial task to start"

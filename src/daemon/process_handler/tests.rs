@@ -17,6 +17,16 @@ async fn check_status(
         "process name doesn't match in nominative status, while expecting for Status::Starting"
     );
     assert!(
+        matches!(nominative_status.status, Status::RoutineStarting),
+        "expected status::starting, got {:?}",
+        nominative_status.status
+    );
+    let nominative_status = status_receiver.lock().await.recv().await.unwrap();
+    assert_eq!(
+        nominative_status.process_id, process_id,
+        "process name doesn't match in nominative status, while expecting for Status::Starting"
+    );
+    assert!(
         matches!(nominative_status.status, Status::Starting),
         "expected status::starting, got {:?}",
         nominative_status.status
@@ -413,6 +423,11 @@ async fn create_task_with_non_existing_command() {
     let routine_handle = Routine::spawn(program, status_sender, log_sender, process_id.clone(), 0);
     let mut status_receiver = status_receiver;
 
+    assert_matches!(
+        status_receiver.recv().await.unwrap().status,
+        Status::RoutineStarting
+    );
+
     let nominative_status = status_receiver.recv().await.unwrap();
     assert_eq!(nominative_status.process_id, process_id);
     assert_matches!(
@@ -454,6 +469,10 @@ async fn create_task_with_invalid_working_directory() {
     };
 
     let routine_handle = Routine::spawn(program, status_sender, log_sender, process_id.clone(), 0);
+    assert_matches!(
+        status_receiver.recv().await.unwrap().status,
+        Status::RoutineStarting
+    );
     let nominative_status = status_receiver.recv().await.unwrap();
 
     assert_eq!(nominative_status.process_id, process_id);

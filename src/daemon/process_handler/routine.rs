@@ -48,12 +48,14 @@ impl Routine {
         let (kill_command_sender, kill_command_receiver) = mpsc::channel(1);
         let (reload_event_sender, reload_event_receiver) = mpsc::channel(1);
         let command = command::create_command(&config);
+        let mut status_sender = StatusSender::new(status_sender, process_id.clone());
+        status_sender.send_new_status_to_task_manager(Status::RoutineStarting);
 
         let join_handle = tokio::spawn(async move {
             Self {
                 config,
                 log_sender,
-                status_sender: StatusSender::new(status_sender, process_id.clone()),
+                status_sender: status_sender.clone(),
                 kill_command_receiver,
                 reload_event_receiver,
                 start_attempts: 0,
