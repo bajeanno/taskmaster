@@ -40,7 +40,7 @@ impl Routine {
                 error,
                 config_file_path,
             } => Err(ServerCommandError::FailedToLoadNewConfig {
-                error,
+                source: error,
                 config_file_path,
             }),
 

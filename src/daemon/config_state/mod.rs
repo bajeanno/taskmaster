@@ -1,5 +1,6 @@
 use ron::ser::PrettyConfig;
 
+use crate::daemon::config::ParseError;
 use crate::daemon::{config::Config, config_state::ConfigState::Active};
 use serializable_error::SerializableError;
 use std::fs::File;
@@ -21,7 +22,7 @@ pub enum ConfigState {
     #[default]
     Uninitialized,
     LoadError {
-        error: String,
+        error: ParseError,
         config_file_path: String,
     },
 }
@@ -158,7 +159,7 @@ impl ConfigState {
                 config_file_path,
             }),
             Err(err) => Ok(Self::LoadError {
-                error: err.to_string(),
+                error: err,
                 config_file_path,
             }),
         }
