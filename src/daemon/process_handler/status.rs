@@ -1,4 +1,8 @@
-use std::{fmt::Debug, os::unix::process::ExitStatusExt, process::ExitStatus};
+use std::{
+    fmt::{Debug, Display},
+    os::unix::process::ExitStatusExt,
+    process::ExitStatus,
+};
 
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -10,6 +14,12 @@ use crate::daemon::process::ProcessId;
 pub struct NominativeStatus {
     pub process_id: ProcessId,
     pub status: Status,
+}
+
+impl Display for NominativeStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.process_id, self.status)
+    }
 }
 
 #[allow(dead_code)] //TODO: Remove that
@@ -35,6 +45,23 @@ pub enum Status {
     NotRestarting {
         instance_id: usize,
     },
+}
+
+impl Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Status::NotRunning => write!(f, "Not running"),
+            Status::RoutineStarting => write!(f, "Routine starting"),
+            Status::Starting => write!(f, "Starting"),
+            Status::Running => write!(f, "Running"),
+            Status::FailedToStartProcess(_) => write!(f, "Failed to start process"),
+            Status::ErrorDuringStartup(exit_status) => {
+                write!(f, "Exited during startup with exit code {}", exit_status)
+            }
+            Status::Exited(exit_status) => write!(f, "Exited with exit code {}", exit_status),
+            Status::NotRestarting { .. } => write!(f, "Not restarting"),
+        }
+    }
 }
 
 fn serialize_exit_status<S>(exit_status: &ExitStatus, serializer: S) -> Result<S::Ok, S::Error>
