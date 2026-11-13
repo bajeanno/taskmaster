@@ -120,6 +120,7 @@ impl Routine {
         processes: Arc<ProcessRegistry>,
     ) {
         while let Some(nominative_status) = status_receiver.recv().await {
+            logging::info!("{nominative_status}");
             processes
                 .store_status_and_join_task_if_terminated(nominative_status)
                 .await;
