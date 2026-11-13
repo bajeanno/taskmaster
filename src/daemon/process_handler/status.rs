@@ -31,7 +31,13 @@ pub enum Status {
     RoutineStarting,
     Starting,
     Running,
-    FailedToStartProcess(String),
+    // Using Strings instead of raw io::Error and io::ErrorKind because of
+    // needed serialize and deserialize traits implementation
+    FailedToStartProcess {
+        error: String,
+        error_kind: String,
+        cmd: String,
+    },
     #[serde(
         serialize_with = "serialize_exit_status",
         deserialize_with = "deserialize_exit_status"
@@ -54,7 +60,9 @@ impl Display for Status {
             Status::RoutineStarting => write!(f, "Routine starting"),
             Status::Starting => write!(f, "Starting"),
             Status::Running => write!(f, "Running"),
-            Status::FailedToStartProcess(_) => write!(f, "Failed to start process"),
+            Status::FailedToStartProcess { error, .. } => {
+                write!(f, "Failed to start process with error: {}", error)
+            }
             Status::ErrorDuringStartup(exit_status) => {
                 write!(f, "Exited during startup with exit code {}", exit_status)
             }

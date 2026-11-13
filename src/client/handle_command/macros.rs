@@ -19,8 +19,12 @@ macro_rules! handle_command {
 }
 
 macro_rules! help_command_name {
-    ($command_lit:literal $(, $command_param:ident)*) => {
-        concat!($command_lit, $(" <", stringify!($command_param), ">", )*)
+    ($command_lit:literal $(| $alt_command_lit:literal)* $(, $command_param:ident)*) => {
+        concat!(
+            $command_lit,
+            $(" || ", $alt_command_lit,)*
+            $(" <", stringify!($command_param), ">", )*
+        )
     };
 }
 
@@ -29,10 +33,10 @@ macro_rules! print_help_cases {
 
     (
         #[doc = $doc:literal]
-        $command_lit:literal => sub_commands! { $($sub_cases:tt)* },
+        $command_lit:literal $(| $alt_command_lit:literal)* => sub_commands! { $($sub_cases:tt)* },
         $($cases:tt)*
     ) => {
-        println!("{:<34} {}", $command_lit, $doc);
+        println!("{:<34} {}", help_command_name!($command_lit $(| $alt_command_lit)*), $doc);
         print_help_sub_cases!("  ", $($sub_cases)*);
         println!();
         print_help_cases!($($cases)*);
@@ -40,12 +44,13 @@ macro_rules! print_help_cases {
 
     (
         #[doc = $doc:literal]
-        $command_lit:literal $(, $command_param:ident)* $(,)? => $handler:expr,
+        $command_lit:literal $(| $alt_command_lit:literal)* $(, $command_param:ident)* $(,)?
+            => $handler:expr,
         $($cases:tt)*
     ) => {
         println!(
             "{:<34} {}",
-            help_command_name!($command_lit $(, $command_param)*),
+            help_command_name!($command_lit $(| $alt_command_lit)* $(, $command_param)*),
             $doc,
         );
         println!();
@@ -60,10 +65,10 @@ macro_rules! print_help_sub_cases {
         $indentation:expr,
 
         #[doc = $doc:literal]
-        $command_lit:literal => sub_commands! { $($sub_cases:tt)* },
+        $command_lit:literal $(| $alt_command_lit:literal)* => sub_commands! { $($sub_cases:tt)* },
         $($cases:tt)*
     ) => {
-        let command_display = help_command_name!($command_lit);
+        let command_display = help_command_name!($command_lit $(| $alt_command_lit)*);
         let padding = $crate::client::handle_command::macros::calculate_padding(
             $indentation,
             command_display
@@ -85,10 +90,15 @@ macro_rules! print_help_sub_cases {
         $indentation:expr,
 
         #[doc = $doc:literal]
-        $command_lit:literal $(, $command_param:ident)* $(,)? => $handler:expr,
+        $command_lit:literal $(| $alt_command_lit:literal)* $(, $command_param:ident)* $(,)?
+            => $handler:expr,
         $($cases:tt)*
     ) => {
-        let command_display = help_command_name!($command_lit $(, $command_param)*);
+        let command_display = help_command_name!(
+            $command_lit
+            $(| $alt_command_lit)*
+            $(, $command_param)*
+        );
         let padding = $crate::client::handle_command::macros::calculate_padding(
             $indentation,
             command_display
@@ -109,10 +119,13 @@ macro_rules! print_help_sub_cases {
         $indentation:expr,
 
         #[doc = $doc:literal]
-        $command_param:ident => $handler:expr,
+        $command_param:ident $(, $additional_command_param:ident)* $(,)? => $handler:expr,
         $($cases:tt)*
     ) => {
-        let command_display = concat!("<", stringify!($command_param), ">");
+        let command_display = concat!(
+            "<", stringify!($command_param), ">"
+            $(, " <", stringify!($additional_command_param), ">")*
+        );
         let padding = $crate::client::handle_command::macros::calculate_padding(
             $indentation,
             command_display
@@ -137,12 +150,12 @@ macro_rules! handle_command_cases {
         $command_name:ident,
 
         #[doc = $doc:literal]
-        $command_lit:literal => sub_commands! { $($handler:tt)* },
+        $command_lit:literal $(| $alt_command_lit:literal)* => sub_commands! { $($handler:tt)* },
 
         $($cases:tt)*
     ) => {
         match $command_name.as_ref() {
-            $command_lit => { handle_sub_command!($args_iter, $($handler)*) }
+            $command_lit $(| $alt_command_lit)* => { handle_sub_command!($args_iter, $($handler)*) }
             _ => { handle_command_cases!($default, $args_iter, $command_name, $($cases)*) }
         }
     };
@@ -154,12 +167,12 @@ macro_rules! handle_command_cases {
         $command_name:ident,
 
         #[doc = $doc:literal]
-        $command_lit:literal $(, $command_param:ident)* $(,)? => $handler:expr,
+        $command_lit:literal $(| $alt_command_lit:literal)* $(, $command_param:ident)* $(,)? => $handler:expr,
 
         $($cases:tt)*
     ) => {
         match $command_name.as_ref() {
-            $command_lit => {
+            $command_lit $(| $alt_command_lit)* => {
                 $(
                     let $command_param = get_next_arg_without_dash(
                         &mut $args_iter,
@@ -180,12 +193,12 @@ macro_rules! handle_command_cases {
         $command_name:ident,
 
         #[doc = $doc:literal]
-        $command_lit:literal => $handler:expr,
+        $command_lit:literal $(| $alt_command_lit:literal)* => $handler:expr,
 
         $($cases:tt)*
     ) => {
         match $command_name.as_ref() {
-            $command_lit => {
+            $command_lit $(| $alt_command_lit)* => {
                 check_no_additional_args($args_iter)?;
                 $handler
             }

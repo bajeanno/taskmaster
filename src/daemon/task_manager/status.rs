@@ -1,7 +1,7 @@
 use std::{fmt::Display, sync::Arc};
 
 use crate::daemon::{
-    config::ProgramConfig,
+    config::TaskConfig,
     process_handler::{NominativeStatus, Status},
 };
 
@@ -17,11 +17,11 @@ impl TasksManagerStatus {
         Self { list: Vec::new() }
     }
 
-    pub fn push(&mut self, program_config: &Arc<ProgramConfig>, list: Vec<NominativeStatus>) {
+    pub fn push(&mut self, task_config: &Arc<TaskConfig>, list: Vec<NominativeStatus>) {
         let list = StatusList {
             list,
-            task_name: program_config.name().clone(),
-            command: program_config.cmd().to_string(),
+            task_name: task_config.name().clone(),
+            command: task_config.cmd().to_string(),
         };
         self.list.push(list);
     }
@@ -74,7 +74,7 @@ impl StatusList {
             Status::RoutineStarting => routine_starting_count += 1,
             Status::Starting => starting_count += 1,
             Status::Running => running_count += 1,
-            Status::FailedToStartProcess(_) => failed_to_start_count += 1,
+            Status::FailedToStartProcess { .. } => failed_to_start_count += 1,
             Status::ErrorDuringStartup(_) => startup_error_count += 1,
             Status::Exited(_) => exited_count += 1,
             Status::NotRestarting { instance_id: _ } => not_restarting_count += 1,
@@ -113,14 +113,14 @@ impl Display for StatusList {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::daemon::{
         process::ProcessId,
         process_handler::{NominativeStatus, Status},
-        tasks_manager::status::{StatusList, TasksManagerStatus},
     };
 
     fn create_tasks_yaml_content() -> String {
-        r#"programs:
+        r#"tasks:
     nginx:
         cmd: "/usr/bin/nginx -conf /etc/nginx.conf"
         num-procs: 4
@@ -236,8 +236,8 @@ mod tests {
         let config =
             crate::daemon::config::Config::from_reader(std::io::Cursor::new(content)).unwrap();
         let mut process_list = TasksManagerStatus::new();
-        process_list.push(&config.programs.get("nginx").unwrap(), list);
-        process_list.push(&config.programs.get("postgres").unwrap(), list2);
+        process_list.push(&config.tasks.get("nginx").unwrap(), list);
+        process_list.push(&config.tasks.get("postgres").unwrap(), list2);
         println!("{}", process_list.to_string());
         assert_eq!(
             process_list.to_string(),

@@ -3,19 +3,19 @@ use super::{
     StatusSender, command,
 };
 use crate::daemon::{
-    config::{ProgramConfig, program::AutoRestart},
+    config::{TaskConfig, task::AutoRestart},
     output_file::OutputFile,
     process::ProcessId,
     process_handler::{Log, LogType, Outputs},
 };
 use libc::{signal::kill, unistd::umask};
 use signal::Signal;
-use std::{panic, process::Stdio, sync::Arc};
+use std::{io::ErrorKind, panic, process::Stdio, sync::Arc};
 use tokio::{
     io::{AsyncBufRead, AsyncBufReadExt, Error},
     process::{Child, Command},
     sync::mpsc::{self, UnboundedSender},
-    time::Duration,
+    time::{Duration, sleep},
 };
 
 pub struct Routine {
@@ -23,7 +23,7 @@ pub struct Routine {
     log_sender: LogSender,
     kill_command_receiver: KillCommandReceiver,
     reload_event_receiver: ReloadEventReceiver,
-    config: Arc<ProgramConfig>,
+    config: Arc<TaskConfig>,
     start_attempts: u32,
     command: Command,
     process_id: ProcessId,
@@ -31,9 +31,15 @@ pub struct Routine {
     instance_id: usize,
 }
 
+enum ShouldRestart {
+    True,
+    WaitThenRestart,
+    False,
+}
+
 impl Routine {
     pub fn spawn(
-        config: Arc<ProgramConfig>,
+        config: Arc<TaskConfig>,
         status_sender: UnboundedSender<NominativeStatus>,
         log_sender: LogSender,
         process_id: ProcessId,
@@ -64,9 +70,16 @@ impl Routine {
 
     async fn routine(mut self) {
         loop {
-            let status = self.run_program().await;
+            let status = self.run_task().await;
 
-            let should_try_restart = self.should_try_restart(&status);
+            let should_try_restart = match self.should_try_restart(&status).await {
+                ShouldRestart::True => true,
+                ShouldRestart::WaitThenRestart => {
+                    sleep(Duration::from_millis(500)).await;
+                    true
+                }
+                ShouldRestart::False => false,
+            };
 
             self.status_sender.send_new_status_to_task_manager(status);
             if self.kill_command_received || !should_try_restart {
@@ -79,14 +92,18 @@ impl Routine {
         }
     }
 
-    async fn run_program(&mut self) -> Status {
+    async fn run_task(&mut self) -> Status {
         match self.child_spawn() {
             Ok(child) => {
                 self.status_sender
                     .send_new_status_to_task_manager(Status::Starting);
                 self.handle_running_child(child).await
             }
-            Err(err) => Status::FailedToStartProcess(err.to_string()),
+            Err(err) => Status::FailedToStartProcess {
+                error: err.to_string(),
+                error_kind: err.kind().to_string(),
+                cmd: self.config.cmd.to_string(),
+            },
         }
     }
 
@@ -178,28 +195,51 @@ impl Routine {
     }
 
     /// Condition for restart:
-    /// - The programmed failed to start (i.e. it crashed before `config.start_time` seconds
+    /// - The task failed to start (i.e. it crashed before `config.start_time` seconds
     ///   elapsed):
-    ///   - We already attempted to start the program `config.start_retries` times (note that the
-    ///     attempted start count is reset whenever the program starts successfully):
+    ///   - We already attempted to start the task `config.start_retries` times (note that the
+    ///     attempted start count is reset whenever the task starts successfully):
     ///     returns false (we don't want to retry)
     ///   - otherwise return true (we want to retry)
     ///
-    /// - The program started properly:
+    /// - The task started properly:
     ///   - `config.auto_restart` is `false`: Return false (we don't want to restart)
     ///   - `config.auto_restart` is `unexpected` and the exit status is in `config.exit-codes`: Return false (we don't want to restart)
     ///   - otherwise return true (we want to restart)
-    fn should_try_restart(&mut self, status: &Status) -> bool {
+    async fn should_try_restart(&mut self, status: &Status) -> ShouldRestart {
         match status {
-            Status::ErrorDuringStartup(_) => self.start_attempts < *self.config.start_retries(),
+            Status::ErrorDuringStartup(_) => {
+                if self.start_attempts < *self.config.start_retries() {
+                    ShouldRestart::True
+                } else {
+                    ShouldRestart::False
+                }
+            }
+            Status::FailedToStartProcess { error_kind, .. }
+                if *error_kind == ErrorKind::WouldBlock.to_string() =>
+            {
+                ShouldRestart::WaitThenRestart
+            }
+
+            Status::FailedToStartProcess { error_kind, .. }
+                if *error_kind == ErrorKind::NotFound.to_string() =>
+            {
+                ShouldRestart::False
+            }
 
             _ => {
                 self.start_attempts = 0;
 
                 match *self.config.auto_restart() {
-                    AutoRestart::False => false,
-                    AutoRestart::OnFailure => !self.is_expected_status(status),
-                    AutoRestart::True => true,
+                    AutoRestart::False => ShouldRestart::False,
+                    AutoRestart::OnFailure => {
+                        if self.is_expected_status(status) {
+                            ShouldRestart::False
+                        } else {
+                            ShouldRestart::True
+                        }
+                    }
+                    AutoRestart::True => ShouldRestart::True,
                 }
             }
         }
