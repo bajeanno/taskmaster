@@ -1,6 +1,5 @@
 use super::{
-    Handle, KillCommandReceiver, LogSender, NominativeStatus, ReloadEventReceiver, Status,
-    StatusSender, command,
+    Handle, KillCommandReceiver, LogSender, ReloadEventReceiver, Status, StatusSender, command,
 };
 use crate::daemon::{
     config::{TaskConfig, task::AutoRestart},
@@ -14,7 +13,7 @@ use std::{io::ErrorKind, panic, process::Stdio, sync::Arc};
 use tokio::{
     io::{AsyncBufRead, AsyncBufReadExt, Error},
     process::{Child, Command},
-    sync::mpsc::{self, UnboundedSender},
+    sync::mpsc,
     time::{Duration, sleep},
 };
 
@@ -40,7 +39,7 @@ enum ShouldRestart {
 impl Routine {
     pub fn spawn(
         config: Arc<TaskConfig>,
-        status_sender: UnboundedSender<NominativeStatus>,
+        status_sender: StatusSender,
         log_sender: LogSender,
         process_id: ProcessId,
         instance_id: usize,
@@ -53,7 +52,7 @@ impl Routine {
             Self {
                 config,
                 log_sender,
-                status_sender: StatusSender::new(status_sender, process_id.clone()),
+                status_sender,
                 kill_command_receiver,
                 reload_event_receiver,
                 start_attempts: 0,
