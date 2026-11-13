@@ -1,6 +1,6 @@
 use crate::daemon::{
     process::ProcessId,
-    process_handler::{Log, NominativeStatus, Routine, Status, log::LogType},
+    process_handler::{Log, NominativeStatus, Routine, Status, StatusSender, log::LogType},
     test_utils::TestDir,
 };
 use std::{assert_matches, sync::Arc};
@@ -11,16 +11,6 @@ async fn check_status(
     status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>>,
     process_id: ProcessId,
 ) {
-    let nominative_status = status_receiver.lock().await.recv().await.unwrap();
-    assert_eq!(
-        nominative_status.process_id, process_id,
-        "process name doesn't match in nominative status, while expecting for Status::Starting"
-    );
-    assert!(
-        matches!(nominative_status.status, Status::RoutineStarting),
-        "expected status::starting, got {:?}",
-        nominative_status.status
-    );
     let nominative_status = status_receiver.lock().await.recv().await.unwrap();
     assert_eq!(
         nominative_status.process_id, process_id,
@@ -123,7 +113,13 @@ async fn create_task() {
         id: 0,
     };
 
-    let routine_handle = Routine::spawn(task, status_sender, log_sender, process_id.clone(), 0);
+    let routine_handle = Routine::spawn(
+        task,
+        StatusSender::new(status_sender, process_id.clone()),
+        log_sender,
+        process_id.clone(),
+        0,
+    );
     let log_checker_handle = tokio::spawn(check_realtime_output(log_receiver));
     let status_receiver = Arc::new(Mutex::new(status_receiver));
     let status_checker_handle = tokio::spawn(check_status(
@@ -209,7 +205,13 @@ async fn create_task_then_interrupt() {
         task_name: config.name().clone(),
         id: 0,
     };
-    let routine_handle = Routine::spawn(config, status_sender, log_sender, process_id.clone(), 0);
+    let routine_handle = Routine::spawn(
+        config,
+        StatusSender::new(status_sender, process_id.clone()),
+        log_sender,
+        process_id.clone(),
+        0,
+    );
     let status_receiver: Arc<Mutex<UnboundedReceiver<NominativeStatus>>> =
         Arc::new(Mutex::new(status_receiver));
     let handle2 = tokio::spawn(check_status(
@@ -273,21 +275,21 @@ async fn send_reloaded_config_updates_running_routine_behavior() {
 
     let (status_sender, status_receiver) = mpsc::unbounded_channel();
     let (log_sender, _log_receiver) = mpsc::unbounded_channel();
-    let name = ProcessId {
+    let process_id = ProcessId {
         task_name: "reload_test".to_string(),
         id: 0,
     };
 
     let routine_handle = Routine::spawn(
         task_from_yaml(initial_yaml),
-        status_sender,
+        StatusSender::new(status_sender, process_id.clone()),
         log_sender,
-        name.clone(),
+        process_id.clone(),
         0,
     );
     let status_receiver = Arc::new(Mutex::new(status_receiver));
 
-    check_status(Arc::clone(&status_receiver), name.clone()).await;
+    check_status(Arc::clone(&status_receiver), process_id.clone()).await;
 
     routine_handle
         .send_reloaded_config(task_from_yaml(reloaded_yaml))
@@ -364,7 +366,13 @@ async fn create_task_with_working_dir() {
         id: 0,
     };
 
-    let _routine_handle = Routine::spawn(task, status_sender, log_sender, process_id.clone(), 0);
+    let _routine_handle = Routine::spawn(
+        task,
+        StatusSender::new(status_sender, process_id.clone()),
+        log_sender,
+        process_id.clone(),
+        0,
+    );
     let status_receiver = Arc::new(Mutex::new(status_receiver));
     check_status(Arc::clone(&status_receiver), process_id.clone()).await;
     check_status_exited(Arc::clone(&status_receiver), &process_id).await;
@@ -420,13 +428,14 @@ async fn create_task_with_non_existing_command() {
         id: 0,
     };
 
-    let routine_handle = Routine::spawn(program, status_sender, log_sender, process_id.clone(), 0);
-    let mut status_receiver = status_receiver;
-
-    assert_matches!(
-        status_receiver.recv().await.unwrap().status,
-        Status::RoutineStarting
+    let routine_handle = Routine::spawn(
+        program,
+        StatusSender::new(status_sender, process_id.clone()),
+        log_sender,
+        process_id.clone(),
+        0,
     );
+    let mut status_receiver = status_receiver;
 
     let nominative_status = status_receiver.recv().await.unwrap();
     assert_eq!(nominative_status.process_id, process_id);
@@ -468,10 +477,12 @@ async fn create_task_with_invalid_working_directory() {
         id: 0,
     };
 
-    let routine_handle = Routine::spawn(program, status_sender, log_sender, process_id.clone(), 0);
-    assert_matches!(
-        status_receiver.recv().await.unwrap().status,
-        Status::RoutineStarting
+    let routine_handle = Routine::spawn(
+        program,
+        StatusSender::new(status_sender, process_id.clone()),
+        log_sender,
+        process_id.clone(),
+        0,
     );
     let nominative_status = status_receiver.recv().await.unwrap();
 
