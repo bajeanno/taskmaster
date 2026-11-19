@@ -153,7 +153,7 @@ impl Routine {
 
     async fn kill_subprocess(child: &mut Child, stop_signal: &Signal, stop_time: &u32) -> Status {
         if let Some(pid) = child.id() {
-            unsafe { kill(pid as i32, *stop_signal as i32) };
+            unsafe { kill(-(pid as i32), *stop_signal as i32) };
         }
 
         tokio::select! {
@@ -164,7 +164,7 @@ impl Routine {
                 // sending SIGKILL signal to force a process to stop
                 // SIGKILL cannot be caught by the subprocess and constitutes a way to force processes to stop
                 if let Some(pid) = child.id() {
-                    unsafe { kill(pid as i32, Signal::SIGKILL as i32) };
+                    unsafe { kill(-(pid as i32), Signal::SIGKILL as i32) };
                 }
                 Status::Exited(child.wait().await.expect("error waiting for child after sending SIGTERM"))
             }
@@ -263,6 +263,7 @@ impl Routine {
         let workdir = self.config.working_dir().clone();
         let child = unsafe {
             self.command
+                .process_group(0)
                 .pre_exec(move || {
                     umask(config_umask);
                     std::env::set_current_dir(workdir.as_str())
