@@ -1,4 +1,5 @@
 pub mod task;
+use serializable_error::SerializableError;
 pub use task::TaskConfig;
 
 mod error;
@@ -97,7 +98,7 @@ impl Config {
                         File::create(file_name).map_err(|err| {
                             CreatingDefaultConfigFileError::UnableToCreate {
                                 file: file_name.to_string(),
-                                source: err,
+                                io_error: SerializableError::new(err),
                             }
                         })?,
                         &TmpConfig::template(),
@@ -105,7 +106,7 @@ impl Config {
                     .map_err(|err| {
                         CreatingDefaultConfigFileError::UnableToWrite {
                             file: file_name.to_string(),
-                            source: err,
+                            serde_yaml_error: SerializableError::new(err),
                         }
                     })?;
                     File::open(file_name)
@@ -114,12 +115,12 @@ impl Config {
         }
         .map_err(|err| ParseError::OpeningFile {
             file: file_name.to_string(),
-            source: err,
+            io_error: SerializableError::new(err),
         })?;
 
         Self::from_reader(file).map_err(|err| ParseError::InvalidConfig {
             file: file_name.to_string(),
-            source: err,
+            serde_yaml_error: SerializableError::new(err),
         })
     }
 }

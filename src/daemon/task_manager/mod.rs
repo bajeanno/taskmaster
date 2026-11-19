@@ -9,7 +9,10 @@ pub use routine::{Routine, RoutineStoppedReceiver};
 #[cfg(test)]
 mod tests;
 
-use crate::daemon::config_state::{InitFileError, ReloadType, RestoreConfigFileError};
+use crate::daemon::{
+    config::ParseError,
+    config_state::{InitFileError, ReloadType, RestoreConfigFileError},
+};
 use routine::Client;
 use tokio::sync::oneshot;
 
@@ -18,9 +21,9 @@ pub enum ServerCommandError {
     #[error("Task not found in current config: {0}")]
     NoSuchtask(String),
 
-    #[error("error loading config from file '{config_file_path}': {error}")]
+    #[error("error loading config from file '{config_file_path}'")]
     FailedToLoadNewConfig {
-        error: String,
+        source: ParseError,
         config_file_path: String,
     },
 
