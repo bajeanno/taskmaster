@@ -108,9 +108,9 @@ impl Routine {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::str::FromStr;
     use std::sync::Arc;
+    use std::{assert_matches, collections::HashMap};
 
     use signal::Signal;
 
@@ -656,25 +656,19 @@ mod tests {
 
         let (mut routine, mut status_receiver, _log_receiver) = test_routine(&current_config).await;
 
-        assert!(
-            matches!(
-                status_receiver.recv().await.unwrap().status,
-                Status::RoutineStarting
-            ),
+        assert_matches!(
+            status_receiver.recv().await.unwrap().status,
+            Status::RoutineStarting,
             "expected the initial task to start"
         );
-        assert!(
-            matches!(
-                status_receiver.recv().await.unwrap().status,
-                Status::Starting
-            ),
+        assert_matches!(
+            status_receiver.recv().await.unwrap().status,
+            Status::Starting,
             "expected the initial task to start"
         );
-        assert!(
-            matches!(
-                status_receiver.recv().await.unwrap().status,
-                Status::Running
-            ),
+        assert_matches!(
+            status_receiver.recv().await.unwrap().status,
+            Status::Running,
             "expected the initial task to be running"
         );
 
@@ -689,18 +683,14 @@ mod tests {
             status = status_receiver.recv().await.unwrap().status;
         }
 
-        assert!(
-            matches!(
-                status_receiver.recv().await.unwrap().status,
-                Status::Starting
-            ),
+        assert_matches!(
+            status_receiver.recv().await.unwrap().status,
+            Status::Starting,
             "subroutine must restart the process using the reloaded config"
         );
-        assert!(
-            matches!(
-                status_receiver.recv().await.unwrap().status,
-                Status::Running
-            ),
+        assert_matches!(
+            status_receiver.recv().await.unwrap().status,
+            Status::Running,
             "restarted process must be running"
         );
 
