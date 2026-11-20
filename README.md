@@ -15,6 +15,16 @@ Taskmaster is a Unix process supervisor written in Rust. It runs configured task
 
 Taskmaster uses Unix facilities including Unix domain sockets, process signals, file locking, and `fork`. It uses `/etc/taskmaster.d/` for configuration, `/var/run/taskmaster.d/` for its socket and PID file, and `/var/log/taskmaster.log` for daemonized output. Ensure those directories exist and the account running Taskmaster has the required access. A normal release run daemonizes, debug builds run the daemon in the foreground.
 
+#### Daemon and socket required permissions
+On each start, the daemon will check for/create a `taskmaster` group on the system which will be used to own the unix socket. 
+
+This and the pid file creates the need to be root to start the daemon. This also ensures only user that are part of the `taskmaster` group on your system can interact with taskmaster as we believe it can be a powerful piece of a system at some point.
+
+| Action            | Permission needed          |
+| ----------------- | -------------------------- |
+| start the daemon  | `root` or `sudo` (uid 0)   |
+| use the cli/shell | part of `taskmaster` group |
+
 ## Build and run
 
 Build the release binary with Rust and Cargo:
@@ -25,8 +35,14 @@ cargo build --release
 
 Run it with the permissions and runtime directories described above:
 
+by being root:
 ```sh
 ./target/release/taskmaster
+```
+
+or with sudo:
+```sh
+sudo ./target/release/taskmaster
 ```
 
 On its first run, Taskmaster uses `/etc/taskmaster.d/taskmaster.yaml` as the default config path and creates that YAML file with a small template if it does not exist. It stores the selected default path in `/etc/taskmaster.d/taskmaster.ron`. Create `/etc/taskmaster.d/` before starting Taskmaster, and edit the YAML file to configure tasks. Starting without a command opens the interactive shell. If the daemon is not running, the client prompts to start it.
