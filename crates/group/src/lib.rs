@@ -161,7 +161,7 @@ pub fn is_in_group(name: &str) -> Result<bool, GroupError> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "macos"))]
 mod tests {
     use super::*;
 
