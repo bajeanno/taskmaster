@@ -364,6 +364,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "group"
+version = "0.1.0"
+dependencies = [
+ "libc 0.1.0",
+ "thiserror",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1092,6 +1100,7 @@ dependencies = [
  "daemonize",
  "derive-getters",
  "file-lock",
+ "group",
  "libc 0.1.0",
  "logging",
  "mockall",
