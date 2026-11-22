@@ -25,13 +25,13 @@ use libc::sys::types::Pid;
 #[cfg(test)]
 use test_utils::TestDir;
 
-use crate::{GroupID, StartMode};
 use crate::daemon::{
     config_state::ConfigState,
     signal_handling::SignalError,
     task_manager::{RoutineStoppedReceiver, TaskManagerCommand},
 };
 use crate::rpc::RPC_UNIX_SOCKET_PATH;
+use crate::{GroupID, StartMode};
 use config::TaskConfig;
 use std::fs::Permissions;
 use std::os::unix::fs::{PermissionsExt, chown};
@@ -167,11 +167,8 @@ async fn start_server(
             chown(RPC_UNIX_SOCKET_PATH, None, taskmaster_gid.gid.into())
                 .map_err(Error::SocketChown)
                 .expect("Daemon requires to be root to chown the socket");
-            std::fs::set_permissions(
-                RPC_UNIX_SOCKET_PATH,
-                Permissions::from_mode(0o660),
-            )
-            .expect("Daemon should have requested permissions to chmod the socket file");
+            std::fs::set_permissions(RPC_UNIX_SOCKET_PATH, Permissions::from_mode(0o660))
+                .expect("Daemon should have requested permissions to chmod the socket file");
             server_handle
         }
         Err(err) => {
