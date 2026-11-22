@@ -3,7 +3,7 @@ mod daemon;
 mod rpc;
 mod start_mode;
 
-use std::{os::raw::c_uint, process::ExitCode, thread::sleep, time::Duration};
+use std::{process::ExitCode, thread::sleep, time::Duration};
 
 use daemonize::{Daemonized, DaemonizedOk, try_daemonized, try_daemonized_outside};
 use group::{Group, create_group};
@@ -85,11 +85,11 @@ fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
         }
 
         try_daemonized_outside!(check_root());
-        let gid = try_daemonized_outside!(get_taskmaster_group_id());
+        let taskmaster_gid = try_daemonized_outside!(get_taskmaster_group_id());
 
         maybe_rl = Some(rl);
 
-        match try_daemonized!(unsafe { daemon::run(start_mode, gid) }) {
+        match try_daemonized!(unsafe { daemon::run(start_mode, taskmaster_gid) }) {
             DaemonizedOk::InsideDaemon(()) => return Daemonized::InsideDaemon(Ok(())),
             DaemonizedOk::OutsideDaemon(_pid) => {
                 // waiting a bit for the daemon to start before starting client
@@ -112,7 +112,17 @@ fn check_root() -> Result<(), Error> {
     Ok(())
 }
 
-fn get_taskmaster_group_id() -> Result<c_uint, Error> {
+struct GroupID {
+    gid: u32,
+}
+
+impl From<GroupID> for Option<u32> {
+    fn from(value: GroupID) -> Self {
+        Some(value.gid)
+    }
+}
+
+fn get_taskmaster_group_id() -> Result<GroupID, Error> {
     let group_name = "taskmaster";
     let gid = match Group::from_name(group_name)? {
         Some(group) => group.gid,
@@ -121,7 +131,7 @@ fn get_taskmaster_group_id() -> Result<c_uint, Error> {
     unsafe {
         libc::unistd::setgid(gid);
     }
-    Ok(gid)
+    Ok(GroupID { gid })
 }
 
 fn should_start_daemon(

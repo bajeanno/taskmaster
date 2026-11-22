@@ -25,7 +25,7 @@ use libc::sys::types::Pid;
 #[cfg(test)]
 use test_utils::TestDir;
 
-use crate::StartMode;
+use crate::{GroupID, StartMode};
 use crate::daemon::{
     config_state::ConfigState,
     signal_handling::SignalError,
@@ -34,7 +34,6 @@ use crate::daemon::{
 use crate::rpc::RPC_UNIX_SOCKET_PATH;
 use config::TaskConfig;
 use std::fs::Permissions;
-use std::os::raw::c_uint;
 use std::os::unix::fs::{PermissionsExt, chown};
 use std::{panic, pin::Pin, sync::Arc, time::Duration};
 use tokio::{
@@ -58,7 +57,7 @@ pub fn is_daemon_started() -> Result<bool, Error> {
 /// # Safety
 ///
 /// Only call when it is safe to call fork()
-pub unsafe fn run(start_mode: StartMode, gid: c_uint) -> Daemonized<(), Error, Pid, Error> {
+pub unsafe fn run(start_mode: StartMode, gid: GroupID) -> Daemonized<(), Error, Pid, Error> {
     let config_state = try_daemonized_outside!(ConfigState::from_default_config_file());
     if !cfg!(debug_assertions) {
         match try_daemonized!(unsafe { daemonize() }) {
@@ -100,14 +99,14 @@ struct FutureToJoin {
     name: &'static str,
 }
 
-async fn run_daemon(config_state: ConfigState, gid: c_uint) -> Result<(), Error> {
+async fn run_daemon(config_state: ConfigState, taskmaster_gid: GroupID) -> Result<(), Error> {
     let mut futures: Vec<FutureToJoin> = Vec::new();
     futures.reserve_exact(3);
 
     let (tasks_manager, routine_stopped_receiver) =
         start_tasks_manager(&mut futures, config_state).await;
 
-    futures = start_server(futures, Arc::clone(&tasks_manager), gid).await?;
+    futures = start_server(futures, Arc::clone(&tasks_manager), taskmaster_gid).await?;
 
     let handle_signals_error_receiver =
         start_handle_signals_loop(&mut futures, tasks_manager).await;
@@ -161,11 +160,11 @@ async fn start_tasks_manager(
 async fn start_server(
     mut futures: Vec<FutureToJoin>,
     tasks_manager: Arc<task_manager::Handle>,
-    gid: u32,
+    taskmaster_gid: GroupID,
 ) -> Result<Vec<FutureToJoin>, Error> {
     let server_handle = match crate::rpc::start_server(tasks_manager).await {
         Ok(server_handle) => {
-            chown(RPC_UNIX_SOCKET_PATH, None, Some(gid))
+            chown(RPC_UNIX_SOCKET_PATH, None, taskmaster_gid.gid.into())
                 .map_err(Error::SocketChown)
                 .expect("Daemon requires to be root to chown the socket");
             std::fs::set_permissions(
