@@ -76,7 +76,7 @@ programs:
 | `exit-codes`           | `[0]`       | Exit codes treated as expected.                                                         |
 | `start-retries`        | `0`         | Retries after an unexpected failure during startup.                                     |
 | `start-time`           | `0`         | Seconds allowed for a process to reach its started state.                               |
-| `stop-signal`          | `TERM`      | Signal sent before Taskmaster escalates to `SIGKILL`. The `SIG` prefix is optional.     |
+| `stop-signal`          | `TERM`      | Signal sent before Taskmaster escalates to `SIGKILL`. The `SIG` prefix is optional. Processes are started with their own process group, therefore all the children of the launched process will be sent the stop signal.|
 | `stop-time`            | `0`         | Seconds to wait after the stop signal before escalation.                                |
 | `stdout`, `stderr`     | `/dev/null` | Output destinations. An empty string disables the corresponding file output.            |
 | `clear-env`            | `false`     | Clear inherited environment variables before applying `env`.                            |
