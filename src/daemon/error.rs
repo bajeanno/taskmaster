@@ -7,6 +7,9 @@ pub enum Error {
     #[error("Daemon failed to redirect it's IO")]
     RedirectingDaemonIO(#[from] daemonize::RedirectIOError),
 
+    #[error("Failed to change the owner group of the socket file")]
+    SocketChown(#[source] std::io::Error),
+
     #[error("Failed to daemonize process")]
     Fork(#[from] daemonize::ForkFailed),
 

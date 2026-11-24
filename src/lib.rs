@@ -6,6 +6,7 @@ mod start_mode;
 use std::{process::ExitCode, thread::sleep, time::Duration};
 
 use daemonize::{Daemonized, DaemonizedOk, try_daemonized, try_daemonized_outside};
+use group::{Group, create_group};
 use logging::LogLevel;
 use rustyline::error::ReadlineError;
 
@@ -16,6 +17,11 @@ pub use crate::start_mode::StartMode;
 enum Error {
     #[error("Failed to parse args")]
     FailedToParseArgs(#[from] start_mode::Error),
+    #[error("Taskmaster daemon needs to be started as root (uid 0)")]
+    NotRoot,
+    #[error("Taskmaster failed to set up system group")]
+    GroupError(#[from] group::GroupError),
+
     // Daemon errors
     #[error("Failed to check if daemon is started")]
     CheckingIfDaemonIsStarted(#[from] ClaimError),
@@ -78,9 +84,12 @@ fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
             return Daemonized::OutsideDaemon(Ok(()));
         }
 
+        try_daemonized_outside!(check_root());
+        let taskmaster_gid = try_daemonized_outside!(get_taskmaster_group_id());
+
         maybe_rl = Some(rl);
 
-        match try_daemonized!(unsafe { daemon::run(start_mode) }) {
+        match try_daemonized!(unsafe { daemon::run(start_mode, taskmaster_gid) }) {
             DaemonizedOk::InsideDaemon(()) => return Daemonized::InsideDaemon(Ok(())),
             DaemonizedOk::OutsideDaemon(_pid) => {
                 // waiting a bit for the daemon to start before starting client
@@ -94,6 +103,35 @@ fn run(mut args: Vec<String>) -> Daemonized<(), Error, (), Error> {
     }
 
     Daemonized::OutsideDaemon(client::run(maybe_rl, args))
+}
+
+fn check_root() -> Result<(), Error> {
+    if unsafe { libc::unistd::getuid() } != 0 {
+        Err(Error::NotRoot)?;
+    }
+    Ok(())
+}
+
+struct GroupID {
+    gid: u32,
+}
+
+impl From<GroupID> for Option<u32> {
+    fn from(value: GroupID) -> Self {
+        Some(value.gid)
+    }
+}
+
+fn get_taskmaster_group_id() -> Result<GroupID, Error> {
+    let group_name = "taskmaster";
+    let gid = match Group::from_name(group_name)? {
+        Some(group) => group.gid,
+        None => create_group(group_name)?,
+    };
+    unsafe {
+        libc::unistd::setgid(gid);
+    }
+    Ok(GroupID { gid })
 }
 
 fn should_start_daemon(
