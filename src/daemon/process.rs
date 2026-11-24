@@ -10,7 +10,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::daemon::{
     config::TaskConfig,
-    process_handler::{self, LogSender, NominativeStatus, Status},
+    process_handler::{self, LogSender, NominativeStatus, Status, StatusSender},
 };
 
 #[allow(dead_code)]
@@ -95,17 +95,18 @@ impl Process {
         if self.handle.is_some() {
             return;
         }
+
+        let mut status_sender = StatusSender::new(status_sender.clone(), self.process_id.clone());
+        status_sender.send_new_status_to_task_manager(Status::RoutineStarting);
+
         self.instance_id = NEXT_PROCESS_INSTANCE_ID.fetch_add(1, Ordering::Relaxed);
-        let handle = process_handler::Routine::spawn(
+        self.handle = Some(process_handler::Routine::spawn(
             self.task_config.clone(),
-            status_sender.clone(),
+            status_sender,
             log_sender.clone(),
             self.process_id.clone(),
             self.instance_id,
-        );
-
-        self.handle = Some(handle);
-        self.nominative_status.status = Status::RoutineStarting;
+        ));
     }
 
     pub async fn update_task_config(&mut self, new_config: Arc<TaskConfig>) {

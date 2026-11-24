@@ -92,6 +92,7 @@ where
     ))
 }
 
+#[derive(Debug, Clone)]
 pub struct StatusSender {
     sender: UnboundedSender<NominativeStatus>,
     process_id: ProcessId,
